@@ -1,8 +1,20 @@
+// app/api/auth/[...nextauth]/route.ts
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
+import Driver from "@/models/Driver";
 import bcrypt from "bcryptjs";
+
+// สร้าง interface สำหรับ extended session user
+interface ExtendedSessionUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  role: string;
+  driverId?: string;
+  image?: string | null;
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -38,13 +50,28 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        
+        // ถ้าเป็น driver ให้ดึง driver ID มาด้วย
+        if (user.role === 'driver') {
+          await connectDB();
+          const driver = await Driver.findOne({ userId: user.id });
+          if (driver) {
+            token.driverId = driver._id.toString();
+          }
+        }
       }
       return token;
     },
     async session({ session, token }) {
       if (session?.user) {
-        session.user.role = token.role as string;
-        session.user.id = token.id as string;
+        // Type assertion with proper interface
+        const extendedUser = session.user as ExtendedSessionUser;
+        extendedUser.role = token.role as string;
+        extendedUser.id = token.id as string;
+        
+        if (token.driverId) {
+          extendedUser.driverId = token.driverId as string;
+        }
       }
       return session;
     }

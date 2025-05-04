@@ -1,3 +1,4 @@
+// types/next-auth.d.ts
 import { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
@@ -7,6 +8,7 @@ declare module "next-auth" {
       email: string;
       name?: string;
       role: string;
+      driverId?: string; // เพิ่ม field นี้
     } & DefaultSession["user"]
   }
 
@@ -22,5 +24,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     role?: string;
     id?: string;
+    driverId?: string; // เพิ่ม field นี้
   }
 }

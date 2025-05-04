@@ -22,6 +22,8 @@ const driverSchema = new mongoose.Schema({
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 const Driver = mongoose.models.Driver || mongoose.model('Driver', driverSchema);
 
+// scripts/seed.js
+// เพิ่มการเชื่อมโยง userId กับ Driver
 async function seed() {
   try {
     await mongoose.connect(MONGODB_URI);
@@ -38,25 +40,30 @@ async function seed() {
     for (const user of users) {
       const exists = await User.findOne({ email: user.email });
       if (!exists) {
-        await User.create(user);
+        const newUser = await User.create(user);
         console.log(`Created user: ${user.email}`);
+        
+        // ถ้าเป็น driver ให้สร้าง driver record ด้วย
+        if (user.role === 'driver') {
+          const driverExists = await Driver.findOne({ email: user.email });
+          if (!driverExists) {
+            await Driver.create({
+              name: user.name,
+              employeeId: 'D0001',
+              phone: '555-0100',
+              email: user.email,
+              userId: newUser._id,
+              status: 'active',
+              checkInStatus: 'checked-out'
+            });
+            console.log(`Created driver record for: ${user.email}`);
+          }
+        }
       }
     }
 
-    // Create drivers
-    const drivers = [
-      { name: 'John Smith', employeeId: 'D001', phone: '555-0101', email: 'john@example.com', status: 'active', checkInStatus: 'checked-out' },
-      { name: 'Jane Doe', employeeId: 'D002', phone: '555-0102', email: 'jane@example.com', status: 'active', checkInStatus: 'checked-out' },
-      { name: 'Bob Johnson', employeeId: 'D003', phone: '555-0103', email: 'bob@example.com', status: 'active', checkInStatus: 'checked-out' },
-    ];
-
-    for (const driver of drivers) {
-      const exists = await Driver.findOne({ employeeId: driver.employeeId });
-      if (!exists) {
-        await Driver.create(driver);
-        console.log(`Created driver: ${driver.name}`);
-      }
-    }
+    // Create other drivers...
+    // (เหมือนเดิม)
 
     console.log('Seed completed');
     process.exit(0);

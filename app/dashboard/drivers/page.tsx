@@ -96,6 +96,30 @@ export default function DriversPage() {
     }
   };
 
+  // app/dashboard/drivers/page.tsx
+// เพิ่มฟังก์ชันสำหรับเปลี่ยน status
+const handleStatusChange = async (driverId: string, newStatus: 'active' | 'inactive') => {
+  try {
+    const response = await fetch(`/api/drivers/${driverId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    if (response.ok) {
+      fetchDrivers();
+    } else {
+      const error = await response.json();
+      alert(error.message || 'Failed to update status');
+    }
+  } catch (error) {
+    console.error('Error updating status:', error);
+    alert('Failed to update status');
+  }
+};
+
+// เพิ่มคอลัมน์ Actions ในตาราง
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -123,6 +147,37 @@ export default function DriversPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {drivers.map((driver) => (
               <tr key={driver._id}>
+                <td className="px-6 py-4 whitespace-nowrap">
+  <div className="flex space-x-2">
+    {driver.checkInStatus === 'checked-out' ? (
+      <button
+        onClick={() => handleCheckIn(driver._id)}
+        className={`bg-green-600 text-white px-3 py-1 rounded-md text-sm hover:bg-green-700 ${
+          driver.status === 'inactive' ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+        disabled={driver.status === 'inactive'}
+      >
+        Check In
+      </button>
+    ) : (
+      <button
+        onClick={() => handleCheckOut(driver._id)}
+        className="bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700"
+      >
+        Check Out
+      </button>
+    )}
+    
+    <select
+      value={driver.status}
+      onChange={(e) => handleStatusChange(driver._id, e.target.value as 'active' | 'inactive')}
+      className="border rounded px-2 py-1 text-sm"
+    >
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+  </div>
+</td>
                 <td className="px-6 py-4 whitespace-nowrap">{driver.employeeId}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{driver.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{driver.phone}</td>
@@ -222,3 +277,4 @@ export default function DriversPage() {
     </div>
   );
 }
+
