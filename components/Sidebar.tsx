@@ -2,17 +2,35 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import NeoButton from './ui/NeoButton';
 
-const navigation = [
-  { name: 'DASHBOARD', href: '/dashboard' },
-  { name: 'TICKET SALES', href: '/dashboard/tickets' },
-  { name: 'DRIVERS', href: '/dashboard/drivers' },
-  { name: 'REVENUE', href: '/dashboard/revenue' },
-];
+const menuItems = {
+  admin: [
+    { name: 'DASHBOARD', href: '/dashboard' },
+    { name: 'TICKET SALES', href: '/dashboard/tickets' },
+    { name: 'DRIVERS', href: '/dashboard/drivers' },
+    { name: 'REVENUE', href: '/dashboard/revenue' },
+    { name: 'DAILY REPORT', href: '/dashboard/reports/daily' },
+    { name: 'SETTINGS', href: '/dashboard/settings' },
+  ],
+  staff: [
+    { name: 'DASHBOARD', href: '/dashboard' },
+    { name: 'TICKET SALES', href: '/dashboard/tickets' },
+    { name: 'DRIVERS', href: '/dashboard/drivers' },
+    { name: 'REVENUE', href: '/dashboard/revenue' },
+    { name: 'DAILY REPORT', href: '/dashboard/reports/daily' },
+  ],
+  driver: [
+    { name: 'MY INCOME', href: '/driver-portal' },
+  ]
+};
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  
+  const navigation = menuItems[session?.user?.role] || [];
 
   return (
     <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
