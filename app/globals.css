@@ -12,11 +12,11 @@
   --ease-fluid: cubic-bezier(0.3, 0, 0, 1);
   --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
 
-  --color-neo-blue: #a6faff;
-  --color-neo-yellow: #fdf38a;
+  --color-neo-blue: #5294ff;
+  --color-neo-yellow: #ffffff; /* white */
   --color-neo-pink: #ff6b6b;
   --color-neo-green: #79ffa5;
-  --color-neo-purple: #bd93f9;
+  --color-neo-purple: #A9A9A9; /* grey */
 
   --box-shadow-neo: 4px 4px 0px 0px rgba(0,0,0,1);
   --box-shadow-neo-lg: 8px 8px 0px 0px rgba(0,0,0,1);

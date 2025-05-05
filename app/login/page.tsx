@@ -45,7 +45,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neo-yellow p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#5294ff] p-4">
       <NeoCard className="w-full max-w-md p-8">
         <h1 className="text-4xl font-black text-center mb-2">BUS TICKET</h1>
         <h2 className="text-2xl font-bold text-center mb-8">SYSTEM</h2>
