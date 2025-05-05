@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
 import Driver from '@/models/Driver';
 import Settings from '@/models/Settings';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET(request: Request) {
   try {
+    // ตรวจสอบสิทธิ์ - เฉพาะ admin เท่านั้นที่สามารถดูรายงานได้
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized - Only admin can access reports' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     
@@ -64,7 +72,8 @@ export async function GET(request: Request) {
         qr: tickets.filter(t => t.paymentMethod === 'qr').length
       }
     });
-  } catch  {
+  } catch (error) {
+    console.error('Report error:', error);
     return NextResponse.json({ error: 'Failed to generate report' }, { status: 500 });
   }
 }

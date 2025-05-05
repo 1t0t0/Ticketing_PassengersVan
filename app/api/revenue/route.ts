@@ -1,7 +1,9 @@
+// app/api/revenue/route.ts
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
 import Driver from '@/models/Driver';
+import Settings from '@/models/Settings';
 
 export async function GET(request: Request) {
   try {
@@ -18,15 +20,19 @@ export async function GET(request: Request) {
 
     // Get all tickets for the specified date
     const tickets = await Ticket.find({
-      createdAt: { $gte: queryDate, $lt: nextDay }
+      soldAt: { $gte: queryDate, $lt: nextDay }
     });
 
     const totalRevenue = tickets.reduce((sum, ticket) => sum + ticket.price, 0);
 
+    // Get revenue sharing settings
+    const settings = await Settings.findOne();
+    const revenueSharing = settings?.revenueSharing || { company: 10, station: 20, drivers: 70 };
+    
     // Calculate revenue shares
-    const parentCompanyShare = totalRevenue * 0.1;
-    const stationShare = totalRevenue * 0.2;
-    const driversShare = totalRevenue * 0.7;
+    const parentCompanyShare = totalRevenue * (revenueSharing.company / 100);
+    const stationShare = totalRevenue * (revenueSharing.station / 100);
+    const driversShare = totalRevenue * (revenueSharing.drivers / 100);
 
     // Get number of checked-in drivers for that day
     const checkedInDrivers = await Driver.countDocuments({
@@ -45,7 +51,10 @@ export async function GET(request: Request) {
       numberOfDrivers,
       perDriverIncome,
     });
-  } catch {
-    return NextResponse.json({ error: 'Failed to fetch revenue data' }, { status: 500 });
+  } catch (error) {
+    console.error('Error fetching revenue data:', error);
+    return NextResponse.json({ 
+      error: 'Failed to fetch revenue data' 
+    }, { status: 500 });
   }
 }

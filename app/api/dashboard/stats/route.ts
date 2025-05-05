@@ -28,6 +28,9 @@ export async function GET(request: Request) {
         const startOfYear = new Date(now.getFullYear(), 0, 1);
         dateFilter = { soldAt: { $gte: startOfYear } };
         break;
+      default:
+        const startOfDayDefault = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        dateFilter = { soldAt: { $gte: startOfDayDefault } };
     }
 
     // นับจำนวนตั๋วและคำนวณรายได้ตามช่วงเวลา
@@ -44,7 +47,7 @@ export async function GET(request: Request) {
     // นับ Checked-in Drivers
     const checkedInDrivers = await Driver.countDocuments({ checkInStatus: 'checked-in' });
 
-    // ข้อมูลสำหรับกราฟรายวัน (7 วันล่าสุด)
+    // ข้อมูลสำหรับกราฟรายวัน (7 วันล่าสุด) - ยังคงมีไว้สำหรับหน้า Dashboard
     const dailyTickets = await Ticket.aggregate([
       {
         $match: {
@@ -61,7 +64,7 @@ export async function GET(request: Request) {
       { $sort: { _id: 1 } }
     ]);
 
-    // ข้อมูลสำหรับกราฟรายชั่วโมง (วันนี้)
+    // ข้อมูลสำหรับกราฟรายชั่วโมง (วันนี้) - ยังคงมีไว้สำหรับหน้า Dashboard
     const hourlyTickets = await Ticket.aggregate([
       {
         $match: {

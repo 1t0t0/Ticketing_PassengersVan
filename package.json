@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "seed:settings": "node scripts/seed-settings.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

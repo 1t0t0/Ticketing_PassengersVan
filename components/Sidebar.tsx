@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import NeoButton from './ui/NeoButton';
 
+// กำหนด menu items สำหรับแต่ละบทบาท
 const menuItems = {
   admin: [
     { name: 'DASHBOARD', href: '/dashboard' },
@@ -16,11 +17,10 @@ const menuItems = {
     { name: 'SETTINGS', href: '/dashboard/settings' },
   ],
   staff: [
-    { name: 'DASHBOARD', href: '/dashboard' },
+    // staff สามารถเข้าถึงได้เฉพาะ 3 เมนูนี้เท่านั้น
     { name: 'TICKET SALES', href: '/dashboard/tickets' },
     { name: 'DRIVERS', href: '/dashboard/drivers' },
     { name: 'REVENUE', href: '/dashboard/revenue' },
-    { name: 'DAILY REPORT', href: '/dashboard/reports/daily' },
   ],
   driver: [
     { name: 'MY INCOME', href: '/driver-portal' },
@@ -31,7 +31,18 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   
-  const navigation = menuItems[session?.user?.role] || [];
+  // เลือก navigation items ตามบทบาทของผู้ใช้
+  const navigation = session?.user?.role ? menuItems[session.user.role] || [] : [];
+
+  // สำหรับ staff ถ้าพยายามเข้าถึงหน้าที่ไม่มีสิทธิ์ ให้ redirect ไปที่หน้า tickets
+  // นี่เป็นการตรวจสอบเบื้องต้นที่ UI ซึ่งควรมีการตรวจสอบที่ middleware ด้วย
+  if (session?.user?.role === 'staff' && 
+      pathname !== '/dashboard/tickets' && 
+      pathname !== '/dashboard/drivers' && 
+      pathname !== '/dashboard/revenue' && 
+      pathname.startsWith('/dashboard')) {
+    // อาจจะใส่โค้ด redirect ที่นี่ แต่ควรทำที่ middleware มากกว่า
+  }
 
   return (
     <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">

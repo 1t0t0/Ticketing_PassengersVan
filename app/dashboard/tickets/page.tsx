@@ -14,28 +14,47 @@ interface Ticket {
   paymentMethod: string;
 }
 
+interface DashboardStats {
+  totalTicketsSold: number;
+  totalRevenue: number;
+  activeDrivers: number;
+  checkedInDrivers: number;
+}
+
 export default function TicketsPage() {
   const [ticketPrice] = useState(45000);
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'qr'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qr'>('cash');
   const [lastTicket, setLastTicket] = useState<Ticket | null>(null);
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalTicketsSold: 0,
+    totalRevenue: 0,
+    activeDrivers: 0,
+    checkedInDrivers: 0,
+  });
   const printRef = useRef<HTMLDivElement>(null);
 
-  // ฟังก์ชันดึงข้อมูลตั๋วล่าสุด
-  const fetchRecentTickets = async () => {
+  // ฟังก์ชันดึงข้อมูลตั๋วล่าสุดและสถิติ
+  const fetchData = async () => {
     try {
-      const response = await fetch('/api/tickets');
-      const data = await response.json();
-      setRecentTickets(data);
+      // ดึงข้อมูลตั๋วล่าสุด
+      const ticketResponse = await fetch('/api/tickets');
+      const ticketData = await ticketResponse.json();
+      setRecentTickets(ticketData.slice(0, 4)); // แสดงเฉพาะ 4 ใบล่าสุด
+      
+      // ดึงข้อมูลสถิติสำหรับวันนี้
+      const statsResponse = await fetch('/api/dashboard/stats?period=day');
+      const statsData = await statsResponse.json();
+      setStats(statsData);
     } catch (error) {
-      console.error('Error fetching tickets:', error);
+      console.error('Error fetching data:', error);
     }
   };
 
   // เตรียมข้อมูลเริ่มต้น
   useEffect(() => {
-    fetchRecentTickets();
+    fetchData();
   }, []);
 
   // ฟังก์ชันพิมพ์ตั๋ว
@@ -68,7 +87,7 @@ export default function TicketsPage() {
 
       if (response.ok) {
         setLastTicket(data);
-        fetchRecentTickets();
+        fetchData(); // อัพเดทข้อมูลหลังขายตั๋ว
         
         requestAnimationFrame(() => {
           handlePrint();
@@ -87,6 +106,29 @@ export default function TicketsPage() {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-black mb-6">TICKET SALES</h1>
+      
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+        <NeoCard className="p-4" color="blue">
+          <h3 className="text-sm font-bold mb-1">TOTAL TICKETS</h3>
+          <p className="text-3xl font-black">{stats.totalTicketsSold}</p>
+        </NeoCard>
+        
+        <NeoCard className="p-4" color="green">
+          <h3 className="text-sm font-bold mb-1">TOTAL REVENUE</h3>
+          <p className="text-3xl font-black">฿{stats.totalRevenue.toLocaleString()}</p>
+        </NeoCard>
+        
+        <NeoCard className="p-4" color="pink">
+          <h3 className="text-sm font-bold mb-1">ACTIVE DRIVERS</h3>
+          <p className="text-3xl font-black">{stats.activeDrivers}</p>
+        </NeoCard>
+        
+        <NeoCard className="p-4" color="white">
+          <h3 className="text-sm font-bold mb-1">CHECKED-IN</h3>
+          <p className="text-3xl font-black">{stats.checkedInDrivers}</p>
+        </NeoCard>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Card ขายตั๋ว */}
@@ -100,16 +142,20 @@ export default function TicketsPage() {
 
           <div className="mb-6">
             <p className="text-sm font-bold mb-2">PAYMENT METHOD</p>
-            <div className="grid grid-cols-3 gap-2">
-              {(['cash', 'card', 'qr'] as const).map((method) => (
-                <NeoButton
-                  key={method}
-                  variant={paymentMethod === method ? 'primary' : 'secondary'}
-                  onClick={() => setPaymentMethod(method)}
-                >
-                  {method.toUpperCase()}
-                </NeoButton>
-              ))}
+            <div className="grid grid-cols-2 gap-2">
+              {/* เหลือเพียง CASH และ QR */}
+              <NeoButton
+                variant={paymentMethod === 'cash' ? 'primary' : 'secondary'}
+                onClick={() => setPaymentMethod('cash')}
+              >
+                CASH
+              </NeoButton>
+              <NeoButton
+                variant={paymentMethod === 'qr' ? 'primary' : 'secondary'}
+                onClick={() => setPaymentMethod('qr')}
+              >
+                QR
+              </NeoButton>
             </div>
           </div>
 
@@ -126,7 +172,7 @@ export default function TicketsPage() {
         {/* Card ตั๋วล่าสุด */}
         <NeoCard className="p-6">
           <h2 className="text-xl font-black mb-4">RECENT TICKETS</h2>
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-2"> {/* เพิ่ม scroll bar */}
             {recentTickets.map((ticket) => (
               <div key={ticket._id} className="border-2 border-black p-3">
                 <div className="flex justify-between items-center">

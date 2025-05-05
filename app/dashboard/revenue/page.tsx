@@ -15,7 +15,8 @@ interface RevenueData {
 export default function RevenuePage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRevenueData();
@@ -23,19 +24,31 @@ export default function RevenuePage() {
 
   const fetchRevenueData = async () => {
     setLoading(true);
+    setError(null);
+    
     try {
       const response = await fetch(`/api/revenue?date=${selectedDate}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch revenue data: ${response.status}`);
+      }
+      
       const data = await response.json();
       setRevenueData(data);
     } catch (error) {
       console.error('Error fetching revenue data:', error);
+      setError('Failed to fetch revenue data. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-pulse text-xl font-bold">Loading revenue data...</div>
+      </div>
+    );
   }
 
   return (
@@ -49,6 +62,12 @@ export default function RevenuePage() {
           className="neo-input"
         />
       </div>
+
+      {error && (
+        <NeoCard className="p-6 mb-6" color="pink">
+          <p className="text-center font-bold">{error}</p>
+        </NeoCard>
+      )}
 
       {revenueData ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

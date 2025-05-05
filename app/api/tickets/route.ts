@@ -45,7 +45,7 @@ export async function GET() {
   try {
     await connectDB();
     
-    // ดึงตั๋ว 10 อันดับแรก เรียงจากล่าสุด
+    // ดึงตั๋ว 10 อันดับแรก เรียงจากล่าสุด (เพิ่มขึ้นจาก 4 เพื่อให้มีข้อมูลมากพอ)
     const tickets = await Ticket.find()
       .sort({ soldAt: -1 })
       .limit(10);

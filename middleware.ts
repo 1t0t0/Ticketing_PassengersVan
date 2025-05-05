@@ -16,6 +16,22 @@ export default withAuth(
       return NextResponse.redirect(new URL("/driver-portal", req.url));
     }
     
+    // ถ้าเป็น staff และพยายามเข้าหน้าที่ไม่ได้รับอนุญาต
+    if (token.role === "staff") {
+      // Staff สามารถเข้าถึงได้เฉพาะหน้า tickets, drivers และ revenue
+      const allowedStaffPaths = [
+        "/dashboard/tickets",
+        "/dashboard/drivers",
+        "/dashboard/revenue"
+      ];
+
+      // ถ้า path เริ่มต้นด้วย /dashboard แต่ไม่ได้อยู่ใน allowedStaffPaths
+      if (path.startsWith("/dashboard") && !allowedStaffPaths.some(allowedPath => path.startsWith(allowedPath))) {
+        // ให้ redirect ไปที่หน้า tickets
+        return NextResponse.redirect(new URL("/dashboard/tickets", req.url));
+      }
+    }
+    
     // ถ้าเป็น staff หรือ admin และพยายามเข้า driver-portal
     if ((token.role === "staff" || token.role === "admin") && path.startsWith("/driver-portal")) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
