@@ -110,25 +110,7 @@ export default function DriversPage() {
     }
   };
 
-  const handleStatusChange = async (driverId: string, newStatus: 'active' | 'inactive') => {
-    try {
-      const response = await fetch(`/api/drivers/${driverId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
 
-      if (response.ok) {
-        fetchDrivers();
-      } else {
-        const error = await response.json();
-        alert(error.message || 'Failed to update status');
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert('Failed to update status');
-    }
-  };
 
   // Calculate pagination
   const indexOfLastDriver = currentPage * driversPerPage;
@@ -195,14 +177,7 @@ export default function DriversPage() {
                     }`}>
                       {driver.checkInStatus}
                     </span>
-                    <select
-                      value={driver.status}
-                      onChange={(e) => handleStatusChange(driver._id, e.target.value as 'active' | 'inactive')}
-                      className="border rounded px-2 py-1 text-sm bg-white"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
+                 
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

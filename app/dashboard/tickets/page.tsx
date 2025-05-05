@@ -17,7 +17,7 @@ interface Ticket {
 interface DashboardStats {
   totalTicketsSold: number;
   totalRevenue: number;
-  activeDrivers: number;
+  totalDrivers: number;
   checkedInDrivers: number;
 }
 
@@ -30,7 +30,7 @@ export default function TicketsPage() {
   const [stats, setStats] = useState<DashboardStats>({
     totalTicketsSold: 0,
     totalRevenue: 0,
-    activeDrivers: 0,
+    totalDrivers: 0,
     checkedInDrivers: 0,
   });
   const printRef = useRef<HTMLDivElement>(null);
@@ -120,8 +120,8 @@ export default function TicketsPage() {
         </NeoCard>
         
         <NeoCard className="p-4" color="pink">
-          <h3 className="text-sm font-bold mb-1">ACTIVE DRIVERS</h3>
-          <p className="text-3xl font-black">{stats.activeDrivers}</p>
+          <h3 className="text-sm font-bold mb-1">TOTAL DRIVERS</h3> {/* Changed from ACTIVE DRIVERS to TOTAL DRIVERS */}
+          <p className="text-3xl font-black">{stats.totalDrivers}</p> {/* Changed from activeDrivers to totalDrivers */}
         </NeoCard>
         
         <NeoCard className="p-4" color="white">

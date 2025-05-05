@@ -41,8 +41,8 @@ export async function GET(request: Request) {
     ]);
     const totalRevenue = totalRevenueResult[0]?.total || 0;
 
-    // นับ Active Drivers
-    const activeDrivers = await Driver.countDocuments({ status: 'active' });
+    // นับจำนวน Drivers ทั้งหมด (ไม่ว่าจะ active หรือไม่)
+    const totalDrivers = await Driver.countDocuments({});
 
     // นับ Checked-in Drivers
     const checkedInDrivers = await Driver.countDocuments({ checkInStatus: 'checked-in' });
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       totalTicketsSold,
       totalRevenue,
-      activeDrivers,
+      totalDrivers, // Changed from activeDrivers to totalDrivers
       checkedInDrivers,
       dailyTickets,
       hourlyTickets

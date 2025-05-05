@@ -32,7 +32,7 @@ ChartJS.register(
 interface DashboardStats {
   totalTicketsSold: number;
   totalRevenue: number;
-  activeDrivers: number;
+  totalDrivers: number; // Changed from activeDrivers to totalDrivers
   checkedInDrivers: number;
   dailyTickets: Array<{ _id: string; count: number; revenue: number }>;
   hourlyTickets: Array<{ _id: number; count: number; revenue: number }>;
@@ -44,7 +44,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
     totalTicketsSold: 0,
     totalRevenue: 0,
-    activeDrivers: 0,
+    totalDrivers: 0, // Changed from activeDrivers to totalDrivers
     checkedInDrivers: 0,
     dailyTickets: [],
     hourlyTickets: [],
@@ -132,8 +132,8 @@ export default function DashboardPage() {
         </NeoCard>
 
         <NeoCard className="p-5" color="pink">
-          <h3 className="text-sm font-bold mb-1">ACTIVE DRIVERS</h3>
-          <p className="text-3xl font-black">{stats.activeDrivers}</p>
+          <h3 className="text-sm font-bold mb-1">TOTAL DRIVERS</h3> {/* Changed from ACTIVE DRIVERS to TOTAL DRIVERS */}
+          <p className="text-3xl font-black">{stats.totalDrivers}</p> {/* Changed from activeDrivers to totalDrivers */}
         </NeoCard>
 
         <NeoCard className="p-5" color="white">
