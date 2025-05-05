@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NeoButton from '@/components/ui/NeoButton';
 import NeoCard from '@/components/ui/NeoCard';
+import { getSession } from 'next-auth/react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,24 +13,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      });
+  // app/login/page.tsx
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+    });
 
-      if (result?.error) {
-        setError(result.error);
+    console.log('Login result:', result); // เพิ่ม log
+
+    if (result?.error) {
+      setError(result.error);
+    } else {
+      // Get session to check role
+      const session = await getSession();
+      console.log('Session after login:', session); // เพิ่ม log
+      
+      if (session?.user?.role === 'driver') {
+        router.push('/driver-portal');
       } else {
         router.push('/dashboard');
       }
-    } catch  {
-      setError('An error occurred');
     }
-  };
+  } catch (error) {
+    console.error('Login error:', error);
+    setError('An error occurred');
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neo-yellow p-4">

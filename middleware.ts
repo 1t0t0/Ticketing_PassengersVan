@@ -3,23 +3,20 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    // Check if user is authenticated
     const token = req.nextauth.token;
+    const path = req.nextUrl.pathname;
     
-    // If not authenticated, redirect to login
+    // ถ้าไม่มี token ให้ redirect ไปหน้า login
     if (!token) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
     
-    // Check role-based access
-    const path = req.nextUrl.pathname;
-    
-    // Driver can only access driver portal
+    // ถ้าเป็น driver และพยายามเข้าหน้าอื่นที่ไม่ใช่ driver-portal
     if (token.role === "driver" && !path.startsWith("/driver-portal")) {
       return NextResponse.redirect(new URL("/driver-portal", req.url));
     }
     
-    // Staff and admin cannot access driver portal
+    // ถ้าเป็น staff หรือ admin และพยายามเข้า driver-portal
     if ((token.role === "staff" || token.role === "admin") && path.startsWith("/driver-portal")) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
@@ -33,6 +30,7 @@ export default withAuth(
   }
 );
 
+// กำหนด path ที่ต้องการ protect
 export const config = {
   matcher: [
     "/dashboard/:path*",
