@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Driver from '@/models/Driver';
+import User from '@/models/User';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -17,21 +18,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Employee ID and password are required' }, { status: 400 });
     }
     
+    // Find the driver by employeeId
     const driver = await Driver.findOne({ employeeId });
     
     if (!driver) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
     
-    const isPasswordValid = await bcrypt.compare(password, driver.password);
+    // Find the associated user account
+    const user = await User.findById(driver.userId);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Driver account not properly configured' }, { status: 401 });
+    }
+    
+    // Verify the password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     
     if (!isPasswordValid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
     
-    // สร้าง token
+    // Create a token
     const token = jwt.sign(
-      { id: driver._id, employeeId: driver.employeeId },
+      { 
+        id: driver._id, 
+        employeeId: driver.employeeId,
+        userId: user._id 
+      },
       JWT_SECRET,
       { expiresIn: '24h' }
     );

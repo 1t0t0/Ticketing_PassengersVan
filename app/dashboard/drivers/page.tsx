@@ -22,10 +22,13 @@ export default function DriversPage() {
     name: '',
     phone: '',
     email: '',
+    password: '', // Added password field
+    confirmPassword: '', // Added confirm password field
   });
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [passwordError, setPasswordError] = useState(''); // Added password error state
   const driversPerPage = 10;
 
   useEffect(() => {
@@ -55,8 +58,33 @@ export default function DriversPage() {
     }
   };
 
+  const validateForm = () => {
+    // Reset error
+    setPasswordError('');
+    
+    // Validate password match
+    if (formData.password !== formData.confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return false;
+    }
+    
+    // Validate password length
+    if (formData.password.length < 6) {
+      setPasswordError('Password must be at least 6 characters long');
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    if (!validateForm()) {
+      return;
+    }
+    
     setLoading(true);
     
     try {
@@ -67,7 +95,13 @@ export default function DriversPage() {
       });
 
       if (response.ok) {
-        setFormData({ name: '', phone: '', email: '' });
+        setFormData({ 
+          name: '', 
+          phone: '', 
+          email: '',
+          password: '',
+          confirmPassword: ''
+        });
         setShowModal(false);
         fetchDrivers();
       } else {
@@ -109,8 +143,6 @@ export default function DriversPage() {
       console.error('Error checking out driver:', error);
     }
   };
-
-
 
   // Calculate pagination
   const indexOfLastDriver = currentPage * driversPerPage;
@@ -303,6 +335,38 @@ export default function DriversPage() {
                     required
                   />
                 </div>
+
+                {/* New Password Field */}
+                <div>
+                  <label className="block text-sm font-bold mb-2">PASSWORD</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="neo-input"
+                    required
+                    minLength={6}
+                  />
+                </div>
+
+                {/* New Confirm Password Field */}
+                <div>
+                  <label className="block text-sm font-bold mb-2">CONFIRM PASSWORD</label>
+                  <input
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    className="neo-input"
+                    required
+                  />
+                </div>
+
+                {/* Password Error Message */}
+                {passwordError && (
+                  <div className="text-red-500 text-sm font-bold">
+                    {passwordError}
+                  </div>
+                )}
 
                 <div className="flex justify-end space-x-3 mt-6">
                   <NeoButton type="button" variant="secondary" onClick={() => setShowModal(false)}>
