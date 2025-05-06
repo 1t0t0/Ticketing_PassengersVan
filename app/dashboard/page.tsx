@@ -1,10 +1,9 @@
-// app/dashboard/page.tsx
 'use client';
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import NeoCard from '@/components/ui/NeoCard';
+import NotionCard from '@/components/ui/NotionCard';
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -32,7 +31,7 @@ ChartJS.register(
 interface DashboardStats {
   totalTicketsSold: number;
   totalRevenue: number;
-  totalDrivers: number; // Changed from activeDrivers to totalDrivers
+  totalDrivers: number;
   checkedInDrivers: number;
   dailyTickets: Array<{ _id: string; count: number; revenue: number }>;
   hourlyTickets: Array<{ _id: number; count: number; revenue: number }>;
@@ -44,7 +43,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
     totalTicketsSold: 0,
     totalRevenue: 0,
-    totalDrivers: 0, // Changed from activeDrivers to totalDrivers
+    totalDrivers: 0,
     checkedInDrivers: 0,
     dailyTickets: [],
     hourlyTickets: [],
@@ -71,7 +70,11 @@ export default function DashboardPage() {
   };
 
   if (status === 'loading' || loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-[#6B6B6B]">Loading...</p>
+      </div>
+    );
   }
 
   // Prepare hourly chart data
@@ -85,9 +88,10 @@ export default function DashboardPage() {
           const found = stats.hourlyTickets.find(h => h._id === hour);
           return found ? found.count : 0;
         }),
-        borderColor: 'rgb(75, 192, 192)',
-        backgroundColor: 'rgba(75, 192, 192, 0.5)',
-        tension: 0.1
+        borderColor: '#2383E2',
+        backgroundColor: 'rgba(35, 131, 226, 0.1)',
+        tension: 0.3,
+        fill: true
       }
     ]
   };
@@ -99,84 +103,165 @@ export default function DashboardPage() {
       {
         label: 'Revenue (฿)',
         data: stats.dailyTickets.map(d => d.revenue),
-        backgroundColor: 'rgba(54, 162, 235, 0.5)',
-        borderColor: 'rgb(54, 162, 235)',
-        borderWidth: 1
+        backgroundColor: 'rgba(35, 131, 226, 0.8)',
+        borderRadius: 3
       }
     ]
   };
 
   return (
-    <div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-medium text-[#37352F]">Dashboard</h1>
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as 'day' | 'month' | 'year')}
+          className="text-sm border border-[#E9E9E8] rounded-sm px-3 py-1.5 bg-white focus:outline-none focus:border-[#2383E2] focus:ring-1 focus:ring-[#2383E2]"
+        >
+          <option value="day">Today</option>
+          <option value="month">This Month</option>
+          <option value="year">This Year</option>
+        </select>
+      </div>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <NeoCard className="p-5" color="blue">
-          <div className="flex justify-between items-start mb-2">
-            <h3 className="text-sm font-bold">TOTAL TICKETS</h3>
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value as 'day' | 'month' | 'year')}
-              className="text-xs border-2 border-black p-1"
-            >
-              <option value="day">Today</option>
-              <option value="month">This Month</option>
-              <option value="year">This Year</option>
-            </select>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <NotionCard className="p-5">
+          <div className="space-y-1">
+            <p className="text-xs text-[#6B6B6B] uppercase">Total Tickets</p>
+            <p className="text-2xl font-medium text-[#37352F]">{stats.totalTicketsSold}</p>
           </div>
-          <p className="text-3xl font-black">{stats.totalTicketsSold}</p>
-        </NeoCard>
+        </NotionCard>
 
-        <NeoCard className="p-5" color="green">
-          <h3 className="text-sm font-bold mb-1">TOTAL REVENUE</h3>
-          <p className="text-3xl font-black">฿{stats.totalRevenue.toLocaleString()}</p>
-        </NeoCard>
+        <NotionCard className="p-5">
+          <div className="space-y-1">
+            <p className="text-xs text-[#6B6B6B] uppercase">Total Revenue</p>
+            <p className="text-2xl font-medium text-[#37352F]">฿{stats.totalRevenue.toLocaleString()}</p>
+          </div>
+        </NotionCard>
 
-        <NeoCard className="p-5" color="pink">
-          <h3 className="text-sm font-bold mb-1">TOTAL DRIVERS</h3> {/* Changed from ACTIVE DRIVERS to TOTAL DRIVERS */}
-          <p className="text-3xl font-black">{stats.totalDrivers}</p> {/* Changed from activeDrivers to totalDrivers */}
-        </NeoCard>
+        <NotionCard className="p-5">
+          <div className="space-y-1">
+            <p className="text-xs text-[#6B6B6B] uppercase">Total Drivers</p>
+            <p className="text-2xl font-medium text-[#37352F]">{stats.totalDrivers}</p>
+          </div>
+        </NotionCard>
 
-        <NeoCard className="p-5" color="white">
-          <h3 className="text-sm font-bold mb-1">CHECKED-IN</h3>
-          <p className="text-3xl font-black">{stats.checkedInDrivers}</p>
-        </NeoCard>
+        <NotionCard className="p-5">
+          <div className="space-y-1">
+            <p className="text-xs text-[#6B6B6B] uppercase">Checked-in Drivers</p>
+            <p className="text-2xl font-medium text-[#37352F]">{stats.checkedInDrivers}</p>
+          </div>
+        </NotionCard>
       </div>
 
       {/* Analysis Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Hourly Sales Chart */}
-        <NeoCard className="p-6">
-          <h2 className="text-xl font-black mb-4">HOURLY SALES</h2>
-          <Line data={hourlyData} options={{
-            responsive: true,
-            plugins: {
-              legend: {
-                position: 'top' as const,
+        <NotionCard className="p-6">
+          <h2 className="text-base font-medium text-[#37352F] mb-4">Hourly Sales</h2>
+          <div className="h-64">
+            <Line data={hourlyData} options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top' as const,
+                  labels: {
+                    boxWidth: 10,
+                    font: {
+                      size: 12
+                    }
+                  }
+                },
+                title: {
+                  display: true,
+                  text: 'Tickets Sold by Hour (Today)',
+                  font: {
+                    size: 13,
+                    weight: '500'
+                  }
+                }
               },
-              title: {
-                display: true,
-                text: 'Tickets Sold by Hour (Today)'
+              scales: {
+                x: {
+                  grid: {
+                    display: false
+                  },
+                  ticks: {
+                    font: {
+                      size: 10
+                    }
+                  }
+                },
+                y: {
+                  beginAtZero: true,
+                  grid: {
+                    color: '#f0f0f0'
+                  },
+                  ticks: {
+                    font: {
+                      size: 10
+                    }
+                  }
+                }
               }
-            }
-          }} />
-        </NeoCard>
+            }} />
+          </div>
+        </NotionCard>
 
         {/* Daily Revenue Chart */}
-        <NeoCard className="p-6">
-          <h2 className="text-xl font-black mb-4">7-DAY REVENUE</h2>
-          <Bar data={dailyData} options={{
-            responsive: true,
-            plugins: {
-              legend: {
-                position: 'top' as const,
+        <NotionCard className="p-6">
+          <h2 className="text-base font-medium text-[#37352F] mb-4">7-Day Revenue</h2>
+          <div className="h-64">
+            <Bar data={dailyData} options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top' as const,
+                  labels: {
+                    boxWidth: 10,
+                    font: {
+                      size: 12
+                    }
+                  }
+                },
+                title: {
+                  display: true,
+                  text: 'Daily Revenue (Last 7 Days)',
+                  font: {
+                    size: 13,
+                    weight: '500'
+                  }
+                }
               },
-              title: {
-                display: true,
-                text: 'Daily Revenue (Last 7 Days)'
+              scales: {
+                x: {
+                  grid: {
+                    display: false
+                  },
+                  ticks: {
+                    font: {
+                      size: 10
+                    }
+                  }
+                },
+                y: {
+                  beginAtZero: true,
+                  grid: {
+                    color: '#f0f0f0'
+                  },
+                  ticks: {
+                    font: {
+                      size: 10
+                    }
+                  }
+                }
               }
-            }
-          }} />
-        </NeoCard>
+            }} />
+          </div>
+        </NotionCard>
       </div>
     </div>
   );

@@ -3,8 +3,8 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import NeoCard from '@/components/ui/NeoCard';
-import NeoButton from '@/components/ui/NeoButton';
+import NeoCard from '@/components/ui/NotionCard';
+import NeoButton from '@/components/ui/NotionButton';
 import { signOut } from 'next-auth/react';
 
 

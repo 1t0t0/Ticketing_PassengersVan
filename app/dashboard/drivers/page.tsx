@@ -1,7 +1,7 @@
 'use client';
 
-import NeoButton from '@/components/ui/NeoButton';
-import NeoCard from '@/components/ui/NeoCard';
+import NotionButton from '@/components/ui/NotionButton';
+import NotionCard from '@/components/ui/NotionCard';
 import { useState, useEffect } from 'react';
 
 interface Driver {
@@ -14,7 +14,7 @@ interface Driver {
   checkInStatus: string;
 }
 
-export default function DriversPage() {
+export default function NotionDriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -22,13 +22,10 @@ export default function DriversPage() {
     name: '',
     phone: '',
     email: '',
-    password: '', // Added password field
-    confirmPassword: '', // Added confirm password field
   });
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [passwordError, setPasswordError] = useState(''); // Added password error state
   const driversPerPage = 10;
 
   useEffect(() => {
@@ -58,33 +55,8 @@ export default function DriversPage() {
     }
   };
 
-  const validateForm = () => {
-    // Reset error
-    setPasswordError('');
-    
-    // Validate password match
-    if (formData.password !== formData.confirmPassword) {
-      setPasswordError('Passwords do not match');
-      return false;
-    }
-    
-    // Validate password length
-    if (formData.password.length < 6) {
-      setPasswordError('Password must be at least 6 characters long');
-      return false;
-    }
-    
-    return true;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate form before submission
-    if (!validateForm()) {
-      return;
-    }
-    
     setLoading(true);
     
     try {
@@ -95,13 +67,7 @@ export default function DriversPage() {
       });
 
       if (response.ok) {
-        setFormData({ 
-          name: '', 
-          phone: '', 
-          email: '',
-          password: '',
-          confirmPassword: ''
-        });
+        setFormData({ name: '', phone: '', email: '' });
         setShowModal(false);
         fetchDrivers();
       } else {
@@ -154,94 +120,89 @@ export default function DriversPage() {
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-black">DRIVER MANAGEMENT</h1>
-        <NeoButton 
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-medium text-[#37352F]">Driver Management</h1>
+        <NotionButton 
           onClick={() => setShowModal(true)}
-          className="bg-neo-blue"
+          variant="primary"
+          size="sm"
         >
-          ADD DRIVER
-        </NeoButton>
+          Add driver
+        </NotionButton>
       </div>
 
       {/* Search Bar */}
       <div className="mb-6">
-        <NeoCard className="p-4">
-          <div className="flex items-center">
-            <label className="font-bold mr-3">SEARCH:</label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, ID, email or phone..."
-              className="neo-input w-full"
-            />
-          </div>
-        </NeoCard>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by name, ID, email or phone..."
+          className="w-full h-10 px-3 py-2 bg-white border border-[#E9E9E8] rounded-sm focus:outline-none focus:border-[#2383E2] focus:ring-1 focus:ring-[#2383E2] text-sm"
+        />
       </div>
 
-      <NeoCard className="overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-neo-blue">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wider">Employee ID</th>
-              <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wider">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wider">Phone</th>
-              <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {currentDrivers.map((driver) => (
-              <tr key={driver._id}>
-                <td className="px-6 py-4 whitespace-nowrap">{driver.employeeId}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{driver.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{driver.phone}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{driver.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      driver.checkInStatus === 'checked-in' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {driver.checkInStatus}
-                    </span>
-                 
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {driver.checkInStatus === 'checked-out' ? (
-                    <NeoButton
-                      onClick={() => handleCheckIn(driver._id)}
-                      variant="success"
-                      size="sm"
-                      className={driver.status === 'inactive' ? 'opacity-50 cursor-not-allowed' : ''}
-                      disabled={driver.status === 'inactive'}
-                    >
-                      Check In
-                    </NeoButton>
-                  ) : (
-                    <NeoButton
-                      onClick={() => handleCheckOut(driver._id)}
-                      variant="danger"
-                      size="sm"
-                    >
-                      Check Out
-                    </NeoButton>
-                  )}
-                </td>
+      <NotionCard className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-[#F7F6F3] border-b border-[#E9E9E8]">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Employee ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Phone</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B6B6B] uppercase tracking-wider">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-[#E9E9E8]">
+              {currentDrivers.map((driver) => (
+                <tr key={driver._id} className="hover:bg-[#F7F6F3]">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#37352F]">{driver.employeeId}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#37352F]">{driver.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#37352F]">{driver.phone}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#37352F]">{driver.email}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-sm ${
+                      driver.checkInStatus === 'checked-in' 
+                        ? 'bg-[#E9F7F1] text-[#0F7B0F]' 
+                        : 'bg-[#F7F6F3] text-[#6B6B6B]'
+                    }`}>
+                      {driver.checkInStatus === 'checked-in' ? 'Checked in' : 'Checked out'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {driver.checkInStatus === 'checked-out' ? (
+                      <NotionButton
+                        onClick={() => handleCheckIn(driver._id)}
+                        variant="success"
+                        size="sm"
+                        className={driver.status === 'inactive' ? 'opacity-50 cursor-not-allowed' : ''}
+                        disabled={driver.status === 'inactive'}
+                      >
+                        Check in
+                      </NotionButton>
+                    ) : (
+                      <NotionButton
+                        onClick={() => handleCheckOut(driver._id)}
+                        variant="danger"
+                        size="sm"
+                      >
+                        Check out
+                      </NotionButton>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-6 py-4 flex justify-between items-center border-t border-gray-200">
-            <div className="text-sm text-gray-700">
+          <div className="px-6 py-4 flex justify-between items-center border-t border-[#E9E9E8]">
+            <div className="text-sm text-[#6B6B6B]">
               Showing <span className="font-medium">{indexOfFirstDriver + 1}</span> to{" "}
               <span className="font-medium">
                 {Math.min(indexOfLastDriver, filteredDrivers.length)}
@@ -249,7 +210,7 @@ export default function DriversPage() {
               of <span className="font-medium">{filteredDrivers.length}</span> drivers
             </div>
             <div className="flex space-x-2">
-              <NeoButton
+              <NotionButton
                 onClick={() => paginate(currentPage - 1)}
                 disabled={currentPage === 1}
                 size="sm"
@@ -257,18 +218,30 @@ export default function DriversPage() {
                 className={currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""}
               >
                 Previous
-              </NeoButton>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <NeoButton
-                  key={i + 1}
-                  onClick={() => paginate(i + 1)}
-                  size="sm"
-                  variant={currentPage === i + 1 ? "primary" : "secondary"}
-                >
-                  {i + 1}
-                </NeoButton>
-              ))}
-              <NeoButton
+              </NotionButton>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNumber;
+                if (totalPages <= 5) {
+                  pageNumber = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNumber = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNumber = totalPages - 4 + i;
+                } else {
+                  pageNumber = currentPage - 2 + i;
+                }
+                return (
+                  <NotionButton
+                    key={pageNumber}
+                    onClick={() => paginate(pageNumber)}
+                    size="sm"
+                    variant={currentPage === pageNumber ? "primary" : "secondary"}
+                  >
+                    {pageNumber}
+                  </NotionButton>
+                );
+              })}
+              <NotionButton
                 onClick={() => paginate(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 size="sm"
@@ -276,16 +249,16 @@ export default function DriversPage() {
                 className={currentPage === totalPages ? "opacity-50 cursor-not-allowed" : ""}
               >
                 Next
-              </NeoButton>
+              </NotionButton>
             </div>
           </div>
         )}
-      </NeoCard>
+      </NotionCard>
 
       {/* No Results Message */}
       {currentDrivers.length === 0 && (
         <div className="text-center py-10">
-          <p className="text-gray-500 font-bold">No drivers found matching your search.</p>
+          <p className="text-[#6B6B6B]">No drivers found matching your search.</p>
         </div>
       )}
 
@@ -295,89 +268,64 @@ export default function DriversPage() {
           <div className="flex min-h-screen items-center justify-center p-4">
             {/* Backdrop */}
             <div 
-              className="fixed inset-0 bg-black bg-opacity-50"
+              className="fixed inset-0 bg-black/30 transition-opacity"
               onClick={() => setShowModal(false)}
             ></div>
 
             {/* Modal Card */}
-            <NeoCard className="relative z-10 w-full max-w-lg p-6">
-              <h3 className="text-2xl font-black mb-4">ADD NEW DRIVER</h3>
+            <div className="relative z-10 w-full max-w-lg bg-white border border-[#E9E9E8] rounded-sm shadow-sm p-6">
+              <h3 className="text-xl font-medium text-[#37352F] mb-4">Add new driver</h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold mb-2">FULL NAME</label>
+                  <label className="block text-sm font-medium text-[#6B6B6B] mb-1">Full name</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="neo-input"
+                    className="w-full h-9 px-3 py-2 bg-white border border-[#E9E9E8] rounded-sm focus:outline-none focus:border-[#2383E2] focus:ring-1 focus:ring-[#2383E2] text-sm"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold mb-2">PHONE NUMBER</label>
+                  <label className="block text-sm font-medium text-[#6B6B6B] mb-1">Phone number</label>
                   <input
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="neo-input"
+                    className="w-full h-9 px-3 py-2 bg-white border border-[#E9E9E8] rounded-sm focus:outline-none focus:border-[#2383E2] focus:ring-1 focus:ring-[#2383E2] text-sm"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold mb-2">EMAIL ADDRESS</label>
+                  <label className="block text-sm font-medium text-[#6B6B6B] mb-1">Email address</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="neo-input"
+                    className="w-full h-9 px-3 py-2 bg-white border border-[#E9E9E8] rounded-sm focus:outline-none focus:border-[#2383E2] focus:ring-1 focus:ring-[#2383E2] text-sm"
                     required
                   />
                 </div>
 
-                {/* New Password Field */}
-                <div>
-                  <label className="block text-sm font-bold mb-2">PASSWORD</label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="neo-input"
-                    required
-                    minLength={6}
-                  />
-                </div>
-
-                {/* New Confirm Password Field */}
-                <div>
-                  <label className="block text-sm font-bold mb-2">CONFIRM PASSWORD</label>
-                  <input
-                    type="password"
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className="neo-input"
-                    required
-                  />
-                </div>
-
-                {/* Password Error Message */}
-                {passwordError && (
-                  <div className="text-red-500 text-sm font-bold">
-                    {passwordError}
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-3 mt-6">
-                  <NeoButton type="button" variant="secondary" onClick={() => setShowModal(false)}>
-                    CANCEL
-                  </NeoButton>
-                  <NeoButton type="submit" disabled={loading}>
-                    {loading ? 'SAVING...' : 'SAVE DRIVER'}
-                  </NeoButton>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <NotionButton 
+                    type="button" 
+                    variant="secondary" 
+                    onClick={() => setShowModal(false)}
+                  >
+                    Cancel
+                  </NotionButton>
+                  <NotionButton 
+                    type="submit" 
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : 'Save driver'}
+                  </NotionButton>
                 </div>
               </form>
-            </NeoCard>
+            </div>
           </div>
         </div>
       )}

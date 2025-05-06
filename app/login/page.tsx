@@ -3,8 +3,8 @@
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import NeoButton from '@/components/ui/NeoButton';
-import NeoCard from '@/components/ui/NeoCard';
+import NeoButton from '@/components/ui/NotionButton';
+import NeoCard from '@/components/ui/NotionCard';
 import { getSession } from 'next-auth/react';
 
 export default function LoginPage() {

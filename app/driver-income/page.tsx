@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import NeoCard from '@/components/ui/NeoCard';
-import NeoButton from '@/components/ui/NeoButton';
+import NeoCard from '@/components/ui/NotionCard';
+import NeoButton from '@/components/ui/NotionButton';
 
 interface IncomeData {
   date: string;

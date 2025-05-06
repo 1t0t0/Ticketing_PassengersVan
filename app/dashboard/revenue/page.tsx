@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import NeoCard from '@/components/ui/NeoCard';
+import NeoCard from '@/components/ui/NotionCard';
 
 interface RevenueData {
   totalRevenue: number;

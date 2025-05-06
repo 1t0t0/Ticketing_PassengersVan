@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import NeoButton from '@/components/ui/NeoButton';
-import NeoCard from '@/components/ui/NeoCard';
+import NeoButton from '@/components/ui/NotionButton';
+import NeoCard from '@/components/ui/NotionCard';
 import TicketTemplate from '@/components/TicketTemplate';
 
 interface Ticket {

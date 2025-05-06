@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import NeoCard from '@/components/ui/NeoCard';
-import NeoButton from '@/components/ui/NeoButton';
+import NeoCard from '@/components/ui/NotionCard';
+import NeoButton from '@/components/ui/NotionButton';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
