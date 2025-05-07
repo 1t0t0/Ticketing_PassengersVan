@@ -116,7 +116,7 @@ export default function TicketsPage() {
         
         <NeoCard className="p-4" color="green">
           <h3 className="text-sm font-bold mb-1">TOTAL REVENUE</h3>
-          <p className="text-3xl font-black">฿{stats.totalRevenue.toLocaleString()}</p>
+          <p className="text-3xl font-black">₭{stats.totalRevenue.toLocaleString()}</p>
         </NeoCard>
         
         <NeoCard className="p-4" color="pink">
@@ -137,7 +137,7 @@ export default function TicketsPage() {
           
           <div className="mb-6">
             <p className="text-sm font-bold mb-2">TICKET PRICE</p>
-            <p className="text-4xl font-black">฿{ticketPrice.toLocaleString()}</p>
+            <p className="text-4xl font-black">₭{ticketPrice.toLocaleString()}</p>
           </div>
 
           <div className="mb-6">
@@ -178,7 +178,7 @@ export default function TicketsPage() {
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="font-bold">{ticket.ticketNumber}</p>
-                    <p className="text-sm">฿{ticket.price.toLocaleString()}</p>
+                    <p className="text-sm">₭{ticket.price.toLocaleString()}</p>
                     <p className="text-xs">{new Date(ticket.soldAt).toLocaleString()}</p>
                   </div>
                   <NeoButton

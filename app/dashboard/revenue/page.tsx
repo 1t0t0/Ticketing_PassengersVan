@@ -73,22 +73,22 @@ export default function RevenuePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <NeoCard className="p-6" color="green">
             <h2 className="text-xl font-black mb-2">TOTAL REVENUE</h2>
-            <p className="text-4xl font-black">฿{revenueData.totalRevenue.toLocaleString()}</p>
+            <p className="text-4xl font-black">₭{revenueData.totalRevenue.toLocaleString()}</p>
           </NeoCard>
 
           <NeoCard className="p-6" color="blue">
             <h2 className="text-xl font-black mb-2">PARENT COMPANY (10%)</h2>
-            <p className="text-4xl font-black">฿{revenueData.parentCompanyShare.toLocaleString()}</p>
+            <p className="text-4xl font-black">₭{revenueData.parentCompanyShare.toLocaleString()}</p>
           </NeoCard>
 
           <NeoCard className="p-6" color="yellow">
             <h2 className="text-xl font-black mb-2">STATION (20%)</h2>
-            <p className="text-4xl font-black">฿{revenueData.stationShare.toLocaleString()}</p>
+            <p className="text-4xl font-black">₭{revenueData.stationShare.toLocaleString()}</p>
           </NeoCard>
 
           <NeoCard className="p-6" color="pink">
             <h2 className="text-xl font-black mb-2">DRIVERS TOTAL (70%)</h2>
-            <p className="text-4xl font-black">฿{revenueData.driversShare.toLocaleString()}</p>
+            <p className="text-4xl font-black">₭{revenueData.driversShare.toLocaleString()}</p>
           </NeoCard>
 
           <NeoCard className="p-6">
@@ -98,7 +98,7 @@ export default function RevenuePage() {
 
           <NeoCard className="p-6">
             <h2 className="text-xl font-black mb-2">PER DRIVER</h2>
-            <p className="text-4xl font-black">฿{revenueData.perDriverIncome.toLocaleString()}</p>
+            <p className="text-4xl font-black">₭{revenueData.perDriverIncome.toLocaleString()}</p>
           </NeoCard>
         </div>
       ) : (

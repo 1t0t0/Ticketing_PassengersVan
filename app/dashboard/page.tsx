@@ -101,7 +101,7 @@ export default function DashboardPage() {
     labels: stats.dailyTickets.map(d => d._id),
     datasets: [
       {
-        label: 'Revenue (฿)',
+        label: 'Revenue (₭)',
         data: stats.dailyTickets.map(d => d.revenue),
         backgroundColor: 'rgba(35, 131, 226, 0.8)',
         borderRadius: 3
@@ -136,7 +136,7 @@ export default function DashboardPage() {
         <NotionCard className="p-5">
           <div className="space-y-1">
             <p className="text-xs text-[#6B6B6B] uppercase">Total Revenue</p>
-            <p className="text-2xl font-medium text-[#37352F]">฿{stats.totalRevenue.toLocaleString()}</p>
+            <p className="text-2xl font-medium text-[#37352F]">₭{stats.totalRevenue.toLocaleString()}</p>
           </div>
         </NotionCard>
 

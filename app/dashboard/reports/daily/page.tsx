@@ -59,7 +59,7 @@ export default function DailyReportPage() {
         </NeoCard>
         <NeoCard className="p-4">
           <h3 className="font-bold">TOTAL REVENUE</h3>
-          <p className="text-2xl">฿{report?.totalRevenue?.toLocaleString()}</p>
+          <p className="text-2xl">₭{report?.totalRevenue?.toLocaleString()}</p>
         </NeoCard>
         <NeoCard className="p-4">
           <h3 className="font-bold">DRIVERS WORKING</h3>
@@ -67,7 +67,7 @@ export default function DailyReportPage() {
         </NeoCard>
         <NeoCard className="p-4">
           <h3 className="font-bold">PER DRIVER INCOME</h3>
-          <p className="text-2xl">฿{report?.revenueSharing?.perDriver?.toLocaleString()}</p>
+          <p className="text-2xl">₭{report?.revenueSharing?.perDriver?.toLocaleString()}</p>
         </NeoCard>
       </div>
 
@@ -77,15 +77,15 @@ export default function DailyReportPage() {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span>Company (10%)</span>
-              <span>฿{report?.revenueSharing?.company?.toLocaleString()}</span>
+              <span>₭{report?.revenueSharing?.company?.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span>Station (20%)</span>
-              <span>฿{report?.revenueSharing?.station?.toLocaleString()}</span>
+              <span>₭{report?.revenueSharing?.station?.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span>Drivers (70%)</span>
-              <span>฿{report?.revenueSharing?.drivers?.toLocaleString()}</span>
+              <span>₭{report?.revenueSharing?.drivers?.toLocaleString()}</span>
             </div>
           </div>
         </NeoCard>
