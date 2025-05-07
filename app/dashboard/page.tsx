@@ -179,7 +179,6 @@ export default function DashboardPage() {
                   text: 'Tickets Sold by Hour (Today)',
                   font: {
                     size: 13,
-                    weight: '500'
                   }
                 }
               },
@@ -232,8 +231,7 @@ export default function DashboardPage() {
                   text: 'Daily Revenue (Last 7 Days)',
                   font: {
                     size: 13,
-                    weight: '500'
-                  }
+                    }
                 }
               },
               scales: {

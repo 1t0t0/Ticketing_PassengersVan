@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
-import Driver from '@/models/Driver';
 
 export async function GET(request: Request) {
   try {
@@ -42,10 +41,8 @@ export async function GET(request: Request) {
     const totalRevenue = totalRevenueResult[0]?.total || 0;
 
     // นับจำนวน Drivers ทั้งหมด (ไม่ว่าจะ active หรือไม่)
-    const totalDrivers = await Driver.countDocuments({});
 
     // นับ Checked-in Drivers
-    const checkedInDrivers = await Driver.countDocuments({ checkInStatus: 'checked-in' });
 
     // ข้อมูลสำหรับกราฟรายวัน (7 วันล่าสุด) - ยังคงมีไว้สำหรับหน้า Dashboard
     const dailyTickets = await Ticket.aggregate([
@@ -84,8 +81,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       totalTicketsSold,
       totalRevenue,
-      totalDrivers, // Changed from activeDrivers to totalDrivers
-      checkedInDrivers,
+      
       dailyTickets,
       hourlyTickets
     });
