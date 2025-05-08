@@ -1,9 +1,6 @@
 import './globals.css'
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import Providers from './providers'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Bus Ticket System',
@@ -16,8 +13,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="lo">
+      <head>
+        {/* นำเข้า Phetsarath font เป็น font หลักของระบบ */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Phetsarath:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>

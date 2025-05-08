@@ -9,6 +9,7 @@ const menuItems = {
   admin: [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Ticket Sales', href: '/dashboard/tickets' },
+    { name: 'Tickets', href: '/dashboard/tickets/history' }, // เพิ่มรายการใหม่
     { name: 'Drivers', href: '/dashboard/drivers' },
     { name: 'Revenue', href: '/dashboard/revenue' },
     { name: 'Daily Report', href: '/dashboard/reports/daily' },
@@ -16,6 +17,7 @@ const menuItems = {
   ],
   staff: [
     { name: 'Ticket Sales', href: '/dashboard/tickets' },
+    { name: 'ประวัติการขายตั๋ว', href: '/dashboard/tickets/history' }, // เพิ่มรายการใหม่
     { name: 'Drivers', href: '/dashboard/drivers' },
     { name: 'Revenue', href: '/dashboard/revenue' },
   ],
