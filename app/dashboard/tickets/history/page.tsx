@@ -39,6 +39,26 @@ export default function TicketHistoryPage() {
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10; // จำนวนตั๋วต่อหน้า
   
+  // ฟังก์ชันแสดงผลแท็กสีสำหรับวิธีการชำระเงิน
+  const getPaymentMethodBadge = (method: string) => {
+    switch (method) {
+      case 'cash':
+        return (
+          <span className="inline-block px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+            ເງິນສົດ
+          </span>
+        );
+      case 'qr':
+        return (
+          <span className="inline-block px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 border border-green-200">
+            QR
+          </span>
+        );
+      default:
+        return method;
+    }
+  };
+  
   // ตรวจสอบการเข้าสู่ระบบ
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -282,15 +302,23 @@ export default function TicketHistoryPage() {
               variant={paymentMethod === 'cash' ? 'primary' : 'secondary'}
               onClick={() => handlePaymentMethodChange('cash')}
               size="sm"
+              className={paymentMethod === 'cash' ? '' : 'border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'}
             >
-              ເງິນສົດ
+              <span className="flex items-center">
+                <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                ເງິນສົດ
+              </span>
             </NeoButton>
             <NeoButton 
               variant={paymentMethod === 'qr' ? 'primary' : 'secondary'}
               onClick={() => handlePaymentMethodChange('qr')}
               size="sm"
+              className={paymentMethod === 'qr' ? '' : 'border border-green-300 text-green-700 bg-green-50 hover:bg-green-100'}
             >
-              QR
+              <span className="flex items-center">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                QR
+              </span>
             </NeoButton>
           </div>
         </div>
@@ -313,11 +341,11 @@ export default function TicketHistoryPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center p-4">ກຳລັງໂຫລດ...</td>
+                  <td colSpan={7} className="text-center p-4">ກຳລັງໂຫລດ...</td>
                 </tr>
               ) : tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center p-4">ບໍ່ພົບຂໍ້ມູນ</td>
+                  <td colSpan={7} className="text-center p-4">ບໍ່ພົບຂໍ້ມູນ</td>
                 </tr>
               ) : (
                 tickets.map((ticket) => (
@@ -327,7 +355,8 @@ export default function TicketHistoryPage() {
                     </td>
                     <td className="p-2">{ticket.soldBy}</td>
                     <td className="p-2">{ticket.ticketNumber}</td>
-                    <td className="p-2 text-center">    {ticket.paymentMethod === 'cash' ? 'ເງິນສົດ' : 'QR'}
+                    <td className="p-2 text-center">
+                      {getPaymentMethodBadge(ticket.paymentMethod)}
                     </td>
                     <td className="p-2 text-right">{ticket.price.toLocaleString()}</td>
                     <td className="p-2 text-center">
@@ -338,7 +367,6 @@ export default function TicketHistoryPage() {
                     </td>
                     <td className="p-2 text-center">
                       <div className="flex justify-center gap-2">
-                       
                         <NeoButton 
                           size="sm" 
                           className="bg-red-500 hover:bg-red-600 text-white"
@@ -375,13 +403,15 @@ export default function TicketHistoryPage() {
         </div>
         
         {/* Pagination */}
-        <div className="mt-6">
-          <Pagination 
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-          />
-        </div>
+<div className="mt-4 flex justify-center">
+  <Pagination 
+    currentPage={currentPage}
+    totalPages={totalPages}
+    onPageChange={handlePageChange}
+    className="text-xs" // เพิ่ม class เพื่อให้มีขนาดเล็กลง
+   
+  />
+</div>
       </NeoCard>
     </div>
   );
