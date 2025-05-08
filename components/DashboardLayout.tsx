@@ -9,6 +9,7 @@ export default function NotionDashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-[#F7F6F3]">
+      {/* Only include the sidebar once */}
       <NotionSidebar />
       
       <div className="md:pl-60 flex flex-col flex-1">

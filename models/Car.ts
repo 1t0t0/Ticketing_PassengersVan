@@ -5,8 +5,8 @@ export interface ICar extends Document {
   car_id: string;
   car_name: string;
   car_capacity: number;
-  car_registration: number;
-  user_id: mongoose.Schema.Types.ObjectId; // Foreign key to User model
+  car_registration: string;
+  user_id: mongoose.Schema.Types.ObjectId | string; // Foreign key to User model
 }
 
 const carSchema = new Schema({
@@ -21,10 +21,11 @@ const carSchema = new Schema({
   },
   car_capacity: { 
     type: Number, 
-    required: true 
+    required: true,
+    default: 10 
   },
   car_registration: { 
-    type: Number, 
+    type: String, 
     required: true 
   },
   user_id: { 
@@ -39,6 +40,7 @@ carSchema.statics.findByUserId = function(userId: string) {
   return this.find({ user_id: userId });
 };
 
+// Handle the case where this model might be compiled multiple times
 const Car: Model<ICar> = mongoose.models.Car || mongoose.model<ICar>('Car', carSchema);
 
 export default Car;

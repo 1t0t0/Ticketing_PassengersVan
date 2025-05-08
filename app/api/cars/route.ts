@@ -1,0 +1,128 @@
+// app/api/cars/route.ts
+import { NextResponse } from 'next/server';
+import connectDB from '@/lib/mongodb';
+import Car from '@/models/Car';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
+// GET - Get all cars
+export async function GET(request: Request) {
+  try {
+    // Check authorization
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+    
+    // Get query parameters (optional)
+    const { searchParams } = new URL(request.url);
+    const driverId = searchParams.get('user_id');
+    
+    // Build query
+    const query: any = {};
+    if (driverId) {
+      query.user_id = driverId;
+    }
+    
+    // Find cars based on query
+    const cars = await Car.find(query);
+    
+    return NextResponse.json(cars);
+  } catch (error) {
+    console.error('Get Cars Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch cars' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST - Create a new car
+export async function POST(request: Request) {
+  try {
+    // Check authorization
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+    
+    // Parse request body
+    const body = await request.json();
+    console.log('Car creation request body:', body);
+    
+    const { car_id, car_name, car_capacity, car_registration, user_id } = body;
+    
+    // Validate required fields
+    if (!car_id || !car_name || !car_registration || !user_id) {
+      console.error('Car validation failed:', { car_id, car_name, car_registration, user_id });
+      return NextResponse.json(
+        { error: 'Car ID, name, registration, and user ID are required' },
+        { status: 400 }
+      );
+    }
+    
+    // Set default capacity if not provided
+    const capacity = car_capacity || 10;
+    
+    // Check if car already exists
+    const existingCar = await Car.findOne({ car_id });
+    if (existingCar) {
+      return NextResponse.json(
+        { error: 'Car with this ID already exists' },
+        { status: 409 }
+      );
+    }
+    
+    // Check if user exists
+    try {
+      const mongoose = require('mongoose');
+      const validObjectId = mongoose.Types.ObjectId.isValid(user_id);
+      
+      if (!validObjectId) {
+        return NextResponse.json(
+          { error: 'Invalid user ID format' },
+          { status: 400 }
+        );
+      }
+      
+      // Create car data object
+      const carData = {
+        car_id,
+        car_name,
+        car_capacity: capacity,
+        car_registration,
+        user_id
+      };
+      
+      console.log('Creating car with data:', carData);
+      
+      // Create car
+      const newCar = await Car.create(carData);
+      console.log('Car created successfully:', newCar);
+      
+      return NextResponse.json(newCar);
+    } catch (innerError) {
+      console.error('Error during car creation process:', innerError);
+      return NextResponse.json(
+        { error: 'Error processing car data: ' + (innerError as Error).message },
+        { status: 500 }
+      );
+    }
+  } catch (error) {
+    console.error('Create Car Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to create car: ' + (error as Error).message },
+      { status: 500 }
+    );
+  }
+}

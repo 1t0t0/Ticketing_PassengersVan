@@ -9,7 +9,8 @@ const menuItems = {
   admin: [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Ticket Sales', href: '/dashboard/tickets' },
-    { name: 'Tickets', href: '/dashboard/tickets/history' }, // เพิ่มรายการใหม่
+    { name: 'Tickets', href: '/dashboard/tickets/history' }, 
+    { name: 'User Management', href: '/dashboard/users' }, // Added this line
     { name: 'Drivers', href: '/dashboard/drivers' },
     { name: 'Revenue', href: '/dashboard/revenue' },
     { name: 'Daily Report', href: '/dashboard/reports/daily' },
@@ -17,7 +18,7 @@ const menuItems = {
   ],
   staff: [
     { name: 'Ticket Sales', href: '/dashboard/tickets' },
-    { name: 'ประวัติการขายตั๋ว', href: '/dashboard/tickets/history' }, // เพิ่มรายการใหม่
+    { name: 'ປະຫວັດການຂາຍປີ້', href: '/dashboard/tickets/history' },
     { name: 'Drivers', href: '/dashboard/drivers' },
     { name: 'Revenue', href: '/dashboard/revenue' },
   ],
@@ -31,7 +32,7 @@ export default function NotionSidebar() {
   const { data: session } = useSession();
   
   // เลือก navigation items ตามบทบาทของผู้ใช้
-  const navigation = session?.user?.role ? menuItems[session.user.role] || [] : [];
+  const navigation = session?.user?.role ? menuItems[session.user.role as keyof typeof menuItems] || [] : [];
 
   return (
     <div className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0">
@@ -42,7 +43,7 @@ export default function NotionSidebar() {
         <div className="flex-1 flex flex-col pt-5 pb-4 px-3">
           <nav className="flex-1 space-y-1">
             {navigation.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               return (
                 <Link 
                   key={item.name} 
