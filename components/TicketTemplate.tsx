@@ -1,3 +1,8 @@
+import { LuBus } from "react-icons/lu";
+import { FaArrowRight } from "react-icons/fa6";
+
+
+
 interface TicketTemplateProps {
     ticketNumber: string;
     price: number;
@@ -14,13 +19,14 @@ interface TicketTemplateProps {
     paymentMethod,
   }: TicketTemplateProps) {
     const formatDate = (date: Date) => {
-      return new Date(date).toLocaleString('th-TH', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      // Format: DD/MM/YYYY HH:MM
+    const d = new Date(date);
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear().toString(); // ใช้ปี ค.ศ. ตามที่ต้องการ
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
     };
   
     return (
@@ -47,23 +53,26 @@ interface TicketTemplateProps {
             <span className="font-bold">ວັນ-ເວລາ/Date-Time:</span>
             <span>{formatDate(soldAt)}</span>
             <span className="font-bold">ລາຄາ/Price:</span>
-            <span className="font-bold">₭{price.toLocaleString()}</span>
+            <span className="font-bold">{price.toLocaleString()}</span>
             <span className="font-bold">ຊຳລະ/Payment:</span>
             <span>{paymentMethod.toUpperCase()}</span>
           </div>
         </div>
   
         {/* Route Information */}
-        <div className=" p-4 border-b-2 text-center">
+        <div className="p-6 border-b-2 text-center">
           <div className="flex justify-between items-center">
-            <div>
-              <span className="block text-sm">ຈາກ/FROM</span>
-              <span className="text-xl font-bold">ສະຖານີລົດໄຟ/TRAIN STATION</span>
+            <div className="flex flex-col items-center">
+              <span className="text-sm font-bold">ສະຖານີລົດໄຟ<br/>TRAIN STATION</span>
             </div>
-           
-            <div>
-              <span className="block text-sm">ເຖິງ/TO</span>
-              <span className="text-xl font-bold">ຕົວເມືອງ/DOWNTOWN</span>
+
+            <FaArrowRight className="text-2xl" />
+
+            
+            
+
+            <div className="flex flex-col  items-center mx-4">
+              <span className="text-sm font-bold">ຕົວເມືອງ<br/>DOWNTOWN</span>
             </div>
           </div>
         </div>
@@ -71,15 +80,23 @@ interface TicketTemplateProps {
   
         {/* Bottom Section */}
         <div className=" p-4 text-center flex-grow flex flex-col justify-between">
-          <div>
-            <p className="text-sm">ອອກໂດຍ/Sold By:<br/> {soldBy}</p>
-            
+          <div className="flex justify-center items-center my-4">
+            <p className="text-xl">ອອກໂດຍ<br/>Sold By:<br/> {soldBy}</p>
+  
           </div>
+
+          <div className="flex justify-center items-center my-4">
+
+          <LuBus className="text-9xl text-gray-200 opacity-60" />
+          </div>
+
   
           <div className="">
             <p className="text-xs">*** THANK YOU ***</p>
-            <p className="text-xs">ກາລຸນາຮັກສາປີ້ນີ້ໄວ້ເພື່ອກວດກາ/PLEASE KEEP THIS TICKET</p>
-            <p className="text-xs">ຂະນະເດີນທາງ/DURING YOUR JOURNEY</p>
+            <p className="text-xs">PLEASE KEEP THIS TICKET</p>
+            <p className="text-xs">DURING YOUR JOURNEY</p>
+            <p className="text-xs">ກາລຸນາຮັກສາປີ້ນີ້ໄວ້ເພື່ອກວດກາ</p>
+            <p className="text-xs">ຂະນະເດີນທາງ</p>
           </div>
         </div>
       </div>

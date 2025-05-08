@@ -71,3 +71,58 @@ input, button, textarea, select {
     @apply font-medium;
   }
 }
+
+
+/* นำไฟล์นี้ไปรวมกับ global.css หรือนำเข้าในส่วนที่เกี่ยวข้องกับการพิมพ์ */
+
+/* กำหนดสไตล์สำหรับการพิมพ์ */
+@media print {
+  @page {
+    size: 80mm auto; /* กำหนดขนาดกระดาษสำหรับ POS */
+    margin: 0;
+    padding: 0;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* กำหนดให้พิมพ์เฉพาะเนื้อหาที่มีข้อความเท่านั้น */
+  #printable-content {
+    page-break-inside: avoid;
+    page-break-after: avoid;
+    page-break-before: avoid;
+    height: 200mm !important;
+    width: 100mm !important;
+    margin: 20px !important;
+    margin-top: 30px !important;
+    padding: 10px !important;
+    overflow: hidden !important;
+  }
+  
+  /* ซ่อนองค์ประกอบอื่นๆ นอกจากตั๋ว */
+  body > *:not(#printable-content) {
+    display: none !important;
+  }
+
+  /* กำหนดให้ไม่มีพื้นที่ว่างด้านล่าง */
+  #printable-content::after {
+    content: none !important;
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+
+/* กำหนดสไตล์เพิ่มเติมสำหรับองค์ประกอบภายในตั๋ว */
+#printable-content > div:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+#printable-content p:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
