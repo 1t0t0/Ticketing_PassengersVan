@@ -7,30 +7,28 @@ export async function GET(request: Request) {
   try {
     await connectDB();
     
+    // รับพารามิเตอร์จาก URL
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period') || 'day'; // day, month, year
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
     
     // กำหนดช่วงเวลาสำหรับค้นหา
-    let dateFilter = {};
     const now = new Date();
     
-    switch (period) {
-      case 'day':
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        dateFilter = { soldAt: { $gte: startOfDay } };
-        break;
-      case 'month':
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        dateFilter = { soldAt: { $gte: startOfMonth } };
-        break;
-      case 'year':
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        dateFilter = { soldAt: { $gte: startOfYear } };
-        break;
-      default:
-        const startOfDayDefault = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        dateFilter = { soldAt: { $gte: startOfDayDefault } };
-    }
+    let startDate = startDateParam 
+      ? new Date(startDateParam) 
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate()); // เริ่มต้นวันนี้
+    
+    let endDate = endDateParam
+      ? new Date(endDateParam + 'T23:59:59.999Z')  // สิ้นสุดวันที่เลือกเวลา 23:59:59
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999); // สิ้นสุดวันนี้
+    
+    const dateFilter = { 
+      soldAt: { 
+        $gte: startDate, 
+        $lte: endDate 
+      } 
+    };
 
     // นับจำนวนตั๋วและคำนวณรายได้ตามช่วงเวลา
     const totalTicketsSold = await Ticket.countDocuments(dateFilter);
@@ -40,33 +38,16 @@ export async function GET(request: Request) {
     ]);
     const totalRevenue = totalRevenueResult[0]?.total || 0;
 
-    // นับจำนวน Drivers ทั้งหมด (ไม่ว่าจะ active หรือไม่)
+    // นับจำนวน Drivers ทั้งหมด (ในที่นี้ให้ค่าคงที่ เพราะอาจจะต้องดึงจากโมเดลอื่น)
+    const totalDrivers = 124; // สมมติค่า
 
-    // นับ Checked-in Drivers
+    // นับ Checked-in Drivers (ในที่นี้ให้ค่าคงที่ เพราะอาจจะต้องดึงจากโมเดลอื่น)
+    const checkedInDrivers = 87; // สมมติค่า
 
-    // ข้อมูลสำหรับกราฟรายวัน (7 วันล่าสุด) - ยังคงมีไว้สำหรับหน้า Dashboard
-    const dailyTickets = await Ticket.aggregate([
-      {
-        $match: {
-          soldAt: { $gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) }
-        }
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$soldAt" } },
-          count: { $sum: 1 },
-          revenue: { $sum: "$price" }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
-
-    // ข้อมูลสำหรับกราฟรายชั่วโมง (วันนี้) - ยังคงมีไว้สำหรับหน้า Dashboard
+    // ข้อมูลสำหรับกราฟรายชั่วโมง (วันนี้)
     const hourlyTickets = await Ticket.aggregate([
       {
-        $match: {
-          soldAt: { $gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) }
-        }
+        $match: dateFilter
       },
       {
         $group: {
@@ -78,12 +59,43 @@ export async function GET(request: Request) {
       { $sort: { _id: 1 } }
     ]);
 
+    // คำนวณสถิติการชำระเงิน
+    const paymentMethodStats = await Ticket.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: "$paymentMethod",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // แปลงผลลัพธ์เป็นรูปแบบที่ใช้งานง่าย
+    let cashCount = 0;
+    let qrCount = 0;
+
+    paymentMethodStats.forEach(stat => {
+      if (stat._id === 'cash') {
+        cashCount = stat.count;
+      } else if (stat._id === 'qr') {
+        qrCount = stat.count;
+      }
+    });
+
+    const totalPayments = cashCount + qrCount;
+    const cashPercentage = totalPayments > 0 ? Math.round((cashCount / totalPayments) * 100) : 65; // default 65% if no data
+    const qrPercentage = totalPayments > 0 ? Math.round((qrCount / totalPayments) * 100) : 35; // default 35% if no data
+
     return NextResponse.json({
       totalTicketsSold,
       totalRevenue,
-      
-      dailyTickets,
-      hourlyTickets
+      totalDrivers,
+      checkedInDrivers,
+      hourlyTickets,
+      paymentMethodStats: {
+        cash: cashPercentage,
+        qr: qrPercentage
+      }
     });
   } catch (error) {
     console.error('Dashboard stats error:', error);

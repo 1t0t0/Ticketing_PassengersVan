@@ -41,16 +41,49 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await connectDB();
     
-    // ดึงตั๋ว 10 อันดับแรก เรียงจากล่าสุด (เพิ่มขึ้นจาก 4 เพื่อให้มีข้อมูลมากพอ)
-    const tickets = await Ticket.find()
-      .sort({ soldAt: -1 })
-      .limit(10);
+    // รับค่า query parameters
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const paymentMethod = searchParams.get('paymentMethod');
     
-    return NextResponse.json(tickets);
+    // สร้าง filter
+    const filter: any = {};
+    
+    // ถ้ามีการกรองด้วยวิธีการชำระเงิน
+    if (paymentMethod && (paymentMethod === 'cash' || paymentMethod === 'qr')) {
+      filter.paymentMethod = paymentMethod;
+    }
+    
+    // คำนวณค่า skip สำหรับ pagination
+    const skip = (page - 1) * limit;
+    
+    // นับจำนวนตั๋วทั้งหมด
+    const totalItems = await Ticket.countDocuments(filter);
+    
+    // ดึงข้อมูลตั๋วตามเงื่อนไข
+    const tickets = await Ticket.find(filter)
+      .sort({ soldAt: -1 }) // เรียงจากล่าสุด
+      .skip(skip)
+      .limit(limit);
+    
+    // คำนวณจำนวนหน้าทั้งหมด
+    const totalPages = Math.ceil(totalItems / limit);
+    
+    // ส่งข้อมูลตั๋วและข้อมูล pagination กลับ
+    return NextResponse.json({
+      tickets,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        limit
+      }
+    });
   } catch (error) {
     console.error('Ticket Fetch Error:', error);
     return NextResponse.json(
