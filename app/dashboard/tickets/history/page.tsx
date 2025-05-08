@@ -16,12 +16,7 @@ interface Ticket {
   paymentMethod: string;
 }
 
-interface PaginationInfo {
-  currentPage: number;
-  totalPages: number;
-  totalItems: number;
-  limit: number;
-}
+
 
 export default function TicketHistoryPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -280,16 +275,12 @@ export default function TicketHistoryPage() {
       
       {/* ตารางตั๋ว */}
       <NeoCard className="p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-black">ລາຍການບີ້</h2>
-          <div className="text-sm text-gray-600">
-            ທັງໝົດ {totalItems} ລາຍການ
-          </div>
-        </div>
+              
         
         {/* ตัวกรองวิธีการชำระเงิน */}
-        <div className="mb-4">
+        <div className="mb-4 flex flex-col md:flex-row items-center justify-start gap-4">
           <div className="font-bold mb-2">ຮູບແບບການຊຳລະ:</div>
+          
           <div className="flex gap-2">
             <NeoButton 
               variant={paymentMethod === 'all' ? 'primary' : 'secondary'}
@@ -320,8 +311,17 @@ export default function TicketHistoryPage() {
                 QR
               </span>
             </NeoButton>
+           
           </div>
+          <div className='text-sm text-gray-600 flex-1 text-right'>
+           ທັງໝົດ {totalItems} ລາຍການ
+
+          </div>
+
         </div>
+
+        
+      
         
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">

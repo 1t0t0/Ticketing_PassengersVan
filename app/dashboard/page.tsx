@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
-import NeoButton from '@/components/ui/NotionButton';
 import { Line } from 'react-chartjs-2';
 import PaymentMethodsChart from '@/components/PaymentMethodsChart'; // นำเข้าคอมโพเนนต์ที่แก้ไขแล้ว
 import {
@@ -28,14 +27,7 @@ ChartJS.register(
   Legend
 );
 
-interface Ticket {
-  _id: string;
-  ticketNumber: string;
-  price: number;
-  soldAt: Date;
-  soldBy: string;
-  paymentMethod: string;
-}
+
 
 interface DashboardStats {
   totalTicketsSold: number;
@@ -75,8 +67,7 @@ export default function DashboardPage() {
     }
   });
   
-  const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
+  
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -86,7 +77,7 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
+      
       
       // ดึงข้อมูลสถิติจาก API
       const statsResponse = await fetch(`/api/dashboard/stats?startDate=${startDate}&endDate=${endDate}`);
@@ -97,14 +88,14 @@ export default function DashboardPage() {
       const ticketsData = await ticketsResponse.json();
       
       if (Array.isArray(ticketsData)) {
-        setRecentTickets(ticketsData.slice(0, 3)); // แสดงเพียง 3 ใบล่าสุด
+       
       }
       
       setStats(statsData);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
-      setLoading(false);
+      
     }
   };
 
@@ -133,19 +124,12 @@ export default function DashboardPage() {
   };
 
   // ฟังก์ชันแสดงเวลา
-  const formatTime = (dateString: Date) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  };
+
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl font-bold">DASHBOARD</h1>
         <div className="flex items-center space-x-2">
           <input
             type="date"

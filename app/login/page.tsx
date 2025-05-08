@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import NeoButton from '@/components/ui/NotionButton';
 import NeoCard from '@/components/ui/NotionCard';
 import { getSession } from 'next-auth/react';
+import { TbBus } from "react-icons/tb";
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,8 +49,12 @@ const handleSubmit = async (e: React.FormEvent) => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#5294ff] p-4">
       <NeoCard className="w-full max-w-md p-8">
-        <h1 className="text-4xl font-black text-center mb-2">BUS TICKET</h1>
-        <h2 className="text-2xl font-bold text-center mb-8">SYSTEM</h2>
+        <h1 className="text-4xl font-black text-center mb-2">ຍິນດີຕ້ອນຮັບ</h1>
+        <div className='flex justify-center mb-4'>
+        <TbBus className='top-[20rem] text-8xl opacity-80' />
+        </div>
+        <h2 className="text-2xl font-bold text-center mb-8">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານ<br/>ປະຈຳທາງລົດໄຟ ລາວ-ຈີນ</h2>
+        
         
         <form className="space-y-6" onSubmit={handleSubmit}>
           {error && (
@@ -56,7 +62,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           )}
           
           <div>
-            <label className="block text-sm font-bold mb-2">EMAIL</label>
+            <label className="block text-sm font-bold mb-2">ອີເມວ</label>
             <input
               type="email"
               value={email}
@@ -68,7 +74,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           </div>
           
           <div>
-            <label className="block text-sm font-bold mb-2">PASSWORD</label>
+            <label className="block text-sm font-bold mb-2">ລະຫັດ</label>
             <input
               type="password"
               value={password}
@@ -80,7 +86,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           </div>
           
           <NeoButton type="submit" className="w-full">
-            SIGN IN
+            ເຂົ້າສູ່ລະບົບ
           </NeoButton>
         </form>
 

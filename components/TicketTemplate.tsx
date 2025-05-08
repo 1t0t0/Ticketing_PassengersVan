@@ -28,6 +28,17 @@ interface TicketTemplateProps {
     const minutes = d.getMinutes().toString().padStart(2, '0');
     return `${day}/${month}/${year} ${hours}:${minutes}`;
     };
+
+    const getPaymentMethodText = (method: string) => {
+      switch (method) {
+        case 'cash':
+          return 'ເງິນສົດ';
+        case 'qr':
+          return 'QR';
+        default:
+          return method;
+      }
+    };
   
     return (
       <div 
@@ -55,7 +66,7 @@ interface TicketTemplateProps {
             <span className="font-bold">ລາຄາ/Price:</span>
             <span className="font-bold">{price.toLocaleString()}</span>
             <span className="font-bold">ຊຳລະ/Payment:</span>
-            <span>{paymentMethod.toUpperCase()}</span>
+            <span>{getPaymentMethodText(paymentMethod)}</span>
           </div>
         </div>
   
