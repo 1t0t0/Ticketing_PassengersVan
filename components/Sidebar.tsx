@@ -7,23 +7,18 @@ import { useSession } from 'next-auth/react';
 // Menu items สำหรับแต่ละบทบาท
 const menuItems = {
   admin: [
-    { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Ticket Sales', href: '/dashboard/tickets' },
-    { name: 'Tickets', href: '/dashboard/tickets/history' }, 
-    { name: 'User Management', href: '/dashboard/users' }, // Added this line
-    { name: 'Drivers', href: '/dashboard/drivers' },
-    { name: 'Revenue', href: '/dashboard/revenue' },
-    { name: 'Daily Report', href: '/dashboard/reports/daily' },
-    { name: 'Settings', href: '/dashboard/settings' },
+    { name: 'Dashboard', href: '/dashboard', exact: true },
+    { name: 'Tickets Sales', href: '/dashboard/tickets', exact: true },
+    { name: 'Tickets Info', href: '/dashboard/tickets/history', exact: false }, 
+    { name: 'User Management', href: '/dashboard/users', exact: false },
   ],
   staff: [
-    { name: 'Ticket Sales', href: '/dashboard/tickets' },
-    { name: 'ປະຫວັດການຂາຍປີ້', href: '/dashboard/tickets/history' },
-    { name: 'Drivers', href: '/dashboard/drivers' },
-    { name: 'Revenue', href: '/dashboard/revenue' },
+    { name: 'Tickets Sales', href: '/dashboard/tickets', exact: true },
+    { name: 'Tickets Info', href: '/dashboard/tickets/history', exact: false },
+    { name: 'User Management', href: '/dashboard/users', exact: false },
   ],
   driver: [
-    { name: 'My Income', href: '/driver-portal' },
+    { name: 'My Income', href: '/driver-portal', exact: true },
   ]
 };
 
@@ -34,23 +29,38 @@ export default function NotionSidebar() {
   // เลือก navigation items ตามบทบาทของผู้ใช้
   const navigation = session?.user?.role ? menuItems[session.user.role as keyof typeof menuItems] || [] : [];
 
+  // ฟังก์ชันสำหรับตรวจสอบว่าลิงก์ใดกำลัง active
+  const isActiveLink = (href: string, exact: boolean) => {
+    if (exact) {
+      // ตรงกันแบบ exact เท่านั้น
+      return pathname === href;
+    } else {
+      // ตรงกันแบบ prefix
+      return pathname.startsWith(href);
+    }
+  };
+
   return (
-    <div className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0">
-      <div className="flex-1 flex flex-col min-h-0 bg-[#F7F6F3] border-r border-[#E9E9E8] overflow-y-auto">
-        <div className="flex items-center h-16 flex-shrink-0 px-6 border-b border-[#E9E9E8]">
+    <div className="hidden md:block md:w-60 md:fixed md:inset-y-0">
+      <div className="flex flex-col h-full bg-[#F7F6F3] border-r border-[#E9E9E8]">
+        <div className="flex items-center h-16 px-6 border-b border-[#E9E9E8]">
           <h1 className="text-[#37352F] font-medium text-base">Bus Ticket System</h1>
         </div>
-        <div className="flex-1 flex flex-col pt-5 pb-4 px-3">
-          <nav className="flex-1 space-y-1">
+        <div className="flex-1 pt-5 pb-4 px-3 overflow-y-auto">
+          <nav className="space-y-2">
             {navigation.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const active = isActiveLink(item.href, item.exact);
+              
+              // Debug information (ลบออกเมื่อตรวจสอบแล้ว)
+              console.log(`Menu: ${item.name}, Path: ${item.href}, Current: ${pathname}, Active: ${active}`);
+              
               return (
                 <Link 
                   key={item.name} 
                   href={item.href}
                   className={`
-                    flex items-center px-3 py-2 text-sm rounded-sm
-                    ${isActive 
+                    block w-full px-3 py-2.5 text-sm rounded transition-colors
+                    ${active 
                       ? 'bg-[#EFEFEF] text-[#37352F] font-medium' 
                       : 'text-[#6B6B6B] hover:bg-[#EFEFEF]'
                     }
