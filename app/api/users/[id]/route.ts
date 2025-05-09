@@ -1,57 +1,19 @@
-// app/api/users/[id]/route.ts
+// app/api/users/[id]/checkin/route.ts
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
-import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// GET - Get a single user by ID
-export async function GET(
+// POST - ตั้งค่า check in/out status ของผู้ใช้
+export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     // Check authorization
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    await connectDB();
-    
-    // Find user by ID
-    const user = await User.findById(params.id).select('-password');
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
-    
-    return NextResponse.json(user);
-  } catch (error) {
-    console.error('Get User Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch user' },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT - Update a user
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Check authorization
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -62,78 +24,100 @@ export async function PUT(
     
     // Parse request body
     const body = await request.json();
-    const { name, email, password, phone, employeeId, status } = body;
+    const { checkInStatus } = body;
     
-    // Build update object
-    const updateData: any = {};
-    
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (phone) updateData.phone = phone;
-    if (employeeId) updateData.employeeId = employeeId;
-    if (status) updateData.status = status;
-    
-    // If password was provided, hash it
-    if (password) {
-      updateData.password = await bcrypt.hash(password, 10);
+    // Validate status
+    if (!checkInStatus || !['checked-in', 'checked-out'].includes(checkInStatus)) {
+      return NextResponse.json(
+        { error: 'Invalid check in status' },
+        { status: 400 }
+      );
     }
     
-    // Find and update user
-    const user = await User.findByIdAndUpdate(
+    // Find user by ID
+    const user = await User.findById(params.id);
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Check if user is driver or staff
+    if (!['driver', 'staff'].includes(user.role)) {
+      return NextResponse.json(
+        { error: 'Only drivers and staff can be checked in/out' },
+        { status: 400 }
+      );
+    }
+    
+    // ตรวจสอบสิทธิ์
+    
+    // 1. Admin สามารถ Check in/out ให้ทุกคนได้
+    // 2. Staff สามารถ Check in/out ให้ตัวเองและ Driver ได้
+    // 3. Driver ไม่สามารถ Check in/out ให้ตัวเองได้
+    
+    const currentUserRole = session.user.role;
+    const currentUserId = session.user.id;
+    const targetUserId = params.id;
+    const targetUserRole = user.role;
+    
+    // ถ้าเป็น admin อนุญาตทุกกรณี
+    if (currentUserRole === 'admin') {
+      // Allow access
+    }
+    // ถ้าเป็น staff
+    else if (currentUserRole === 'staff') {
+      // Staff สามารถเปลี่ยนสถานะของตัวเองหรือ driver ได้
+      if (targetUserRole === 'staff' && targetUserId !== currentUserId) {
+        // Staff ไม่สามารถเปลี่ยนสถานะของ staff คนอื่นได้
+        return NextResponse.json(
+          { error: 'Staff can only change status of themselves or drivers' },
+          { status: 403 }
+        );
+      }
+    }
+    // ถ้าเป็น driver หรือบทบาทอื่นๆ
+    else {
+      // Driver และบทบาทอื่นๆ ไม่มีสิทธิ์เปลี่ยน check in status
+      return NextResponse.json(
+        { error: 'You do not have permission to change check in status' },
+        { status: 403 }
+      );
+    }
+    
+    // Update check in status
+    let updateData: any = {
+      checkInStatus
+    };
+    
+    // Add timestamp for last check in/out
+    if (checkInStatus === 'checked-in') {
+      updateData.lastCheckIn = new Date();
+    } else {
+      updateData.lastCheckOut = new Date();
+    }
+    
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
       params.id,
       { $set: updateData },
       { new: true }
     ).select('-password');
     
-    if (!user) {
+    if (!updatedUser) {
       return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
+        { error: 'Failed to update user' },
+        { status: 500 }
       );
     }
     
-    return NextResponse.json(user);
+    return NextResponse.json(updatedUser);
   } catch (error) {
-    console.error('Update User Error:', error);
+    console.error('Check In/Out Error:', error);
     return NextResponse.json(
-      { error: 'Failed to update user' },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE - Delete a user
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    // Check authorization
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    await connectDB();
-    
-    // Find and delete user
-    const user = await User.findByIdAndDelete(params.id);
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
-    
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Delete User Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete user' },
+      { error: 'Failed to update check in status' },
       { status: 500 }
     );
   }

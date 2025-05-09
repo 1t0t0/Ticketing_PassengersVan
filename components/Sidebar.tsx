@@ -11,14 +11,20 @@ const menuItems = {
     { name: 'Tickets Sales', href: '/dashboard/tickets', exact: true },
     { name: 'Tickets Info', href: '/dashboard/tickets/history', exact: false }, 
     { name: 'User Management', href: '/dashboard/users', exact: false },
+    { name: 'Revenue Sharing', href: '/dashboard/revenue', exact: false },
   ],
   staff: [
     { name: 'Tickets Sales', href: '/dashboard/tickets', exact: true },
     { name: 'Tickets Info', href: '/dashboard/tickets/history', exact: false },
-    { name: 'User Management', href: '/dashboard/users', exact: false },
+    { name: 'User Management', href: '/dashboard/users', exact: false }, // เพิ่มสิทธิ์ให้ Staff เข้าถึง User Management
   ],
   driver: [
     { name: 'My Income', href: '/driver-portal', exact: true },
+  ],
+  station: [
+    { name: 'Dashboard', href: '/dashboard', exact: true },
+    { name: 'Tickets Info', href: '/dashboard/tickets/history', exact: false },
+    { name: 'Revenue Sharing', href: '/dashboard/revenue', exact: false },
   ]
 };
 
@@ -50,9 +56,6 @@ export default function NotionSidebar() {
           <nav className="space-y-2">
             {navigation.map((item) => {
               const active = isActiveLink(item.href, item.exact);
-              
-              // Debug information (ลบออกเมื่อตรวจสอบแล้ว)
-              console.log(`Menu: ${item.name}, Path: ${item.href}, Current: ${pathname}, Active: ${active}`);
               
               return (
                 <Link 

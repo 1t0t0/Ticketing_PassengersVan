@@ -7,7 +7,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   name: string;
-  role: 'admin' | 'staff' | 'driver';
+  role: 'admin' | 'staff' | 'driver' | 'station';
   
   // Driver specific fields
   employeeId?: string;
@@ -16,6 +16,11 @@ export interface IUser extends Document {
   checkInStatus?: 'checked-in' | 'checked-out';
   lastCheckIn?: Date;
   lastCheckOut?: Date;
+  
+  // Station specific fields
+  stationId?: string;
+  stationName?: string;
+  location?: string;
 }
 
 const userSchema = new Schema({
@@ -23,7 +28,11 @@ const userSchema = new Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   name: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'staff', 'driver'], required: true },
+  role: { 
+    type: String, 
+    enum: ['admin', 'staff', 'driver', 'station'], // แก้ตรงนี้ เพิ่ม 'station' ใน enum
+    required: true 
+  },
   
   // Driver specific fields - will only be populated for driver role
   employeeId: { type: String, sparse: true },
@@ -31,12 +40,18 @@ const userSchema = new Schema({
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   checkInStatus: { type: String, enum: ['checked-in', 'checked-out'], default: 'checked-out' },
   lastCheckIn: { type: Date },
-  lastCheckOut: { type: Date }
+  lastCheckOut: { type: Date },
+  
+  // Station specific fields - will only be populated for station role
+  stationId: { type: String, sparse: true },
+  stationName: { type: String },
+  location: { type: String }
 }, { timestamps: true });
 
 // Create indexes for efficient queries
 userSchema.index({ role: 1 });
 userSchema.index({ employeeId: 1 }, { sparse: true });
+userSchema.index({ stationId: 1 }, { sparse: true });
 
 // Method to compare password
 userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
@@ -47,6 +62,14 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
 userSchema.statics.findDrivers = function(filter = {}) {
   return this.find({
     role: 'driver',
+    ...filter
+  });
+};
+
+// Helper method to find stations with additional filtering
+userSchema.statics.findStations = function(filter = {}) {
+  return this.find({
+    role: 'station',
     ...filter
   });
 };
