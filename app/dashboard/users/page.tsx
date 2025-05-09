@@ -19,8 +19,11 @@ import {
   FiLogIn, 
   FiLogOut,
   FiSearch,
-  FiFilter
 } from 'react-icons/fi';
+
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
+import useConfirmation from '@/hooks/useConfirmation';
+import notificationService from '@/lib/notificationService';
 
 // Define interfaces for our data types
 interface User {
@@ -97,6 +100,15 @@ export default function UserManagementPage() {
   const [loading, setLoading] = useState(true);
   const [checkingInOut, setCheckingInOut] = useState<{[key: string]: boolean}>({});
   
+  // ใช้ hook useConfirmation สำหรับจัดการ confirmation dialog
+  const {
+    isConfirmDialogOpen,
+    confirmMessage,
+    showConfirmation,
+    handleConfirm,
+    handleCancel
+  } = useConfirmation();
+  
   // ตรวจสอบสิทธิ์ในการเข้าถึงหน้านี้
   // Check authentication - ปรับให้ staff เข้าถึงได้ด้วย
   useEffect(() => {
@@ -116,44 +128,60 @@ export default function UserManagementPage() {
   }, [status, session]);
   
   // Function to fetch users
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      
-      const response = await fetch('/api/users');
-      const data = await response.json();
-      
-      // Filter users by role
-      setDrivers(data.filter((user: User) => user.role === 'driver'));
-      setTicketSellers(data.filter((user: User) => user.role === 'staff'));
-      setAdmins(data.filter((user: User) => user.role === 'admin'));
-      setStations(data.filter((user: User) => user.role === 'station'));
-      
-      // Fetch assigned cars for drivers
-      const driverIds = data
-        .filter((user: User) => user.role === 'driver')
-        .map((driver: User) => driver._id);
-      
-      if (driverIds.length > 0) {
-        const carsResponse = await fetch('/api/cars');
-        const carsData = await carsResponse.json();
-        
-        // Map cars to drivers
-        const driversWithCars = data
-          .filter((user: User) => user.role === 'driver')
-          .map((driver: Driver) => {
-            const assignedCar = carsData.find((car: Car) => car.user_id === driver._id);
-            return { ...driver, assignedCar };
-          });
-        
-        setDrivers(driversWithCars);
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
+// ปรับปรุงฟังก์ชัน fetchUsers
+const fetchUsers = async () => {
+  try {
+    setLoading(true);
+    
+    const response = await fetch('/api/users');
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch users');
     }
-  };
+    
+    const data = await response.json();
+    
+    // Filter users by role
+    setDrivers(data.filter((user: User) => user.role === 'driver'));
+    setTicketSellers(data.filter((user: User) => user.role === 'staff'));
+    setAdmins(data.filter((user: User) => user.role === 'admin'));
+    setStations(data.filter((user: User) => user.role === 'station'));
+    
+    // Fetch assigned cars for drivers
+    const driverIds = data
+      .filter((user: User) => user.role === 'driver')
+      .map((driver: User) => driver._id);
+    
+    if (driverIds.length > 0) {
+      const carsResponse = await fetch('/api/cars');
+      
+      if (!carsResponse.ok) {
+        throw new Error('Failed to fetch cars');
+      }
+      
+      const carsData = await carsResponse.json();
+      
+      // Map cars to drivers
+      const driversWithCars = data
+        .filter((user: User) => user.role === 'driver')
+        .map((driver: Driver) => {
+          const assignedCar = carsData.find((car: Car) => car.user_id === driver._id);
+          return { ...driver, assignedCar };
+        });
+      
+      setDrivers(driversWithCars);
+    }
+    
+    // ลบบรรทัดนี้ออก
+    // notificationService.success('ໂຫລດຂໍ້ມູນຜູ້ໃຊ້ສຳເລັດແລ້ວ');
+  } catch (error: any) {
+    console.error('Error fetching users:', error);
+    // อาจจะเก็บ notification นี้ไว้เพื่อแจ้งความผิดพลาด หรือลบออกเลยก็ได้
+    // notificationService.error(`ເກີດຂໍ້ຜິດພາດໃນການໂຫລດຂໍ້ມູນຜູ້ໃຊ້: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
   
   // เพิ่มฟังก์ชันตรวจสอบว่าเป็น Admin หรือไม่
   const isAdmin = () => {
@@ -227,7 +255,7 @@ export default function UserManagementPage() {
       
       // Validate form data
       if (!newUser.name || !newUser.email || !newUser.password) {
-        alert('ກະລຸນາກວດສອບຂໍ້ມູນທີ່ຈຳເປັນ');
+        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນທີ່ຈຳເປັນ');
         setLoading(false);
         return;
       }
@@ -235,13 +263,13 @@ export default function UserManagementPage() {
       // Validate role-specific fields
       if (newUser.role === 'driver') {
         if (!newCar.car_name || !newCar.car_registration) {
-          alert('ກະລຸນາກວດສອບຂໍ້ມູນລົດທີ່ຈຳເປັນ');
+          notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນລົດທີ່ຈຳເປັນ');
           setLoading(false);
           return;
         }
       } else if (newUser.role === 'station') {
         if (!newUser.name) {
-          alert('ກະລຸນາລະບຸຊື່ສະຖານີ');
+          notificationService.error('ກະລຸນາລະບຸຊື່ສະຖານີ');
           setLoading(false);
           return;
         }
@@ -324,7 +352,7 @@ export default function UserManagementPage() {
       
     } catch (error: any) {
       console.error('Error adding user:', error);
-      alert(`Error: ${error.message}`);
+      notificationService.error(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -354,7 +382,7 @@ export default function UserManagementPage() {
       
     } catch (error: any) {
       console.error('Error updating check in status:', error);
-      alert(`Error: ${error.message}`);
+      notificationService.error(`Error: ${error.message}`);
     } finally {
       // Clear loading state for this user
       setCheckingInOut(prev => ({ ...prev, [userId]: false }));
@@ -363,44 +391,51 @@ export default function UserManagementPage() {
   
   // Handler for deleting a user
   const handleDeleteUser = async (userId: string, role: string) => {
-    if (!confirm('ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບຜູ້ໃຊ້ນີ້?')) {
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      
-      // If deleting a driver, also delete associated car
-      if (role === 'driver') {
-        await fetch(`/api/cars/by-driver/${userId}`, {
+    // ใช้ confirmation dialog แทน window.confirm
+    showConfirmation('ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບຜູ້ໃຊ້ນີ້?', async () => {
+      try {
+        setLoading(true);
+        
+        // ถ้าเป็นคนขับรถ ให้ลบรถที่เกี่ยวข้องก่อน
+        if (role === 'driver') {
+          const carResponse = await fetch(`/api/cars/by-driver/${userId}`, {
+            method: 'DELETE',
+          });
+          
+          if (!carResponse.ok) {
+            const errorData = await carResponse.json();
+            console.error('Failed to delete associated cars:', errorData);
+          }
+        }
+        
+        // ลบผู้ใช้
+        const response = await fetch(`/api/users/${userId}`, {
           method: 'DELETE',
         });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete user');
+        }
+        
+        // Refresh data
+        fetchUsers();
+        
+        notificationService.success('ລຶບຜູ້ໃຊ້ສຳເລັດແລ້ວ');
+      } catch (error: any) {
+        console.error('Error deleting user:', error);
+        notificationService.error(`ເກີດຂໍ້ຜິດພາດໃນການລຶບຜູ້ໃຊ້: ${error.message}`);
+      } finally {
+        setLoading(false);
       }
-      
-      // Delete user
-      const response = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
-      
-      // Refresh data
-      fetchUsers();
-      
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      alert('Error deleting user. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
-  
+
+
   // Handle search
   const handleSearch = async () => {
     if (!searchTerm.trim()) {
-      alert('ກະລຸນາລະບຸຄຳຄົ້ນຫາ');
+      notificationService.error('ກະລຸນາລະບຸຄຳຄົ້ນຫາ');
       return;
     }
     
@@ -424,7 +459,7 @@ export default function UserManagementPage() {
       
     } catch (error: any) {
       console.error('Error searching users:', error);
-      alert(`Error: ${error.message}`);
+      notificationService.error(`Error: ${error.message}`);
     } finally {
       setIsSearching(false);
     }
@@ -886,6 +921,14 @@ export default function UserManagementPage() {
       
       {/* Add user modal - แสดงเฉพาะ Admin */}
       {canAddUser() && renderAddUserModal()}
+
+      {/* เพิ่ม ConfirmationDialog */}
+      <ConfirmationDialog 
+        isOpen={isConfirmDialogOpen}
+        message={confirmMessage}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }

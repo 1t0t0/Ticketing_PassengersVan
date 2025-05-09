@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
 import { Line } from 'react-chartjs-2';
 import PaymentMethodsChart from '@/components/PaymentMethodsChart'; // นำเข้าคอมโพเนนต์ที่แก้ไขแล้ว
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
+import useConfirmation from '@/hooks/useConfirmation';
+import notificationService from '@/lib/notificationService';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -40,6 +43,8 @@ interface DashboardStats {
     qr: number;
   };
 }
+
+
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();

@@ -122,3 +122,63 @@ export async function POST(
     );
   }
 }
+
+
+
+// DELETE - ลบผู้ใช้
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // ตรวจสอบสิทธิ์ (เฉพาะ Admin เท่านั้นที่ลบได้)
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+    
+    // หาผู้ใช้ก่อนลบ (เพื่อให้รู้ว่า role อะไร)
+    const user = await User.findById(params.id);
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+    
+    // ป้องกันการลบ admin คนสุดท้าย
+    if (user.role === 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { error: 'Cannot delete the last admin' },
+          { status: 400 }
+        );
+      }
+    }
+    
+    // ลบผู้ใช้
+    const deletedUser = await User.findByIdAndDelete(params.id);
+    
+    if (!deletedUser) {
+      return NextResponse.json(
+        { error: 'Failed to delete user' },
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete User Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 }
+    );
+  }
+}
