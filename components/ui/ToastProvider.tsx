@@ -1,12 +1,8 @@
-// components/ui/ToastProvider.tsx
 'use client';
 
 import React from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
-// Custom CSS เพื่อให้เข้ากับ UI ของแอพพลิเคชั่น
-import './toastify-custom.css';
 
 const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
@@ -19,11 +15,10 @@ const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         newestOnTop
         closeOnClick
         rtl={false}
-        pauseOnFocusLoss
+        pauseOnFocusLoss={false}
         draggable
-        pauseOnHover
+        pauseOnHover={false}
         theme="light"
-        className="toast-container-custom"
       />
     </>
   );
