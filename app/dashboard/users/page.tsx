@@ -15,12 +15,17 @@ import {
   FiMapPin, 
   FiLogIn, 
   FiLogOut,
-  FiSearch,
+  FiCalendar,
+  FiCamera,
+  FiCreditCard,
+  FiTruck
 } from 'react-icons/fi';
 
 import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 import useConfirmation from '@/hooks/useConfirmation';
 import notificationService from '@/lib/notificationService';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 // Interfaces
 interface User {
@@ -30,6 +35,10 @@ interface User {
   password?: string;
   role: 'admin' | 'staff' | 'driver' | 'station';
   phone?: string;
+  birthDate?: string;
+  idCardNumber?: string;
+  idCardImage?: string;
+  userImage?: string;
   employeeId?: string;
   stationId?: string;
   stationName?: string;
@@ -45,6 +54,7 @@ interface Car {
   car_name: string;
   car_capacity: number;
   car_registration: string;
+  car_type: string;
   user_id?: string;
 }
 
@@ -53,7 +63,7 @@ interface Driver extends User {
 }
 
 // Type definitions
-type UserTab = 'drivers' | 'staff' | 'admin' | 'station' | 'search';
+type UserTab = 'drivers' | 'staff' | 'admin' | 'station';
 
 // Constants
 const DEFAULT_USER: User = {
@@ -62,13 +72,25 @@ const DEFAULT_USER: User = {
   password: '',
   role: 'driver',
   phone: '',
+  birthDate: '',
+  idCardNumber: '',
+  idCardImage: '',
+  userImage: ''
 };
 
 const DEFAULT_CAR: Car = {
   car_name: '',
   car_capacity: 10,
   car_registration: '',
+  car_type: 'van'
 };
+
+const CAR_TYPES = [
+  { value: 'van', label: 'รถตู้ (Van)' },
+  { value: 'minibus', label: 'รถมินิบัส (Minibus)' },
+  { value: 'bus', label: 'รถบัส (Bus)' },
+  { value: 'sedan', label: 'รถเก๋ง (Sedan)' }
+];
 
 export default function UserManagementPage() {
   // Hooks
@@ -98,11 +120,10 @@ export default function UserManagementPage() {
   const [newUser, setNewUser] = useState<User>({...DEFAULT_USER});
   const [newCar, setNewCar] = useState<Car>({...DEFAULT_CAR});
   
-  // State - Search
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchRole, setSearchRole] = useState<string>('all');
-  const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  // State - File uploads
+  const [idCardImageFile, setIdCardImageFile] = useState<File | null>(null);
+  const [userImageFile, setUserImageFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   
   // Authorization & Role-based functions
   const isAdmin = useCallback(() => {
@@ -143,7 +164,7 @@ export default function UserManagementPage() {
     }
     
     if (isStaff()) {
-      return ['drivers', 'search'].includes(tab);
+      return ['drivers'].includes(tab);
     }
     
     return false;
@@ -210,78 +231,137 @@ export default function UserManagementPage() {
       }
     } catch (error: any) {
       console.error('Error fetching users:', error);
+      notificationService.error(`ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນຜູ້ໃຊ້: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
   
-const handleAddUser = async (e: React.FormEvent) => {
-  e.preventDefault();
+  // Handle file uploads
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'idCard' | 'user') => {
+    if (e.target.files && e.target.files[0]) {
+      if (type === 'idCard') {
+        setIdCardImageFile(e.target.files[0]);
+      } else {
+        setUserImageFile(e.target.files[0]);
+      }
+    }
+  };
   
-  try {
-    setLoading(true);
-    
-    // Form validation
-    if (!newUser.name || !newUser.email || !newUser.password) {
-      notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນທີ່ຈຳເປັນ');
-      setLoading(false);
-      return;
-    }
-    
-    // Role-specific validation
-    if (newUser.role === 'driver') {
-      if (!newCar.car_name || !newCar.car_registration) {
-        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນລົດທີ່ຈຳເປັນ');
-        setLoading(false);
-        return;
-      }
-    } else if (newUser.role === 'station') {
-      if (!newUser.name) {
-        notificationService.error('ກະລຸນາລະບຸຊື່ສະຖານີ');
-        setLoading(false);
-        return;
-      }
-    }
-    
-    // Prepare user data
-    const userData = prepareUserData(newUser);
-    
-    // Create user
-    const userResponse = await fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData),
+  const uploadImage = async (file: File, type: 'idCard' | 'user') => {
+    // This is a placeholder for image upload
+    // In a real application, you'd implement file upload to a server or cloud storage
+    // For now, let's simulate an upload with a 1-second delay
+    return new Promise<string>((resolve) => {
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 10;
+        setUploadProgress(progress);
+        
+        if (progress >= 100) {
+          clearInterval(interval);
+          // Return a fake URL
+          resolve(`https://example.com/images/${type}-${Date.now()}.jpg`);
+        }
+      }, 100);
     });
+  };
+  
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    if (!userResponse.ok) {
-      const errorData = await userResponse.json();
-      throw new Error(errorData.error || 'Failed to create user');
-    }
-    
-    const createdUser = await userResponse.json();
-    
-    // Create car if user is driver
-    if (newUser.role === 'driver') {
-      await createCarForDriver(createdUser._id);
-    }
-    
-    // Reset form and refresh
-    resetForm();
-    setShowAddModal(false);
-    fetchUsers();
-    
-    // Add success notification
-    notificationService.success(`ເພີ່ມຜູ້ໃຊ້ ${newUser.role === 'driver' ? 'ຄົນຂັບລົດ' : 
+    try {
+      setLoading(true);
+      
+      // Form validation
+      if (!newUser.name || !newUser.email || !newUser.password) {
+        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນທີ່ຈຳເປັນ');
+        setLoading(false);
+        return;
+      }
+      
+      // Role-specific validation
+      if (newUser.role === 'driver') {
+        if (!newUser.idCardNumber || !newCar.car_name || !newCar.car_registration) {
+          notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນຄົນຂັບລົດແລະລົດທີ່ຈຳເປັນ');
+          setLoading(false);
+          return;
+        }
+      } else if (newUser.role === 'staff') {
+        if (!newUser.idCardNumber) {
+          notificationService.error('ກະລຸນາລະບຸເລກບັດປະຈຳຕົວ');
+          setLoading(false);
+          return;
+        }
+      } else if (newUser.role === 'station') {
+        if (!newUser.name) {
+          notificationService.error('ກະລຸນາລະບຸຊື່ສະຖານີ');
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Upload images if provided
+      let idCardImageUrl = '';
+      let userImageUrl = '';
+      
+      if (idCardImageFile) {
+        idCardImageUrl = await uploadImage(idCardImageFile, 'idCard');
+      }
+      
+      if (userImageFile) {
+        userImageUrl = await uploadImage(userImageFile, 'user');
+      }
+      
+      // Prepare user data
+      const userData = prepareUserData(newUser);
+      
+      // Add image URLs if uploaded
+      if (idCardImageUrl) {
+        userData.idCardImage = idCardImageUrl;
+      }
+      
+      if (userImageUrl) {
+        userData.userImage = userImageUrl;
+      }
+      
+      // Create user
+      const userResponse = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+      
+      if (!userResponse.ok) {
+        const errorData = await userResponse.json();
+        throw new Error(errorData.error || 'Failed to create user');
+      }
+      
+      const createdUser = await userResponse.json();
+      
+      // Create car if user is driver
+      if (newUser.role === 'driver') {
+        await createCarForDriver(createdUser._id);
+      }
+      
+      // Reset form and refresh
+      resetForm();
+      setShowAddModal(false);
+      fetchUsers();
+      
+      // Add success notification
+      notificationService.success(`ເພີ່ມຜູ້ໃຊ້ ${newUser.role === 'driver' ? 'ຄົນຂັບລົດ' : 
                                  newUser.role === 'staff' ? 'ພະນັກງານຂາຍປີ້' : 
                                  newUser.role === 'station' ? 'ສະຖານີ' : 'ຜູ້ບໍລິຫານລະບົບ'} ສຳເລັດແລ້ວ`);
-    
-  } catch (error: any) {
-    console.error('Error adding user:', error);
-    notificationService.error(`Error: ${error.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
+      
+    } catch (error: any) {
+      console.error('Error adding user:', error);
+      notificationService.error(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setUploadProgress(0);
+    }
+  };
   
   const prepareUserData = (user: User) => {
     const userData: any = {
@@ -291,13 +371,16 @@ const handleAddUser = async (e: React.FormEvent) => {
       role: user.role,
     };
     
+    // Add shared fields
+    if (user.phone) userData.phone = user.phone;
+    if (user.birthDate) userData.birthDate = user.birthDate;
+    if (user.idCardNumber) userData.idCardNumber = user.idCardNumber;
+    
     // Add role-specific fields
     if (user.role === 'driver' || user.role === 'staff') {
-      if (user.phone) userData.phone = user.phone;
       userData.status = 'active';
       userData.checkInStatus = 'checked-out';
     } else if (user.role === 'station') {
-      if (user.phone) userData.phone = user.phone;
       if ((user as any).location) userData.location = (user as any).location;
     }
     
@@ -312,6 +395,7 @@ const handleAddUser = async (e: React.FormEvent) => {
         car_name: newCar.car_name,
         car_capacity: newCar.car_capacity,
         car_registration: newCar.car_registration,
+        car_type: newCar.car_type,
         user_id: driverId,
       }),
     });
@@ -327,6 +411,8 @@ const handleAddUser = async (e: React.FormEvent) => {
   const resetForm = () => {
     setNewUser({...DEFAULT_USER, role: newUser.role});
     setNewCar({...DEFAULT_CAR});
+    setIdCardImageFile(null);
+    setUserImageFile(null);
   };
   
   const handleCheckInOut = async (userId: string, currentStatus: string) => {
@@ -347,6 +433,7 @@ const handleAddUser = async (e: React.FormEvent) => {
       }
       
       fetchUsers();
+      notificationService.success(`${newStatus === 'checked-in' ? 'ເຊັກອິນ' : 'ເຊັກເອົາ'} ສຳເລັດແລ້ວ`);
     } catch (error: any) {
       console.error('Error updating check in status:', error);
       notificationService.error(`Error: ${error.message}`);
@@ -355,8 +442,8 @@ const handleAddUser = async (e: React.FormEvent) => {
     }
   };
   
-  const handleDeleteUser = async (userId: string, role: string) => {
-    showConfirmation('ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບຜູ້ໃຊ້ນີ້?', async () => {
+  const handleDeleteUser = async (userId: string, role: string, name: string) => {
+    showConfirmation(`ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບ ${name}?`, async () => {
       try {
         setLoading(true);
         
@@ -396,56 +483,22 @@ const handleAddUser = async (e: React.FormEvent) => {
       console.error('Failed to delete associated cars:', errorData);
     }
   };
-  
-  const handleSearch = async () => {
-    if (!searchTerm.trim()) {
-      notificationService.error('ກະລຸນາລະບຸຄຳຄົ້ນຫາ');
-      return;
-    }
-    
-    try {
-      setIsSearching(true);
-      
-      // Build search URL
-      let url = `/api/users/search?term=${encodeURIComponent(searchTerm)}`;
-      if (searchRole !== 'all') {
-        url += `&role=${searchRole}`;
-      }
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error('Failed to search users');
-      }
-      
-      const data = await response.json();
-      setSearchResults(data);
-      
-    } catch (error: any) {
-      console.error('Error searching users:', error);
-      notificationService.error(`Error: ${error.message}`);
-    } finally {
-      setIsSearching(false);
-    }
-  };
 
   // Tab change handler
   const handleTabChange = (tab: UserTab) => {
     setActiveTab(tab);
-    if (tab !== 'search') {
-      let userRole: 'admin' | 'staff' | 'driver' | 'station' = 'driver';
-      if (tab === 'admin') userRole = 'admin';
-      if (tab === 'staff') userRole = 'staff';
-      if (tab === 'station') userRole = 'station';
-      if (tab === 'drivers') userRole = 'driver';
-      
-      setNewUser(prev => ({...prev, role: userRole}));
-    }
+    let userRole: 'admin' | 'staff' | 'driver' | 'station' = 'driver';
+    if (tab === 'admin') userRole = 'admin';
+    if (tab === 'staff') userRole = 'staff';
+    if (tab === 'station') userRole = 'station';
+    if (tab === 'drivers') userRole = 'driver';
+    
+    setNewUser(prev => ({...prev, role: userRole}));
   };
 
   // UI Components
   const renderTabs = () => {
-    const allTabs: UserTab[] = ['drivers', 'staff', 'station', 'admin', 'search'];
+    const allTabs: UserTab[] = ['drivers', 'staff', 'station', 'admin'];
     
     return (
       <div className="flex flex-wrap border-b border-gray-200 mb-6">
@@ -460,7 +513,6 @@ const handleAddUser = async (e: React.FormEvent) => {
             case 'staff': label = 'Ticket Sellers'; break;
             case 'station': label = 'Stations'; break;
             case 'admin': label = 'Administrators'; break;
-            case 'search': label = (<><FiSearch className="inline mr-1" /> Search</>); break;
           }
           
           return (
@@ -479,59 +531,6 @@ const handleAddUser = async (e: React.FormEvent) => {
     );
   };
   
-  const renderSearchPanel = () => {
-    if (activeTab !== 'search') return null;
-    
-    return (
-      <div className="mb-6 border border-gray-200 rounded-lg p-4">
-        <h3 className="text-lg font-bold mb-4">ຄົ້ນຫາຜູ້ໃຊ້</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">ຄຳຄົ້ນຫາ</label>
-            <input
-              type="text"
-              className="w-full border-2 border-gray-300 rounded p-2"
-              placeholder="ຊື່, ອີເມລ, ໂທລະສັບ, ID"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">ປະເພດຜູ້ໃຊ້</label>
-            <select
-              className="w-full border-2 border-gray-300 rounded p-2"
-              value={searchRole}
-              onChange={(e) => setSearchRole(e.target.value)}
-            >
-              <option value="all">ທັງໝົດ</option>
-              <option value="driver">ຄົນຂັບລົດ</option>
-              {isAdmin() && (
-                <>
-                  <option value="staff">ພະນັກງານຂາຍປີ້</option>
-                  <option value="station">ສະຖານີ</option>
-                  <option value="admin">ຜູ້ບໍລິຫານລະບົບ</option>
-                </>
-              )}
-            </select>
-          </div>
-          
-          <div className="flex items-end">
-            <NeoButton 
-              onClick={handleSearch}
-              disabled={isSearching}
-              className="w-full"
-            >
-              {isSearching ? 'ກຳລັງຄົ້ນຫາ...' : 'ຄົ້ນຫາ'}
-            </NeoButton>
-          </div>
-        </div>
-      </div>
-    );
-  };
-  
   const renderAddUserModal = () => {
     if (!showAddModal) return null;
     
@@ -540,8 +539,8 @@ const handleAddUser = async (e: React.FormEvent) => {
                       activeTab === 'station' ? 'ເພີ່ມສະຖານີ' : 'ເພີ່ມຜູ້ບໍລິຫານລະບົບ';
     
     return (
-      <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg w-full max-w-3xl mx-4 shadow-xl">
+      <div className="fixed inset-0 backdrop-blur-sm bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg w-full max-w-4xl mx-4 shadow-xl overflow-y-auto max-h-[90vh]">
           <div className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">{modalTitle}</h3>
@@ -554,62 +553,181 @@ const handleAddUser = async (e: React.FormEvent) => {
             </div>
             
             <form onSubmit={handleAddUser}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField 
-                  label="ຊື່ ແລະ ນາມສະກຸນ"
-                  type="text"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                  required
-                />
-                
-                <FormField 
-                  label="ອີເມວ"
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                  required
-                />
-                
-                <FormField 
-                  label="ເບີໂທລະສັບ"
-                  type="tel"
-                  placeholder="12345678"
-                  value={newUser.phone || ''}
-                  onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
-                />
-                
-                <FormField 
-                  label="ລະຫັດຜ່ານ"
-                  type="password"
-                  value={newUser.password || ''}
-                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                  required
-                />
-                
-                {activeTab === 'station' && (
+              {/* Common fields for all user types */}
+              <div className="mb-6">
+                <h4 className="font-semibold text-lg mb-4">ຂໍ້ມູນທົ່ວໄປ</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField 
-                    label="ສະຖານທີ່ຕັ້ງ"
+                    label="ຊື່ ແລະ ນາມສະກຸນ"
                     type="text"
-                    placeholder="ບ້ານ ນາໄຊ, ເມືອງ ຫຼວງພະບາງ"
-                    value={(newUser as any).location || ''}
-                    onChange={(e) => setNewUser({...newUser, location: e.target.value} as any)}
+                    icon={<FiUser />}
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({...newUser, name: e.target.value})}
                     required
                   />
-                )}
+                  
+                  {(activeTab === 'drivers' || activeTab === 'staff') && (
+                    <FormField 
+                      label="ວັນເດືອນປີເກີດ"
+                      type="date"
+                      icon={<FiCalendar />}
+                      value={newUser.birthDate || ''}
+                      onChange={(e) => setNewUser({...newUser, birthDate: e.target.value})}
+                      required
+                    />
+                  )}
+                  
+                  <FormField 
+                    label="ອີເມວ"
+                    type="email"
+                    icon={<FiMail />}
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    required
+                  />
+                  
+                  <FormField 
+                    label="ເບີໂທລະສັບ"
+                    type="tel"
+                    icon={<FiPhone />}
+                    placeholder="12345678"
+                    value={newUser.phone || ''}
+                    onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+                  />
+                  
+                  <FormField 
+                    label="ລະຫັດຜ່ານ"
+                    type="password"
+                    value={newUser.password || ''}
+                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    required
+                  />
+
+                  {(activeTab === 'drivers' || activeTab === 'staff') && (
+                    <FormField 
+                      label="ເລກບັດປະຈຳຕົວ"
+                      type="text"
+                      icon={<FiCreditCard />}
+                      value={newUser.idCardNumber || ''}
+                      onChange={(e) => setNewUser({...newUser, idCardNumber: e.target.value})}
+                      required
+                    />
+                  )}
+
+                  {activeTab === 'station' && (
+                    <FormField 
+                      label="ສະຖານທີ່ຕັ້ງ"
+                      type="text"
+                      icon={<FiMapPin />}
+                      placeholder="ບ້ານ ນາໄຊ, ເມືອງ ຫຼວງພະບາງ"
+                      value={(newUser as any).location || ''}
+                      onChange={(e) => setNewUser({...newUser, location: e.target.value} as any)}
+                      required
+                    />
+                  )}
+                </div>
               </div>
+              
+              {/* Image upload fields for drivers and staff */}
+              {(activeTab === 'drivers' || activeTab === 'staff') && (
+                <div className="mb-6 border-t border-gray-200 pt-4">
+                  <h4 className="font-semibold text-lg mb-4">ຮູບພາບ</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold mb-2">ຮູບບັດປະຈຳຕົວ</label>
+                      <div className="flex items-center">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          id="idCardImage"
+                          onChange={(e) => handleFileChange(e, 'idCard')}
+                        />
+                        <label
+                          htmlFor="idCardImage"
+                          className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500"
+                        >
+                          {idCardImageFile ? (
+                            <div className="text-center">
+                              <FiCamera className="mx-auto text-2xl text-green-500" />
+                              <p className="text-sm mt-1">{idCardImageFile.name}</p>
+                            </div>
+                          ) : (
+                            <div className="text-center">
+                              <FiCamera className="mx-auto text-2xl text-gray-400" />
+                              <p className="text-sm mt-1">ອັບໂຫລດຮູບບັດປະຈຳຕົວ</p>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-bold mb-2">ຮູບຖ່າຍ</label>
+                      <div className="flex items-center">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          id="userImage"
+                          onChange={(e) => handleFileChange(e, 'user')}
+                        />
+                        <label
+                          htmlFor="userImage"
+                          className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500"
+                        >
+                          {userImageFile ? (
+                            <div className="text-center">
+                              <FiCamera className="mx-auto text-2xl text-green-500" />
+                              <p className="text-sm mt-1">{userImageFile.name}</p>
+                            </div>
+                          ) : (
+                            <div className="text-center">
+                              <FiCamera className="mx-auto text-2xl text-gray-400" />
+                              <p className="text-sm mt-1">ອັບໂຫລດຮູບຖ່າຍ</p>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Upload progress bar */}
+                  {uploadProgress > 0 && uploadProgress < 100 && (
+                    <div className="mt-4">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div 
+                          className="bg-blue-600 h-2.5 rounded-full" 
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">ອັບໂຫລດ: {uploadProgress}%</p>
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* Car information for drivers */}
               {activeTab === 'drivers' && (
-                <div className="mt-6 border-t border-gray-200 pt-4">
-                  <h4 className="font-semibold mb-4">ຂໍ້ມູນລົດ</h4>
+                <div className="mb-6 border-t border-gray-200 pt-4">
+                  <h4 className="font-semibold text-lg mb-4">ຂໍ້ມູນລົດ</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField 
                       label="ຊື່ລົດ"
                       type="text"
+                      icon={<FiTruck />}
                       placeholder="Toyota Hiace"
                       value={newCar.car_name}
                       onChange={(e) => setNewCar({...newCar, car_name: e.target.value})}
+                      required
+                    />
+                    
+                    <FormField 
+                      label="ທະບຽນລົດ"
+                      type="text"
+                      placeholder="12ກຂ 3456"
+                      value={newCar.car_registration}
+                      onChange={(e) => setNewCar({...newCar, car_registration: e.target.value})}
                       required
                     />
                     
@@ -621,15 +739,22 @@ const handleAddUser = async (e: React.FormEvent) => {
                       required
                       min="1"
                     />
-                    
-                    <FormField 
-                      label="ປ້າຍທະບຽນລົດ"
-                      type="text"
-                      placeholder="12ກຂ 3456"
-                      value={newCar.car_registration}
-                      onChange={(e) => setNewCar({...newCar, car_registration: e.target.value})}
-                      required
-                    />
+
+                    <div>
+                      <label className="block text-sm font-bold mb-2">ປະເພດລົດ</label>
+                      <select 
+                        className="w-full border-2 border-gray-300 rounded p-2"
+                        value={newCar.car_type}
+                        onChange={(e) => setNewCar({...newCar, car_type: e.target.value})}
+                        required
+                      >
+                        {CAR_TYPES.map(type => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               )}
@@ -665,14 +790,13 @@ const handleAddUser = async (e: React.FormEvent) => {
         case 'staff': return { users: ticketSellers, userType: 'ພະນັກງານຂາຍປີ້' };
         case 'admin': return { users: admins, userType: 'ຜູ້ບໍລິຫານລະບົບ' };
         case 'station': return { users: stations, userType: 'ສະຖານີ' };
-        case 'search': return { users: searchResults, userType: 'ຜົນການຄົ້ນຫາ' };
       }
     };
     
     const { users, userType } = getUsersForTab();
     
     // Show loading state
-    if ((activeTab === 'search' && isSearching) || (activeTab !== 'search' && loading)) {
+    if (loading) {
       return (
         <div className="text-center py-8">
           <p>ກຳລັງໂຫລດ...</p>
@@ -724,7 +848,6 @@ const handleAddUser = async (e: React.FormEvent) => {
         <div className="p-4">
           <h2 className="text-xl font-bold mb-4">User Directory</h2>
           {renderTabs()}
-          {renderSearchPanel()}
           <div>{renderUsers()}</div>
         </div>
       </NeoCard>
@@ -750,6 +873,7 @@ interface FormFieldProps {
   placeholder?: string;
   required?: boolean;
   min?: string;
+  icon?: React.ReactNode;
 }
 
 function FormField({ 
@@ -759,20 +883,28 @@ function FormField({
   onChange, 
   placeholder, 
   required, 
-  min 
+  min,
+  icon
 }: FormFieldProps) {
   return (
     <div>
       <label className="block text-sm font-bold mb-2">{label}</label>
-      <input
-        type={type}
-        className="w-full border-2 border-gray-300 rounded p-2"
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        required={required}
-        min={min}
-      />
+      <div className="relative">
+        {icon && (
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+            {icon}
+          </div>
+        )}
+        <input
+          type={type}
+          className={`w-full border-2 border-gray-300 rounded p-2 ${icon ? 'pl-10' : ''}`}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          required={required}
+          min={min}
+        />
+      </div>
     </div>
   );
 }
@@ -782,7 +914,7 @@ interface UserCardProps {
   admins: User[];
   onCheckInOut: (userId: string, currentStatus: string) => void;
   onEdit: (userId: string) => void;
-  onDelete: (userId: string, role: string) => void;
+  onDelete: (userId: string, role: string, name: string) => void;
   checkingInOut: {[key: string]: boolean};
   canShowCheckInOutButton: (user: User) => boolean;
   canEditUser: (user: User) => boolean;
@@ -822,7 +954,15 @@ function UserCard({
       <div className="p-4 flex flex-wrap items-center">
         {/* Avatar */}
         <div className={`w-12 h-12 ${bg} rounded-full flex items-center justify-center mr-4`}>
-          <FiUser size={24} className={text} />
+          {user.userImage ? (
+            <img 
+              src={user.userImage} 
+              alt={user.name} 
+              className="w-full h-full rounded-full object-cover"
+            />
+          ) : (
+            <FiUser size={24} className={text} />
+          )}
         </div>
         
         {/* User main info */}
@@ -882,6 +1022,16 @@ function UserCard({
               <span>{(user as any).stationName}</span>
             </div>
           )}
+          
+          {isDriver && (user as Driver).assignedCar && (
+            <div className="flex items-center m-2">
+              <FiTruck size={18} className="text-gray-400 mr-2" />
+              <span>
+                {(user as Driver).assignedCar?.car_registration} 
+                ({(user as Driver).assignedCar?.car_name})
+              </span>
+            </div>
+          )}
         </div>
         
         {/* Action buttons */}
@@ -932,7 +1082,7 @@ function UserCard({
             <div className="m-1">
               <button 
                 className="p-2 text-red-500 hover:bg-red-50 rounded-full"
-                onClick={() => onDelete(user._id!, user.role)}
+                onClick={() => onDelete(user._id!, user.role, user.name)}
               >
                 <FiTrash2 size={18} />
               </button>
