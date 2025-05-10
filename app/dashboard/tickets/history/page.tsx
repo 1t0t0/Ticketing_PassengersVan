@@ -6,6 +6,9 @@ import NeoCard from '@/components/ui/NotionCard';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Pagination from '@/components/ui/Pagination';
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
+import useConfirmation from '@/hooks/useConfirmation';
+import notificationService from '@/lib/notificationService';
 
 interface Ticket {
   _id: string;
@@ -16,8 +19,6 @@ interface Ticket {
   paymentMethod: string;
 }
 
-
-
 export default function TicketHistoryPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +28,15 @@ export default function TicketHistoryPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Confirmation dialog hook
+  const {
+    isConfirmDialogOpen,
+    confirmMessage,
+    showConfirmation,
+    handleConfirm,
+    handleCancel
+  } = useConfirmation();
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -108,7 +118,7 @@ export default function TicketHistoryPage() {
       }
     } catch (error) {
       console.error('Error fetching tickets:', error);
-      alert('เกิดข้อผิดพลาดในการดึงข้อมูล');
+      notificationService.error('ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນປີ້');
     } finally {
       setLoading(false);
     }
@@ -165,9 +175,16 @@ export default function TicketHistoryPage() {
       setCurrentPage(1);
       // อัปเดต URL
       updateURL(1);
+      
+      // แสดงการแจ้งเตือนผลการค้นหา
+      if ((data.tickets && data.tickets.length > 0) || (Array.isArray(data) && data.length > 0)) {
+        notificationService.success(`ພົບ ${data.tickets?.length || data.length} ລາຍການ`);
+      } else {
+        notificationService.info('ບໍ່ພົບຂໍ້ມູນທີ່ຕ້ອງການຄົ້ນຫາ');
+      }
     } catch (error) {
       console.error('Error searching tickets:', error);
-      alert('เกิดข้อผิดพลาดในการค้นหา');
+      notificationService.error('ເກີດຂໍ້ຜິດພາດໃນການຄົ້ນຫາ');
     } finally {
       setLoading(false);
     }
@@ -181,6 +198,7 @@ export default function TicketHistoryPage() {
     setCurrentPage(1);
     updateURL(1);
     fetchTickets(1);
+    notificationService.info('ລ້າງການຄົ້ນຫາແລ້ວ');
   };
 
   // ฟังก์ชันเปลี่ยนหน้า
@@ -210,6 +228,28 @@ export default function TicketHistoryPage() {
     window.history.pushState({}, '', url.toString());
   };
 
+  // ฟังก์ชันลบตั๋ว
+  const handleDeleteTicket = async (ticketId: string, ticketNumber: string) => {
+    showConfirmation(`ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບປີ້ເລກທີ ${ticketNumber}?`, async () => {
+      try {
+        const response = await fetch(`/api/tickets/${ticketId}`, {
+          method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to delete ticket');
+        }
+        
+        // รีโหลดข้อมูลหลังลบ
+        fetchTickets(currentPage);
+        notificationService.success('ລຶບປີ້ສຳເລັດແລ້ວ');
+      } catch (error) {
+        console.error('Error deleting ticket:', error);
+        notificationService.error('ເກີດຂໍ້ຜິດພາດໃນການລຶບປີ້');
+      }
+    });
+  };
+
   // ฟังก์ชันพิมพ์ตั๋วซ้ำ
   const handleReprint = async (ticket: Ticket) => {
     try {
@@ -227,9 +267,10 @@ export default function TicketHistoryPage() {
       
       // ไปที่หน้าพิมพ์ตั๋ว
       window.open(`/dashboard/tickets/print/${ticket._id}`, '_blank');
+      notificationService.info('กำลังเปิดหน้าต่างการพิมพ์...');
     } catch (error) {
       console.error('Error preparing ticket for reprint:', error);
-      alert('เกิดข้อผิดพลาดในการเตรียมพิมพ์ตั๋ว');
+      notificationService.error('ເກີດຂໍ້ຜິດພາດໃນການເຕຣຽມພິມປີ້');
     }
   };
 
@@ -275,8 +316,6 @@ export default function TicketHistoryPage() {
       
       {/* ตารางตั๋ว */}
       <NeoCard className="p-6">
-              
-        
         {/* ตัวกรองวิธีการชำระเงิน */}
         <div className="mb-4 flex flex-col md:flex-row items-center justify-start gap-4">
           <div className="font-bold mb-2">ຮູບແບບການຊຳລະ:</div>
@@ -311,17 +350,11 @@ export default function TicketHistoryPage() {
                 QR
               </span>
             </NeoButton>
-           
           </div>
           <div className='text-sm text-gray-600 flex-1 text-right'>
            ທັງໝົດ {totalItems} ລາຍການ
-
           </div>
-
         </div>
-
-        
-      
         
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
@@ -369,27 +402,14 @@ export default function TicketHistoryPage() {
                       <div className="flex justify-center gap-2">
                         <NeoButton 
                           size="sm" 
+                          onClick={() => handleReprint(ticket)}
+                        >
+                          ພິມຄືນ
+                        </NeoButton>
+                        <NeoButton 
+                          size="sm" 
                           className="bg-red-500 hover:bg-red-600 text-white"
-                          onClick={async () => {
-                            if (confirm('ຕ້ອງການລຶບບີ້ນີ້ບໍ?')) {
-                              try {
-                                const response = await fetch(`/api/tickets/${ticket._id}`, {
-                                  method: 'DELETE',
-                                });
-                                
-                                if (!response.ok) {
-                                  throw new Error('Failed to delete ticket');
-                                }
-                                
-                                // รีโหลดข้อมูลหลังลบ
-                                fetchTickets(currentPage);
-                                alert('ລຶບບີ້ສຳເລັດແລ້ວ');
-                              } catch (error) {
-                                console.error('Error deleting ticket:', error);
-                                alert('ເກີດຂໍ້ຜິດພາດໃນການລຶບບີ້');
-                              }
-                            }
-                          }}
+                          onClick={() => handleDeleteTicket(ticket._id, ticket.ticketNumber)}
                         >
                           ລົບ
                         </NeoButton>
@@ -403,16 +423,23 @@ export default function TicketHistoryPage() {
         </div>
         
         {/* Pagination */}
-<div className="mt-4 flex justify-center">
-  <Pagination 
-    currentPage={currentPage}
-    totalPages={totalPages}
-    onPageChange={handlePageChange}
-    className="text-xs" // เพิ่ม class เพื่อให้มีขนาดเล็กลง
-   
-  />
-</div>
+        <div className="mt-4 flex justify-center">
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            className="text-xs"
+          />
+        </div>
       </NeoCard>
+      
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog 
+        isOpen={isConfirmDialogOpen}
+        message={confirmMessage}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }

@@ -215,68 +215,73 @@ export default function UserManagementPage() {
     }
   };
   
-  const handleAddUser = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleAddUser = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  try {
+    setLoading(true);
     
-    try {
-      setLoading(true);
-      
-      // Form validation
-      if (!newUser.name || !newUser.email || !newUser.password) {
-        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນທີ່ຈຳເປັນ');
+    // Form validation
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນທີ່ຈຳເປັນ');
+      setLoading(false);
+      return;
+    }
+    
+    // Role-specific validation
+    if (newUser.role === 'driver') {
+      if (!newCar.car_name || !newCar.car_registration) {
+        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນລົດທີ່ຈຳເປັນ');
         setLoading(false);
         return;
       }
-      
-      // Role-specific validation
-      if (newUser.role === 'driver') {
-        if (!newCar.car_name || !newCar.car_registration) {
-          notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນລົດທີ່ຈຳເປັນ');
-          setLoading(false);
-          return;
-        }
-      } else if (newUser.role === 'station') {
-        if (!newUser.name) {
-          notificationService.error('ກະລຸນາລະບຸຊື່ສະຖານີ');
-          setLoading(false);
-          return;
-        }
+    } else if (newUser.role === 'station') {
+      if (!newUser.name) {
+        notificationService.error('ກະລຸນາລະບຸຊື່ສະຖານີ');
+        setLoading(false);
+        return;
       }
-      
-      // Prepare user data
-      const userData = prepareUserData(newUser);
-      
-      // Create user
-      const userResponse = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-      });
-      
-      if (!userResponse.ok) {
-        const errorData = await userResponse.json();
-        throw new Error(errorData.error || 'Failed to create user');
-      }
-      
-      const createdUser = await userResponse.json();
-      
-      // Create car if user is driver
-      if (newUser.role === 'driver') {
-        await createCarForDriver(createdUser._id);
-      }
-      
-      // Reset form and refresh
-      resetForm();
-      setShowAddModal(false);
-      fetchUsers();
-      
-    } catch (error: any) {
-      console.error('Error adding user:', error);
-      notificationService.error(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    // Prepare user data
+    const userData = prepareUserData(newUser);
+    
+    // Create user
+    const userResponse = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+    
+    if (!userResponse.ok) {
+      const errorData = await userResponse.json();
+      throw new Error(errorData.error || 'Failed to create user');
+    }
+    
+    const createdUser = await userResponse.json();
+    
+    // Create car if user is driver
+    if (newUser.role === 'driver') {
+      await createCarForDriver(createdUser._id);
+    }
+    
+    // Reset form and refresh
+    resetForm();
+    setShowAddModal(false);
+    fetchUsers();
+    
+    // Add success notification
+    notificationService.success(`ເພີ່ມຜູ້ໃຊ້ ${newUser.role === 'driver' ? 'ຄົນຂັບລົດ' : 
+                                 newUser.role === 'staff' ? 'ພະນັກງານຂາຍປີ້' : 
+                                 newUser.role === 'station' ? 'ສະຖານີ' : 'ຜູ້ບໍລິຫານລະບົບ'} ສຳເລັດແລ້ວ`);
+    
+  } catch (error: any) {
+    console.error('Error adding user:', error);
+    notificationService.error(`Error: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
   
   const prepareUserData = (user: User) => {
     const userData: any = {
