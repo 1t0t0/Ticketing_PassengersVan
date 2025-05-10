@@ -1,6 +1,5 @@
 import React from 'react';
 import { Ticket } from '../../types';
-import { formatDate, formatPaymentMethod } from '../../utils/formatters';
 
 interface TicketTableProps {
   tickets: Ticket[];
@@ -24,7 +23,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, loading, onDeleteTic
       case 'qr':
         return (
           <span className="inline-block px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 border border-green-200">
-            QR
+            ເງິນໂອນ
           </span>
         );
       default:

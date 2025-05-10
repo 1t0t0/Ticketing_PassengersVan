@@ -16,7 +16,7 @@ const RecentTicketsList: React.FC<RecentTicketsListProps> = ({ tickets, onViewAl
       case 'cash':
         return 'ເງິນສົດ';
       case 'qr':
-        return 'QR';
+        return 'ເງິນໂອນ';
       default:
         return method;
     }
@@ -83,7 +83,7 @@ const RecentTicketsList: React.FC<RecentTicketsListProps> = ({ tickets, onViewAl
       ))}
       
       <button 
-        className="w-full py-2 px-4 bg-gray-100 text-gray-700 font-medium rounded mt-4"
+        className="w-full py-2 px-4 bg-gray-100 text-gray-700 font-medium rounded mt-4 cursor-pointer"
         onClick={onViewAllClick}
       >
         VIEW ALL TICKETS

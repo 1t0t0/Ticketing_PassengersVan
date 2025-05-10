@@ -1,108 +1,115 @@
-import React from 'react';
-import { formatDate } from '../utils/formatters';
+import { LuBus } from "react-icons/lu";
+import { FaArrowRight } from "react-icons/fa6";
 
-interface PrintableTicketProps {
-  ticketNumber: string;
-  price: number;
-  soldAt: Date;
-  soldBy: string;
-  paymentMethod: string;
-}
 
-/**
- * คอมโพเนนต์สำหรับแสดงตั๋วแบบพร้อมพิมพ์
- */
-const PrintableTicket: React.FC<PrintableTicketProps> = ({
-  ticketNumber,
-  price,
-  soldAt,
-  soldBy,
-  paymentMethod,
-}) => {
-  return (
-    <div 
-      id="printable-content"
-      className="mx-auto bg-white border border-black"
-      style={{ 
-        fontFamily: 'Phetsarath, sans-serif',
-        width: '80mm',
-        padding: '0',
-        margin: '0 auto',
-        boxSizing: 'border-box',
-        height: 'auto',
-        pageBreakInside: 'avoid',
-        pageBreakAfter: 'avoid',
-        minHeight: '0',
-        maxHeight: 'fit-content'
-      }}
-    >
-      {/* ส่วนหัว - ชื่อตั๋ว */}
-      <div className="text-center p-2 border-b border-black">
-        <div className="text-base font-bold">ປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງລົດໄຟ</div>
-        <div className="text-base font-bold">ລາວ-ຈີນ</div>
-      </div>
 
-      {/* ส่วนรายละเอียดตั๋ว */}
-      <div className="p-2 border-b border-black">
-        <table className="w-full text-sm" style={{ borderSpacing: '0 3px' }}>
-          <tbody>
-            <tr>
-              <td className="align-top font-bold">ໝາຍເລກປີ້/Ticket No:</td>
-              <td>{ticketNumber}</td>
-            </tr>
-            <tr>
-              <td className="align-top font-bold">ວັນ-ເວລາ/Date-Time:</td>
-              <td>{formatDate(soldAt)}</td>
-            </tr>
-            <tr>
-              <td className="align-top font-bold">ລາຄາ/Price:</td>
-              <td>{price.toLocaleString()}</td>
-            </tr>
-            <tr>
-              <td className="align-top font-bold">ຊຳລະ/Payment:</td>
-              <td className="text-blue-600">{paymentMethod.toUpperCase()}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+interface TicketTemplateProps {
+    ticketNumber: string;
+    price: number;
+    soldAt: Date;
+    soldBy: string;
+    paymentMethod: string;
+  }
+  
+  export default function TicketTemplate({
+    ticketNumber,
+    price,
+    soldAt,
+    soldBy,
+    paymentMethod,
+  }: TicketTemplateProps) {
+    const formatDate = (date: Date) => {
+      // Format: DD/MM/YYYY HH:MM
+    const d = new Date(date);
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear().toString(); // ใช้ปี ค.ศ. ตามที่ต้องการ
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+    };
 
-      {/* ส่วนเส้นทาง */}
-      <div className="border-b border-black">
-        <table className="w-full text-center">
-          <tbody>
-            <tr>
-              <td className="p-1 w-1/2">
-                <div className="text-xs text-yellow-800">ຈາກ/FROM</div>
-                <div className="font-bold">ສະຖານີ</div>
-                <div className="font-bold">ລົດໄຟ/TRAIN</div>
-                <div className="font-bold">STATION</div>
-              </td>
-              <td className="p-1 w-1/2">
-                <div className="text-xs text-yellow-800">ເຖິງ/TO</div>
-                <div className="font-bold">ຕົວ</div>
-                <div className="font-bold">ເມືອງ/DOWNTOWN</div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    const getPaymentMethodText = (method: string) => {
+      switch (method) {
+        case 'cash':
+          return 'ເງິນສົດ';
+        case 'qr':
+          return 'ເງິນໂອນ';
+        default:
+          return method;
+      }
+    };
+  
+    return (
+      <div 
+        id="printable-content"
+        className="w-[99mm] h-[150mm] mx-auto bg-white border-2 border-black flex flex-col" 
+        style={{ 
+          fontFamily: 'Arial, sans-serif', 
+          fontSize: '12px', 
+          pageBreakInside: 'avoid',
+          boxShadow: '0 0 10px rgba(0,0,0,0.1)'
+        }}
+      >
+        {/* Top Section */}
+        <div className="bg-black text-white p-4 text-center">
+          <h1 className="text-3xl text-black font-extrabold uppercase">ປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງລົດໄຟ ລາວ-ຈີນ</h1>
+        </div>
+  
+        {/* Ticket Details */}
+        <div className=" p-4 border-b-2">
+          <div className="grid grid-cols-2 gap-2">
+            <span className="font-bold">ໝາຍເລກປີ້/Ticket No:</span>
+            <span>{ticketNumber}</span>
+            <span className="font-bold">ວັນ-ເວລາ/Date-Time:</span>
+            <span>{formatDate(soldAt)}</span>
+            <span className="font-bold">ລາຄາ/Price:</span>
+            <span className="font-bold">{price.toLocaleString()}</span>
+            <span className="font-bold">ຊຳລະ/Payment:</span>
+            <span>{getPaymentMethodText(paymentMethod)}</span>
+          </div>
+        </div>
+  
+        {/* Route Information */}
+        <div className="p-6 border-b-2 text-center">
+          <div className="flex justify-between items-center">
+            <div className="flex flex-col items-center">
+              <span className="text-sm font-bold">ສະຖານີລົດໄຟ<br/>TRAIN STATION</span>
+            </div>
 
-      {/* ส่วนผู้ขาย */}
-      <div className="py-1 px-2 text-center border-b border-black">
-        <div className="text-sm">
-          ອອກໂດຍ/Sold By:<br/>
-          {soldBy}
+            <FaArrowRight className="text-2xl" />
+
+            
+            
+
+            <div className="flex flex-col  items-center mx-4">
+              <span className="text-sm font-bold">ຕົວເມືອງ<br/>DOWNTOWN</span>
+            </div>
+          </div>
+        </div>
+  
+  
+        {/* Bottom Section */}
+        <div className=" p-4 text-center flex-grow flex flex-col justify-between">
+          <div className="flex justify-center items-center my-4">
+            <p className="text-xl">ອອກໂດຍ<br/>Sold By:<br/> {soldBy}</p>
+  
+          </div>
+
+          <div className="flex justify-center items-center my-4">
+
+          <LuBus className="text-9xl text-gray-200 opacity-60" />
+          </div>
+
+  
+          <div className="">
+            <p className="text-xs">*** THANK YOU ***</p>
+            <p className="text-xs">PLEASE KEEP THIS TICKET</p>
+            <p className="text-xs">DURING YOUR JOURNEY</p>
+            <p className="text-xs">ກາລຸນາຮັກສາປີ້ນີ້ໄວ້ເພື່ອກວດກາ</p>
+            <p className="text-xs">ຂະນະເດີນທາງ</p>
+          </div>
         </div>
       </div>
-
-      {/* ส่วนขอบคุณ */}
-      <div className="py-1 px-2 text-center">
-        <p className="text-xs text-blue-600 my-0">*** THANK YOU ***</p>
-        <p className="text-xs my-0">ກາລຸນາຮັກສາປີ້ນີ້ໄວ້ເພື່ອກວດກາ/PLEASE KEEP THIS TICKET</p>
-        <p className="text-xs my-0 mb-0 pb-0">ຂະນະເດີນທາງ/DURING YOUR JOURNEY</p>
-      </div>
-    </div>
-  );
-};
-
-export default PrintableTicket;
+    );
+  }

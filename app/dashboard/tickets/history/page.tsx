@@ -95,7 +95,7 @@ export default function TicketHistoryPage() {
               }`}
               onClick={() => handlePaymentMethodChange('cash')}
             >
-              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+              <span></span>
               ເງິນສົດ
             </button>
             <button 
@@ -106,8 +106,8 @@ export default function TicketHistoryPage() {
               }`}
               onClick={() => handlePaymentMethodChange('qr')}
             >
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-              QR
+              <span ></span>
+              ເງິນໂອນ
             </button>
           </div>
           <div className='text-sm text-gray-600'>
