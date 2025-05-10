@@ -1,0 +1,95 @@
+import { useState, useCallback } from 'react';
+import { DEFAULT_USER, DEFAULT_CAR } from '../config/constants';
+import { User, Car } from '../types';
+import notificationService from '@/lib/notificationService';
+
+export default function useUserForm(activeTab: 'drivers' | 'staff' | 'admin' | 'station') {
+  // สถานะฟอร์ม
+  const [user, setUser] = useState<Partial<User>>({
+    ...DEFAULT_USER,
+    role: activeTab === 'drivers' ? 'driver' :
+          activeTab === 'staff' ? 'staff' :
+          activeTab === 'admin' ? 'admin' : 'station'
+  });
+  
+  const [car, setCar] = useState<Partial<Car>>({...DEFAULT_CAR});
+  
+  // สถานะไฟล์รูปภาพ
+  const [idCardImageFile, setIdCardImageFile] = useState<File | null>(null);
+  const [userImageFile, setUserImageFile] = useState<File | null>(null);
+  
+  // ฟังก์ชันอัปเดตข้อมูลผู้ใช้
+  const updateUser = useCallback((field: string, value: string | number) => {
+    setUser(prev => ({ ...prev, [field]: value }));
+  }, []);
+  
+  // ฟังก์ชันอัปเดตข้อมูลรถ
+  const updateCar = useCallback((field: string, value: string | number) => {
+    setCar(prev => ({ ...prev, [field]: value }));
+  }, []);
+  
+  // ฟังก์ชันรีเซ็ตฟอร์ม
+  const resetForm = useCallback(() => {
+    setUser({
+      ...DEFAULT_USER,
+      role: activeTab === 'drivers' ? 'driver' :
+            activeTab === 'staff' ? 'staff' :
+            activeTab === 'admin' ? 'admin' : 'station'
+    });
+    setCar({...DEFAULT_CAR});
+    setIdCardImageFile(null);
+    setUserImageFile(null);
+  }, [activeTab]);
+  
+  // ฟังก์ชันตรวจสอบความถูกต้องของฟอร์ม
+  const validateForm = useCallback(() => {
+    // ตรวจสอบข้อมูลที่จำเป็นพื้นฐาน
+    if (!user.name || !user.email || !user.password) {
+      notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນທີ່ຈຳເປັນ');
+      return false;
+    }
+    
+    // ตรวจสอบข้อมูลเฉพาะตามประเภทผู้ใช้
+    if (user.role === 'driver') {
+      if (!user.idCardNumber || !car.car_name || !car.car_registration) {
+        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນຄົນຂັບລົດແລະລົດທີ່ຈຳເປັນ');
+        return false;
+      }
+    } else if (user.role === 'staff') {
+      if (!user.idCardNumber) {
+        notificationService.error('ກະລຸນາລະບຸເລກບັດປະຈຳຕົວ');
+        return false;
+      }
+    } else if (user.role === 'station') {
+      if (!user.location) {
+        notificationService.error('ກະລຸນາລະບຸທີ່ຕັ້ງສະຖານີ');
+        return false;
+      }
+    }
+    
+    return true;
+  }, [user, car]);
+  
+  // อัปเดตประเภทผู้ใช้เมื่อ activeTab เปลี่ยน
+  useCallback(() => {
+    setUser(prev => ({
+      ...prev,
+      role: activeTab === 'drivers' ? 'driver' :
+            activeTab === 'staff' ? 'staff' :
+            activeTab === 'admin' ? 'admin' : 'station'
+    }));
+  }, [activeTab]);
+  
+  return {
+    user,
+    car,
+    updateUser,
+    updateCar,
+    idCardImageFile,
+    userImageFile,
+    setIdCardImageFile,
+    setUserImageFile,
+    resetForm,
+    validateForm
+  };
+}
