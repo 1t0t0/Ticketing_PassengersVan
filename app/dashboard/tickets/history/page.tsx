@@ -400,12 +400,7 @@ export default function TicketHistoryPage() {
                     </td>
                     <td className="p-2 text-center">
                       <div className="flex justify-center gap-2">
-                        <NeoButton 
-                          size="sm" 
-                          onClick={() => handleReprint(ticket)}
-                        >
-                          ພິມຄືນ
-                        </NeoButton>
+                        
                         <NeoButton 
                           size="sm" 
                           className="bg-red-500 hover:bg-red-600 text-white"
