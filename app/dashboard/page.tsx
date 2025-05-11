@@ -130,7 +130,7 @@ export default function DashboardPage() {
             onChange={(e) => setStartDate(e.target.value)}
             className="border border-gray-300 rounded-md p-2 text-sm"
           />
-          <span>to</span>
+          <span>ຮອດ</span>
           <input
             type="date"
             value={endDate}
@@ -143,24 +143,24 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <NeoCard className="p-4">
-          <h3 className="text-sm font-bold text-gray-500 uppercase">Total Tickets</h3>
+          <h3 className="text-sm font-bold text-gray-500 uppercase">ຈຳນວນປີ້</h3>
           <p className="text-2xl font-bold">{stats.totalTicketsSold}</p>
         </NeoCard>
 
         <NeoCard className="p-4">
-          <h3 className="text-sm font-bold text-gray-500 uppercase">Total Revenue</h3>
+          <h3 className="text-sm font-bold text-gray-500 uppercase">ຈຳນວນລາຍຮັບ</h3>
           <p className="text-2xl font-bold">₭{stats.totalRevenue.toLocaleString()}</p>
         </NeoCard>
 
         <NeoCard className="p-4">
-          <h3 className="text-sm font-bold text-gray-500 uppercase">Payment Methods</h3>
+          <h3 className="text-sm font-bold text-gray-500 uppercase">ປະເພດການຊຳລະ</h3>
           <div className="flex justify-between mt-2">
             <div className="text-center">
-              <div className="text-sm text-gray-500">Cash</div>
+              <div className="text-sm text-gray-500">ເງິນສົດ</div>
               <p className="font-bold">{stats.paymentMethodStats.cash}%</p>
             </div>
             <div className="text-center">
-              <div className="text-sm text-gray-500">QR</div>
+              <div className="text-sm text-gray-500">ເງິນໂອນ</div>
               <p className="font-bold">{stats.paymentMethodStats.qr}%</p>
             </div>
           </div>
@@ -170,10 +170,10 @@ export default function DashboardPage() {
       {/* Staff and Driver Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <NeoCard className="p-4">
-          <h3 className="text-sm font-bold text-gray-500 uppercase">Total Drivers</h3>
+          <h3 className="text-sm font-bold text-gray-500 uppercase">ຈຳນວນພະນັກງານຂັບລົດ</h3>
           <p className="text-2xl font-bold">{stats.totalDrivers}</p>
           <div className="text-sm text-gray-500 mt-1">
-            {stats.checkedInDrivers} drivers checked in
+            {stats.checkedInDrivers} ຄົນທີ່ເຂົ້າວຽກ
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
             <div 
@@ -186,10 +186,10 @@ export default function DashboardPage() {
         </NeoCard>
 
         <NeoCard className="p-4">
-          <h3 className="text-sm font-bold text-gray-500 uppercase">Total Staff</h3>
+          <h3 className="text-sm font-bold text-gray-500 uppercase">ຈຳນວນພະນັກງານຂາຍປີ້</h3>
           <p className="text-2xl font-bold">{stats.totalStaff}</p>
           <div className="text-sm text-gray-500 mt-1">
-            {stats.checkedInStaff} staff checked in
+            {stats.checkedInStaff} ຄົນທີ່ເຂົ້າວຽກ
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
             <div 
@@ -202,25 +202,25 @@ export default function DashboardPage() {
         </NeoCard>
         
         <NeoCard className="p-4 lg:col-span-2">
-          <h3 className="text-sm font-bold text-gray-500 uppercase">Check-in Status</h3>
+          <h3 className="text-sm font-bold text-gray-500 uppercase">ສະຖານະພະນັກງານທີ່ເຂົ້າວຽກ</h3>
           <div className="flex flex-col md:flex-row justify-between mt-2 h-full">
             <div className="text-center flex flex-col items-center justify-center flex-1">
               <div className="text-blue-500 font-bold text-lg">{stats.checkedInDrivers}</div>
-              <div className="text-sm">Drivers Checked-In</div>
+              <div className="text-sm">ພະນັກງານຂັບລົດທີ່ເຂົ້າວຽກ</div>
               <div className="text-xs text-gray-500">
                 {stats.totalDrivers > 0 
                   ? Math.round((stats.checkedInDrivers / stats.totalDrivers) * 100) 
-                  : 0}% of total
+                  : 0}% ຂອງທັງໝົດ
               </div>
             </div>
             <div className="h-full w-px bg-gray-200 mx-2 hidden md:block"></div>
             <div className="text-center flex flex-col items-center justify-center flex-1">
               <div className="text-green-500 font-bold text-lg">{stats.checkedInStaff}</div>
-              <div className="text-sm">Staff Checked-In</div>
+              <div className="text-sm">ຈຳນວນພະນັກງານຂາຍປີ້</div>
               <div className="text-xs text-gray-500">
                 {stats.totalStaff > 0 
                   ? Math.round((stats.checkedInStaff / stats.totalStaff) * 100) 
-                  : 0}% of total
+                  : 0}% ຂອງທັງໝົດ
               </div>
             </div>
           </div>
@@ -232,8 +232,8 @@ export default function DashboardPage() {
         {/* Hourly Sales Chart - Takes 2 columns */}
         <div className="lg:col-span-2">
           <NeoCard className="p-4">
-            <h3 className="text-lg font-bold mb-2">Hourly Sales</h3>
-            <p className="text-sm text-gray-500 mb-4">Tickets Sold by Hour (Today)</p>
+            <h3 className="text-lg font-bold mb-2">ຊົວໂມງການຂາຍ</h3>
+            <p className="text-sm text-gray-500 mb-4">ຍອດການຂາຍປີ້ຕໍ່ຊົວໂມງ(ມື້ນີ້)</p>
             <div className="h-80">
               <Line data={hourlyData} options={{
                 responsive: true,
@@ -269,7 +269,7 @@ export default function DashboardPage() {
         {/* Right Column - Payment Methods */}
         <div className="space-y-6">
           <NeoCard className="p-4">
-            <h3 className="text-lg font-bold mb-4">Payment Methods</h3>
+            <h3 className="text-lg font-bold mb-4">ປະເພດການຊຳລະ</h3>
             <PaymentMethodsChart 
               cashPercentage={stats.paymentMethodStats.cash} 
               qrPercentage={stats.paymentMethodStats.qr} 

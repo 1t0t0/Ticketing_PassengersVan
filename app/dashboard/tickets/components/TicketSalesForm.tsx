@@ -21,12 +21,12 @@ const TicketSalesForm: React.FC<TicketSalesFormProps> = ({
   return (
     <div>
       <div className="mb-6">
-        <p className="text-xs text-gray-600 uppercase font-medium mb-1">TICKET PRICE</p>
+        <p className="text-xs text-gray-600 uppercase font-medium mb-1">ລາຄາປີ້</p>
         <p className="text-3xl font-bold">₭{ticketPrice.toLocaleString()}</p>
       </div>
 
       <div className="mb-6">
-        <p className="text-xs text-gray-600 uppercase font-medium mb-1">PAYMENT METHOD</p>
+        <p className="text-xs text-gray-600 uppercase font-medium mb-1">ປະເພດການຊຳລະ</p>
         <div className="grid grid-cols-2 gap-2">
           <button
             className={`py-2 px-4 text-center font-medium rounded ${
@@ -46,17 +46,17 @@ const TicketSalesForm: React.FC<TicketSalesFormProps> = ({
             }`}
             onClick={() => setPaymentMethod('qr')}
           >
-            QR
+            ເງິນໂອນ
           </button>
         </div>
       </div>
 
       <button
-        className="w-full py-3 px-4 bg-blue-500 text-white font-medium rounded"
+        className="w-full py-3 px-4 bg-blue-500 text-xl text-white font-medium rounded"
         onClick={onSellTicket}
         disabled={loading}
       >
-        {loading ? 'PROCESSING...' : 'SELL TICKET'}
+        {loading ? 'ກຳລັງດຳເນີນການ...' : 'ກົດອອກປີ້'}
       </button>
     </div>
   );

@@ -3,28 +3,39 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { TfiTicket } from "react-icons/tfi";
+import { FiCreditCard } from "react-icons/fi";
+
+
+import { 
+  FiHome, 
+  FiDollarSign, 
+  FiUsers, 
+  FiPieChart, 
+  FiTruck, 
+  FiFileText, 
+  FiDatabase
+} from 'react-icons/fi';
 
 // Menu items สำหรับแต่ละบทบาท
 const menuItems = {
   admin: [
-    { name: 'Dashboard', href: '/dashboard', exact: true },
-    { name: 'Tickets Sales', href: '/dashboard/tickets', exact: true },
-    { name: 'Tickets Info', href: '/dashboard/tickets/history', exact: false }, 
-    { name: 'User Management', href: '/dashboard/users', exact: false },
-    { name: 'Revenue Sharing', href: '/dashboard/revenue', exact: false },
+    { name: 'Dashboard', href: '/dashboard', exact: true, icon: <FiHome size={18} /> },
+    { name: 'ອອກປີ້', href: '/dashboard/tickets', exact: true, icon: <TfiTicket size={18} /> },
+    { name: 'ຂໍ້ມູນປີ້', href: '/dashboard/tickets/history', exact: false, icon: <FiFileText size={18} /> }, 
+    { name: 'ຂໍ້ມູນຜູ້ໃຊ້', href: '/dashboard/users', exact: false, icon: <FiUsers size={18} /> },
+    { name: 'ຂໍ້ມູນລາຍຮັບ', href: '/dashboard/revenue', exact: false, icon: <FiPieChart size={18} /> },
   ],
   staff: [
-    { name: 'Tickets Sales', href: '/dashboard/tickets', exact: true },
-    { name: 'Tickets Info', href: '/dashboard/tickets/history', exact: false },
-    { name: 'User Management', href: '/dashboard/users', exact: false }, // เพิ่มสิทธิ์ให้ Staff เข้าถึง User Management
+    { name: 'ອອກປີ້', href: '/dashboard/tickets', exact: true, icon: <FiCreditCard  size={18} /> },
+    { name: 'ຂໍ້ມູນປີ້', href: '/dashboard/tickets/history', exact: false, icon: <FiFileText size={18} /> },
+    { name: 'ຂໍ້ມູນຜູ້ໃຊ້', href: '/dashboard/users', exact: false, icon: <FiUsers size={18} /> }, // เพิ่มสิทธิ์ให้ Staff เข้าถึง User Management
   ],
   driver: [
-    { name: 'My Income', href: '/driver-portal', exact: true },
+    { name: 'ຂໍ້ມູນລາຍຮັບ', href: '/driver-portal', exact: true, icon: <FiDollarSign size={18} /> },
   ],
   station: [
-    { name: 'Dashboard', href: '/dashboard', exact: true },
-    { name: 'Tickets Info', href: '/dashboard/tickets/history', exact: false },
-    { name: 'Revenue Sharing', href: '/dashboard/revenue', exact: false },
+    { name: 'ຂໍ້ມູນລາຍຮັບ', href: '/dashboard/revenue', exact: false, icon: <FiPieChart size={18} /> },
   ]
 };
 
@@ -50,7 +61,10 @@ export default function NotionSidebar() {
     <div className="hidden md:block md:w-60 md:fixed md:inset-y-0">
       <div className="flex flex-col h-full bg-[#F7F6F3] border-r border-[#E9E9E8]">
         <div className="flex items-center h-16 px-6 border-b border-[#E9E9E8]">
-          <h1 className="text-[#37352F] font-medium text-base">Bus Ticket System</h1>
+          <div className="flex items-center space-x-2">
+            <FiTruck size={20} />
+            <h1 className="text-[#37352F] font-medium text-base">Bus Ticket System</h1>
+          </div>
         </div>
         <div className="flex-1 pt-5 pb-4 px-3 overflow-y-auto">
           <nav className="space-y-2">
@@ -62,18 +76,25 @@ export default function NotionSidebar() {
                   key={item.name} 
                   href={item.href}
                   className={`
-                    block w-full px-3 py-2.5 text-sm rounded transition-colors
+                    flex items-center w-full px-3 py-2.5 text-sm rounded transition-colors
                     ${active 
                       ? 'bg-[#EFEFEF] text-[#37352F] font-medium' 
                       : 'text-[#6B6B6B] hover:bg-[#EFEFEF]'
                     }
                   `}
                 >
+                  <span className="mr-2 ">{item.icon}</span>
                   {item.name}
                 </Link>
               );
             })}
           </nav>
+        </div>
+        <div className="p-4 border-t border-[#E9E9E8]">
+          <div className="flex items-center px-3 py-2 text-sm text-[#6B6B6B]">
+            <FiDatabase size={16} className="mr-2 text-blue-600" />
+            <span>v1.0.0</span>
+          </div>
         </div>
       </div>
     </div>

@@ -83,10 +83,10 @@ const RecentTicketsList: React.FC<RecentTicketsListProps> = ({ tickets, onViewAl
       ))}
       
       <button 
-        className="w-full py-2 px-4 bg-gray-100 text-gray-700 font-medium rounded mt-4 cursor-pointer"
+        className="w-full py-2 px-4 text-xl bg-gray-100 text-gray-700 font-medium rounded mt-4 cursor-pointer"
         onClick={onViewAllClick}
       >
-        VIEW ALL TICKETS
+        ເບິ່ງປີ້ທັງໝົດ
       </button>
     </div>
   );

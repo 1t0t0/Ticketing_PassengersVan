@@ -25,7 +25,7 @@ export default function TicketSalesPage() {
     sellTicket, 
     loading, 
     printRef, 
-    handlePrint 
+     
   } = useTicketSales();
   
   const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
@@ -46,7 +46,7 @@ export default function TicketSalesPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">TICKET SALES</h1>
+      <h1 className="text-2xl font-bold mb-6">ຫນ້າການອອກປີ້</h1>
       
       {/* แสดงการ์ดสถิติ */}
       <StatsCards stats={stats} loading={statsLoading} />
@@ -55,7 +55,7 @@ export default function TicketSalesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ส่วนขายตั๋ว */}
         <NeoCard className="p-6">
-          <h2 className="text-lg font-bold mb-6">SELL TICKET</h2>
+          <h2 className="text-lg font-bold mb-6">ດຳເນີນການອອກປີ້</h2>
           
           <TicketSalesForm
             ticketPrice={ticketPrice}
@@ -68,7 +68,7 @@ export default function TicketSalesPage() {
 
         {/* ส่วนแสดงตั๋วล่าสุด */}
         <NeoCard className="p-6">
-          <h2 className="text-lg font-bold mb-4">RECENT TICKETS</h2>
+          <h2 className="text-lg font-bold mb-4">ປີ້ທີ່ອອກລ່າສຸດ</h2>
           
           <RecentTicketsList 
             tickets={recentTickets} 

@@ -39,7 +39,7 @@ const PaymentMethodsChart = ({ cashPercentage = 65, qrPercentage = 35 }) => {
         <div>
           <div className="flex items-center justify-center mb-1">
             <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-            <span className="text-sm font-medium">CASH</span>
+            <span className="text-sm font-medium">ເງິນສົດ</span>
           </div>
           <p className="text-lg font-bold">{cashPercentage}%</p>
         </div>
@@ -47,7 +47,7 @@ const PaymentMethodsChart = ({ cashPercentage = 65, qrPercentage = 35 }) => {
         <div>
           <div className="flex items-center justify-center mb-1">
             <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-            <span className="text-sm font-medium">QR</span>
+            <span className="text-sm font-medium">ເງິນໂອນ</span>
           </div>
           <p className="text-lg font-bold">{qrPercentage}%</p>
         </div>
