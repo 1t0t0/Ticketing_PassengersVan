@@ -139,7 +139,7 @@ export async function GET(request: Request) {
       return NextResponse.json(user);
     }
     
-    // Otherwise, get check-in status for all drivers
+    // Otherwise, get check-in status for all drivers and staff
     // Only admin and staff with CHECK_IN_DRIVERS permission can see all drivers status
     if (session.user.role !== 'admin' && !checkUserPermission(session, PERMISSIONS.CHECK_IN_DRIVERS)) {
       return NextResponse.json(
@@ -148,11 +148,17 @@ export async function GET(request: Request) {
       );
     }
     
-    const drivers = await User.find({ role: 'driver' })
-      .select('name employeeId checkInStatus lastCheckIn lastCheckOut')
+    const users = await User.find({ role: { $in: ['driver', 'staff'] } })
+      .select('name employeeId checkInStatus lastCheckIn lastCheckOut role')
       .sort({ name: 1 });
     
-    return NextResponse.json(drivers);
+    // Group by role for easier client-side processing
+    const grouped = {
+      drivers: users.filter(user => user.role === 'driver'),
+      staff: users.filter(user => user.role === 'staff')
+    };
+    
+    return NextResponse.json(grouped);
   } catch (error) {
     console.error('Get Check-in Status Error:', error);
     return NextResponse.json(

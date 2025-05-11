@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
@@ -56,9 +56,27 @@ export default function UserManagementPage() {
     }
   }, [status, session, fetchUsers]);
 
+  // ฟังก์ชันสำหรับรีโหลดข้อมูลหลังจากอัพเดท - ทำเป็น useCallback เพื่อให้ไม่ถูกสร้างใหม่ทุกครั้ง
+  const refreshData = useCallback(() => {
+    console.log('Refreshing user data...');
+    fetchUsers();
+  }, [fetchUsers]);
+
   // Tab change handler
   const handleTabChange = (tab: 'drivers' | 'staff' | 'admin' | 'station') => {
     setActiveTab(tab);
+  };
+
+  // Delete user handler
+  const handleDeleteUser = (userId: string, role: string, name: string) => {
+    showConfirmation(`ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບ ${name}?`, async () => {
+      try {
+        // ส่วนนี้จะถูกจัดการโดย lists components
+        // หลังจากลบเสร็จ จะเรียก refreshData ให้อัตโนมัติ
+      } catch (error) {
+        console.error('Error deleting user:', error);
+      }
+    });
   };
 
   // Render users based on active tab
@@ -73,13 +91,13 @@ export default function UserManagementPage() {
 
     switch(activeTab) {
       case 'drivers':
-        return <DriverList drivers={drivers} showConfirmation={showConfirmation} />;
+        return <DriverList drivers={drivers} showConfirmation={showConfirmation} onRefresh={refreshData} />;
       case 'staff':
-        return <StaffList staff={ticketSellers} showConfirmation={showConfirmation} />;
+        return <StaffList staff={ticketSellers} showConfirmation={showConfirmation} onRefresh={refreshData} />;
       case 'admin':
-        return <AdminList admins={admins} showConfirmation={showConfirmation} />;
+        return <AdminList admins={admins} showConfirmation={showConfirmation} onRefresh={refreshData} />;
       case 'station':
-        return <StationList stations={stations} showConfirmation={showConfirmation} />;
+        return <StationList stations={stations} showConfirmation={showConfirmation} onRefresh={refreshData} />;
       default:
         return null;
     }
@@ -94,11 +112,16 @@ export default function UserManagementPage() {
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">ຈັດການຜູ້ໃຊ້ລະບົບ</h1>
-        {canAddUser() && (
-          <NeoButton onClick={() => setShowAddModal(true)}>
-            ເພີ່ມຜູ້ໃຊ້ລະບົບ
+        <div className="flex gap-2">
+          {canAddUser() && (
+            <NeoButton onClick={() => setShowAddModal(true)}>
+              ເພີ່ມຜູ້ໃຊ້ລະບົບ
+            </NeoButton>
+          )}
+          <NeoButton variant="secondary" onClick={refreshData}>
+            ໂຫລດຂໍ້ມູນໃໝ່
           </NeoButton>
-        )}
+        </div>
       </div>
       
       <NeoCard className="overflow-hidden mb-6">
@@ -120,7 +143,10 @@ export default function UserManagementPage() {
         <AddUserModal
           activeTab={activeTab}
           onClose={() => setShowAddModal(false)}
-          onSuccess={fetchUsers}
+          onSuccess={() => {
+            fetchUsers();
+            setShowAddModal(false);
+          }}
         />
       )}
 

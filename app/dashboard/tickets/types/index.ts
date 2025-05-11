@@ -1,3 +1,4 @@
+// app/dashboard/tickets/types/index.ts
 // Types for Ticket Management
 
 // Ticket interface
@@ -15,7 +16,9 @@ export interface DashboardStats {
   totalTicketsSold: number;
   totalRevenue: number;
   totalDrivers: number;
+  totalStaff: number;
   checkedInDrivers: number;
+  checkedInStaff: number;
   hourlyTickets?: Array<{ _id: number; count: number; revenue: number }>;
   paymentMethodStats?: {
     cash: number;

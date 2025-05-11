@@ -14,7 +14,7 @@ import {
 } from 'react-icons/fi';
 import NeoButton from '@/components/ui/NotionButton';
 
-import { User,Driver } from '../types';
+import { User, Driver } from '../types';
 import useUserPermissions from '../hooks/useUserPermissions';
 import useCheckInOut from '../hooks/useCheckinOut';
 
@@ -41,6 +41,13 @@ const UserCard: React.FC<UserCardProps> = ({
   const showCheckInOut = canShowCheckInOutButton(user);
   const showEditButton = canEditUser(user);
   const showDeleteButton = canDeleteUser(user) && !(user.role === 'admin' && admins.length <= 1);
+  
+  // ฟังก์ชันสำหรับการ check in/out และเรียกข้อมูลใหม่
+  const handleUserCheckInOut = async (userId: string, currentStatus: string) => {
+    await handleCheckInOut(userId, currentStatus);
+    // เพิ่มการเรียก onRefresh เพื่ออัพเดท UI ทันที
+    onRefresh();
+  };
   
   // Get appropriate CSS classes based on user role
   const getRoleClasses = () => {
@@ -145,12 +152,12 @@ const UserCard: React.FC<UserCardProps> = ({
               <NeoButton
                 variant={user.checkInStatus === 'checked-in' ? 'danger' : 'success'}
                 size="sm"
-                onClick={() => handleCheckInOut(user._id!, user.checkInStatus || 'checked-out')}
+                onClick={() => handleUserCheckInOut(user._id!, user.checkInStatus || 'checked-out')}
                 disabled={checkingInOut[user._id!]}
                 className="flex items-center"
               >
                 {checkingInOut[user._id!] ? (
-                  'กำลังดำเนินการ...' 
+                  'ກຳລັງດຳເນີນການ...' 
                 ) : (
                   <>
                     {user.checkInStatus === 'checked-in' ? (

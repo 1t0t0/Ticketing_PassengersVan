@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import UserCard from '../UserCard';
 import { User } from '../../types';
 import { deleteUser } from '../../api/user';
@@ -7,10 +7,11 @@ import notificationService from '@/lib/notificationService';
 interface StationListProps {
   stations: User[];
   showConfirmation: (message: string, onConfirm: () => void) => void;
+  onRefresh: () => void;
 }
 
-const StationList: React.FC<StationListProps> = ({ stations, showConfirmation }) => {
-  const [loading, setLoading] = React.useState(false);
+const StationList: React.FC<StationListProps> = ({ stations, showConfirmation, onRefresh }) => {
+  const [loading, setLoading] = useState(false);
   
   // ฟังก์ชันลบสถานี
   const handleDeleteStation = async (userId: string, role: string, name: string) => {
@@ -21,7 +22,10 @@ const StationList: React.FC<StationListProps> = ({ stations, showConfirmation })
         // ลบผู้ใช้
         await deleteUser(userId);
         
-        // ดึงข้อมูลใหม่ (ตรงนี้จะเป็นการรีเฟรชด้วย props onRefresh จาก UserCard)
+        // เรียก onRefresh เพื่อโหลดข้อมูลใหม่
+        onRefresh();
+        
+        // แสดงข้อความสำเร็จ
         notificationService.success('ລຶບສະຖານີສຳເລັດແລ້ວ');
       } catch (error: any) {
         console.error('Error deleting station:', error);
@@ -30,13 +34,6 @@ const StationList: React.FC<StationListProps> = ({ stations, showConfirmation })
         setLoading(false);
       }
     });
-  };
-  
-  // Handle refresh after action
-  const handleRefresh = () => {
-    // ตรงนี้จะแทนที่ด้วยการเรียก fetchUsers ผ่าน props ในการใช้งานจริง 
-    // แต่ตอนนี้เป็นตัวอย่างโดยไม่มีการเรียก API จริง
-    console.log('Refreshing station list...');
   };
   
   // แสดงแถบโหลดหรือข้อความว่าไม่มีข้อมูลถ้าจำเป็น
@@ -63,7 +60,7 @@ const StationList: React.FC<StationListProps> = ({ stations, showConfirmation })
           key={station._id}
           user={station}
           onDelete={handleDeleteStation}
-          onRefresh={handleRefresh}
+          onRefresh={onRefresh}
         />
       ))}
     </div>

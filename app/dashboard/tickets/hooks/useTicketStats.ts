@@ -6,7 +6,7 @@ import { RECENT_TICKETS_COUNT } from '../config/constants';
 import notificationService from '@/lib/notificationService';
 
 /**
- * Hook สำหรับจัดการข้อมูลสถิติและตั๋วล่าสุด
+ * Hook for managing stats data and recent tickets with improved error handling
  */
 export default function useTicketStats() {
   // State
@@ -14,7 +14,9 @@ export default function useTicketStats() {
     totalTicketsSold: 0,
     totalRevenue: 0,
     totalDrivers: 0,
+    totalStaff: 0,
     checkedInDrivers: 0,
+    checkedInStaff: 0,
     paymentMethodStats: {
       cash: 65,
       qr: 35
@@ -24,31 +26,36 @@ export default function useTicketStats() {
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // ดึงข้อมูลสถิติและตั๋วล่าสุด
+  // Fetch stats and recent tickets
   const fetchData = useCallback(async (startDate?: string, endDate?: string) => {
     setLoading(true);
     try {
-      // ดึงข้อมูลสถิติ
-      const statsData = await fetchDashboardStats(startDate, endDate);
-      setStats(statsData);
+      // Fetch stats
+      try {
+        const statsData = await fetchDashboardStats(startDate, endDate);
+        setStats(statsData);
+      } catch (statsError) {
+        console.error('Error fetching dashboard stats:', statsError);
+        // Stats fetch error is already handled in the fetchDashboardStats function
+        // which will return default values in case of an error
+      }
       
-      // ดึงข้อมูลตั๋วล่าสุด
+      // Fetch recent tickets
       try {
         const ticketsResponse = await fetchTickets(1, RECENT_TICKETS_COUNT);
         
-        if (ticketsResponse.tickets) {
+        if (ticketsResponse && ticketsResponse.tickets) {
           setRecentTickets(ticketsResponse.tickets);
         } else {
           setRecentTickets([]);
         }
-      } catch (error) {
-        console.error('Error fetching recent tickets:', error);
+      } catch (ticketsError) {
+        console.error('Error fetching recent tickets:', ticketsError);
         setRecentTickets([]);
       }
-      
     } catch (error: any) {
-      console.error('Error fetching dashboard data:', error);
-      notificationService.error(error.message || 'ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນ');
+      console.error('Error in fetchData:', error);
+      notificationService.error(error?.message || 'Error fetching dashboard data');
     } finally {
       setLoading(false);
     }

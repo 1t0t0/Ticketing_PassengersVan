@@ -2,26 +2,27 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
+import User from '@/models/User';
 
 export async function GET(request: Request) {
   try {
     await connectDB();
     
-    // รับพารามิเตอร์จาก URL
+    // Get URL parameters
     const { searchParams } = new URL(request.url);
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
     
-    // กำหนดช่วงเวลาสำหรับค้นหา
+    // Set time range for search
     const now = new Date();
     
     let startDate = startDateParam 
       ? new Date(startDateParam) 
-      : new Date(now.getFullYear(), now.getMonth(), now.getDate()); // เริ่มต้นวันนี้
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Start of today
     
     let endDate = endDateParam
-      ? new Date(endDateParam + 'T23:59:59.999Z')  // สิ้นสุดวันที่เลือกเวลา 23:59:59
-      : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999); // สิ้นสุดวันนี้
+      ? new Date(endDateParam + 'T23:59:59.999Z')  // End of the selected date
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999); // End of today
     
     const dateFilter = { 
       soldAt: { 
@@ -30,21 +31,30 @@ export async function GET(request: Request) {
       } 
     };
 
-    // นับจำนวนตั๋วและคำนวณรายได้ตามช่วงเวลา
+    // Count tickets and calculate revenue in date range
     const totalTicketsSold = await Ticket.countDocuments(dateFilter);
     const totalRevenueResult = await Ticket.aggregate([
       { $match: dateFilter },
       { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
-    const totalRevenue = totalRevenueResult[0]?.total || 0;
+    const totalRevenue = totalRevenueResult.length > 0 ? totalRevenueResult[0].total : 0;
 
-    // นับจำนวน Drivers ทั้งหมด (ในที่นี้ให้ค่าคงที่ เพราะอาจจะต้องดึงจากโมเดลอื่น)
-    const totalDrivers = 124; // สมมติค่า
+    // Count total drivers and staff (ticket sellers)
+    const totalDrivers = await User.countDocuments({ role: 'driver' });
+    const totalStaff = await User.countDocuments({ role: 'staff' });
+    
+    // Count checked-in drivers and staff
+    const checkedInDrivers = await User.countDocuments({ 
+      role: 'driver',
+      checkInStatus: 'checked-in'
+    });
+    
+    const checkedInStaff = await User.countDocuments({ 
+      role: 'staff',
+      checkInStatus: 'checked-in'
+    });
 
-    // นับ Checked-in Drivers (ในที่นี้ให้ค่าคงที่ เพราะอาจจะต้องดึงจากโมเดลอื่น)
-    const checkedInDrivers = 87; // สมมติค่า
-
-    // ข้อมูลสำหรับกราฟรายชั่วโมง (วันนี้)
+    // Hourly ticket sales data (today)
     const hourlyTickets = await Ticket.aggregate([
       {
         $match: dateFilter
@@ -59,7 +69,7 @@ export async function GET(request: Request) {
       { $sort: { _id: 1 } }
     ]);
 
-    // คำนวณสถิติการชำระเงิน
+    // Payment method statistics
     const paymentMethodStats = await Ticket.aggregate([
       { $match: dateFilter },
       {
@@ -70,7 +80,7 @@ export async function GET(request: Request) {
       }
     ]);
 
-    // แปลงผลลัพธ์เป็นรูปแบบที่ใช้งานง่าย
+    // Convert payment stats to the expected format
     let cashCount = 0;
     let qrCount = 0;
 
@@ -86,12 +96,21 @@ export async function GET(request: Request) {
     const cashPercentage = totalPayments > 0 ? Math.round((cashCount / totalPayments) * 100) : 65; // default 65% if no data
     const qrPercentage = totalPayments > 0 ? Math.round((qrCount / totalPayments) * 100) : 35; // default 35% if no data
 
+    // Format hourly tickets data
+    const formattedHourlyTickets = hourlyTickets.map(item => ({
+      _id: item._id,
+      count: item.count,
+      revenue: item.revenue
+    }));
+
     return NextResponse.json({
       totalTicketsSold,
       totalRevenue,
       totalDrivers,
+      totalStaff,
       checkedInDrivers,
-      hourlyTickets,
+      checkedInStaff,
+      hourlyTickets: formattedHourlyTickets,
       paymentMethodStats: {
         cash: cashPercentage,
         qr: qrPercentage

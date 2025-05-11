@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import UserCard from '../UserCard';
 import { User } from '../../types';
 import { deleteUser } from '../../api/user';
@@ -7,10 +7,11 @@ import notificationService from '@/lib/notificationService';
 interface AdminListProps {
   admins: User[];
   showConfirmation: (message: string, onConfirm: () => void) => void;
+  onRefresh: () => void;
 }
 
-const AdminList: React.FC<AdminListProps> = ({ admins, showConfirmation }) => {
-  const [loading, setLoading] = React.useState(false);
+const AdminList: React.FC<AdminListProps> = ({ admins, showConfirmation, onRefresh }) => {
+  const [loading, setLoading] = useState(false);
   
   // ฟังก์ชันลบแอดมิน
   const handleDeleteAdmin = async (userId: string, role: string, name: string) => {
@@ -21,13 +22,17 @@ const AdminList: React.FC<AdminListProps> = ({ admins, showConfirmation }) => {
         // ตรวจสอบว่าเป็น admin คนสุดท้ายหรือไม่
         if (admins.length <= 1) {
           notificationService.error('ບໍ່ສາມາດລຶບແອດມິນຄົນສຸດທ້າຍໄດ້');
+          setLoading(false);
           return;
         }
         
         // ลบผู้ใช้
         await deleteUser(userId);
         
-        // ดึงข้อมูลใหม่ (ตรงนี้จะเป็นการรีเฟรชด้วย props onRefresh จาก UserCard)
+        // เรียก onRefresh เพื่อโหลดข้อมูลใหม่
+        onRefresh();
+        
+        // แสดงข้อความสำเร็จ
         notificationService.success('ລຶບຜູ້ໃຊ້ສຳເລັດແລ້ວ');
       } catch (error: any) {
         console.error('Error deleting user:', error);
@@ -36,13 +41,6 @@ const AdminList: React.FC<AdminListProps> = ({ admins, showConfirmation }) => {
         setLoading(false);
       }
     });
-  };
-  
-  // Handle refresh after check-in/out
-  const handleRefresh = () => {
-    // ตรงนี้จะแทนที่ด้วยการเรียก fetchUsers ผ่าน props ในการใช้งานจริง 
-    // แต่ตอนนี้เป็นตัวอย่างโดยไม่มีการเรียก API จริง
-    console.log('Refreshing admin list...');
   };
   
   // แสดงแถบโหลดหรือข้อความว่าไม่มีข้อมูลถ้าจำเป็น
@@ -70,7 +68,7 @@ const AdminList: React.FC<AdminListProps> = ({ admins, showConfirmation }) => {
           user={admin}
           admins={admins}
           onDelete={handleDeleteAdmin}
-          onRefresh={handleRefresh}
+          onRefresh={onRefresh}
         />
       ))}
     </div>

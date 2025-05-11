@@ -5,9 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
 import { Line } from 'react-chartjs-2';
-import PaymentMethodsChart from '@/components/PaymentMethodsChart'; // นำเข้าคอมโพเนนต์ที่แก้ไขแล้ว
-import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
-import useConfirmation from '@/hooks/useConfirmation';
+import PaymentMethodsChart from '@/components/PaymentMethodsChart';
 import notificationService from '@/lib/notificationService';
 import {
   Chart as ChartJS,
@@ -30,21 +28,19 @@ ChartJS.register(
   Legend
 );
 
-
-
 interface DashboardStats {
   totalTicketsSold: number;
   totalRevenue: number;
   totalDrivers: number;
+  totalStaff: number;
   checkedInDrivers: number;
+  checkedInStaff: number;
   hourlyTickets: Array<{ _id: number; count: number; revenue: number }>;
   paymentMethodStats: {
     cash: number;
     qr: number;
   };
 }
-
-
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -64,7 +60,9 @@ export default function DashboardPage() {
     totalTicketsSold: 0,
     totalRevenue: 0,
     totalDrivers: 0,
+    totalStaff: 0,
     checkedInDrivers: 0,
+    checkedInStaff: 0,
     hourlyTickets: [],
     paymentMethodStats: {
       cash: 65,
@@ -72,7 +70,7 @@ export default function DashboardPage() {
     }
   });
   
-  
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -82,29 +80,22 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
+      setLoading(true);
       
-      
-      // ดึงข้อมูลสถิติจาก API
+      // Fetch stats from API
       const statsResponse = await fetch(`/api/dashboard/stats?startDate=${startDate}&endDate=${endDate}`);
       const statsData = await statsResponse.json();
-      
-      // ดึงข้อมูลตั๋วล่าสุด
-      const ticketsResponse = await fetch('/api/tickets');
-      const ticketsData = await ticketsResponse.json();
-      
-      if (Array.isArray(ticketsData)) {
-       
-      }
       
       setStats(statsData);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      notificationService.error('Failed to load dashboard data');
     } finally {
-      
+      setLoading(false);
     }
   };
 
-  // เตรียมข้อมูลสำหรับกราฟแท่งรายชั่วโมง
+  // Prepare data for hourly chart
   const hourlyLabels = Array.from({ length: 24 }, (_, i) => 
     i < 10 ? `0${i}:00` : `${i}:00`
   );
@@ -128,9 +119,6 @@ export default function DashboardPage() {
     ]
   };
 
-  // ฟังก์ชันแสดงเวลา
-
-
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -153,7 +141,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <NeoCard className="p-4">
           <h3 className="text-sm font-bold text-gray-500 uppercase">Total Tickets</h3>
           <p className="text-2xl font-bold">{stats.totalTicketsSold}</p>
@@ -165,13 +153,77 @@ export default function DashboardPage() {
         </NeoCard>
 
         <NeoCard className="p-4">
+          <h3 className="text-sm font-bold text-gray-500 uppercase">Payment Methods</h3>
+          <div className="flex justify-between mt-2">
+            <div className="text-center">
+              <div className="text-sm text-gray-500">Cash</div>
+              <p className="font-bold">{stats.paymentMethodStats.cash}%</p>
+            </div>
+            <div className="text-center">
+              <div className="text-sm text-gray-500">QR</div>
+              <p className="font-bold">{stats.paymentMethodStats.qr}%</p>
+            </div>
+          </div>
+        </NeoCard>
+      </div>
+
+      {/* Staff and Driver Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <NeoCard className="p-4">
           <h3 className="text-sm font-bold text-gray-500 uppercase">Total Drivers</h3>
           <p className="text-2xl font-bold">{stats.totalDrivers}</p>
+          <div className="text-sm text-gray-500 mt-1">
+            {stats.checkedInDrivers} drivers checked in
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full" 
+              style={{ 
+                width: `${stats.totalDrivers > 0 ? (stats.checkedInDrivers / stats.totalDrivers) * 100 : 0}%` 
+              }}
+            ></div>
+          </div>
         </NeoCard>
 
         <NeoCard className="p-4">
-          <h3 className="text-sm font-bold text-gray-500 uppercase">Checked-in Drivers</h3>
-          <p className="text-2xl font-bold">{stats.checkedInDrivers}</p>
+          <h3 className="text-sm font-bold text-gray-500 uppercase">Total Staff</h3>
+          <p className="text-2xl font-bold">{stats.totalStaff}</p>
+          <div className="text-sm text-gray-500 mt-1">
+            {stats.checkedInStaff} staff checked in
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div 
+              className="bg-green-600 h-2 rounded-full" 
+              style={{ 
+                width: `${stats.totalStaff > 0 ? (stats.checkedInStaff / stats.totalStaff) * 100 : 0}%` 
+              }}
+            ></div>
+          </div>
+        </NeoCard>
+        
+        <NeoCard className="p-4 lg:col-span-2">
+          <h3 className="text-sm font-bold text-gray-500 uppercase">Check-in Status</h3>
+          <div className="flex flex-col md:flex-row justify-between mt-2 h-full">
+            <div className="text-center flex flex-col items-center justify-center flex-1">
+              <div className="text-blue-500 font-bold text-lg">{stats.checkedInDrivers}</div>
+              <div className="text-sm">Drivers Checked-In</div>
+              <div className="text-xs text-gray-500">
+                {stats.totalDrivers > 0 
+                  ? Math.round((stats.checkedInDrivers / stats.totalDrivers) * 100) 
+                  : 0}% of total
+              </div>
+            </div>
+            <div className="h-full w-px bg-gray-200 mx-2 hidden md:block"></div>
+            <div className="text-center flex flex-col items-center justify-center flex-1">
+              <div className="text-green-500 font-bold text-lg">{stats.checkedInStaff}</div>
+              <div className="text-sm">Staff Checked-In</div>
+              <div className="text-xs text-gray-500">
+                {stats.totalStaff > 0 
+                  ? Math.round((stats.checkedInStaff / stats.totalStaff) * 100) 
+                  : 0}% of total
+              </div>
+            </div>
+          </div>
         </NeoCard>
       </div>
 
@@ -214,15 +266,10 @@ export default function DashboardPage() {
           </NeoCard>
         </div>
 
-        {/* Right Column - Recent Tickets and Payment Methods */}
+        {/* Right Column - Payment Methods */}
         <div className="space-y-6">
-          {/* Recent Tickets */}
-        
-
-          {/* Payment Methods */}
           <NeoCard className="p-4">
             <h3 className="text-lg font-bold mb-4">Payment Methods</h3>
-            {/* ใช้คอมโพเนนต์ PaymentMethodsChart ที่แก้ไขแล้ว */}
             <PaymentMethodsChart 
               cashPercentage={stats.paymentMethodStats.cash} 
               qrPercentage={stats.paymentMethodStats.qr} 

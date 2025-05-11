@@ -29,15 +29,21 @@ export default function useUserData() {
       const driverIds = driverUsers.map(driver => driver._id);
       
       if (driverIds.length > 0) {
-        const carsData = await fetchCarsByUser();
-        
-        // Map รถให้กับคนขับแต่ละคน
-        const driversWithCars = driverUsers.map((driver: Driver) => {
-          const assignedCar = carsData.find((car: Car) => car.user_id === driver._id);
-          return { ...driver, assignedCar };
-        });
-        
-        setDrivers(driversWithCars);
+        try {
+          const carsData = await fetchCarsByUser();
+          
+          // Map รถให้กับคนขับแต่ละคน
+          const driversWithCars = driverUsers.map((driver: Driver) => {
+            const assignedCar = carsData.find((car: Car) => car.user_id === driver._id);
+            return { ...driver, assignedCar };
+          });
+          
+          setDrivers(driversWithCars);
+        } catch (carError) {
+          console.error('Error fetching cars:', carError);
+          // ถ้าดึงข้อมูลรถไม่ได้ ให้แสดงข้อมูลคนขับโดยไม่มีข้อมูลรถ
+          setDrivers(driverUsers);
+        }
       } else {
         setDrivers(driverUsers);
       }
@@ -47,9 +53,12 @@ export default function useUserData() {
       setAdmins(adminUsers);
       setStations(stationUsers);
       
+      // แจ้งเตือนว่าโหลดข้อมูลสำเร็จ (เอาออกได้ถ้าไม่ต้องการให้แสดงบ่อย)
+      // notificationService.success('ໂຫລດຂໍ້ມູນຜູ້ໃຊ້ລະບົບສຳເລັດແລ້ວ');
+      
     } catch (error) {
       console.error('Error fetching users:', error);
-      notificationService.error(`ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນຜູ້ໃຊ້: ${(error as ApiError).message}`);
+      notificationService.error(`ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນຜູ້ໃຊ້: ${(error as ApiError).message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
