@@ -84,14 +84,34 @@ export async function createCarForDriver(carData: NewCar, driverId: string): Pro
 }
 
 // ลบผู้ใช้
+// app/dashboard/users/api/user.ts
 export async function deleteUser(userId: string): Promise<void> {
-  const response = await fetch(`/api/users/${userId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to delete user');
+  try {
+    const response = await fetch(`/api/users/${userId}`, {
+      method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+      // Get response text for debugging
+      const responseText = await response.text();
+      
+      let errorMessage = `Failed to delete user: ${response.status} ${response.statusText}`;
+      
+      try {
+        // Try to parse as JSON if possible
+        if (responseText) {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.error || errorMessage;
+        }
+      } catch (jsonError) {
+        console.error('Response is not JSON:', responseText);
+      }
+      
+      throw new Error(errorMessage);
+    }
+  } catch (error) {
+    console.error('Delete user error:', error);
+    throw error;
   }
 }
 
@@ -102,7 +122,36 @@ export async function deleteDriverCars(driverId: string): Promise<void> {
   });
   
   if (!response.ok) {
-    const errorData = await response.json();
-    console.error('Failed to delete associated cars:', errorData);
+    try {
+      const errorData = await response.json();
+      console.error('Failed to delete associated cars:', errorData);
+    } catch (jsonError) {
+      // If JSON parsing fails, log the error but don't throw
+      console.error('Error parsing JSON when deleting cars:', jsonError);
+    }
   }
+}
+
+// Helper function to handle API responses consistently
+async function handleApiResponse(response: Response) {
+  if (!response.ok) {
+    try {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `API error: ${response.status}`);
+    } catch (jsonError) {
+      throw new Error(`API error: ${response.status} ${response.statusText || 'Unknown error'}`);
+    }
+  }
+  
+  // For non-empty responses, return parsed JSON
+  if (response.headers.get('content-length') !== '0') {
+    try {
+      return await response.json();
+    } catch (error) {
+      console.error('Error parsing response as JSON', error);
+      return null;
+    }
+  }
+  
+  return null;
 }

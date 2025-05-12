@@ -106,3 +106,48 @@ export async function PUT(
     );
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Check authorization (only admin can delete users)
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized - Only admins can delete users' },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+    
+    // Get user ID from params
+    const userId = params.id;
+    
+    // Find the user to delete
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+    
+    return NextResponse.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete User Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete user: ' + (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
