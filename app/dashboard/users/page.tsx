@@ -9,7 +9,6 @@ import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 import useConfirmation from '@/hooks/useConfirmation';
 
 // ตั้งค่า
-import { TABS } from './config/constants';
 
 // Components
 import { UserTabs } from './components';
@@ -67,17 +66,6 @@ export default function UserManagementPage() {
     setActiveTab(tab);
   };
 
-  // Delete user handler
-  const handleDeleteUser = (userId: string, role: string, name: string) => {
-    showConfirmation(`ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບ ${name}?`, async () => {
-      try {
-        // ส่วนนี้จะถูกจัดการโดย lists components
-        // หลังจากลบเสร็จ จะเรียก refreshData ให้อัตโนมัติ
-      } catch (error) {
-        console.error('Error deleting user:', error);
-      }
-    });
-  };
 
   // Render users based on active tab
   const renderUsersList = () => {

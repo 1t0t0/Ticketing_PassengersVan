@@ -106,7 +106,7 @@ const UserCard: React.FC<UserCardProps> = ({
                   ? 'bg-green-100 text-green-800 border border-green-200' 
                   : 'bg-red-100 text-red-800 border border-red-200'
               }`}>
-                {user.checkInStatus === 'checked-in' ? 'Checked-In' : 'Checked-Out'}
+                {user.checkInStatus === 'checked-in' ? 'ໄດ້ເຂົ້າວຽກແລ້ວ' : 'ຍັງບໍ່ໄດ້ເຂົ້າວຽກ'}
               </span>
             </div>
           )}
@@ -162,11 +162,11 @@ const UserCard: React.FC<UserCardProps> = ({
                   <>
                     {user.checkInStatus === 'checked-in' ? (
                       <>
-                        <FiLogOut className="mr-1" /> Check Out
+                        <FiLogOut className="mr-1" /> ອອກວຽກ
                       </>
                     ) : (
                       <>
-                        <FiLogIn className="mr-1" /> Check In
+                        <FiLogIn className="mr-1" /> ເຂົ້າວຽກ
                       </>
                     )}
                   </>
