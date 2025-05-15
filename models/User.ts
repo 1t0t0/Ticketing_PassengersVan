@@ -23,6 +23,7 @@ export interface IUser extends Document {
   location?: string;
 }
 
+// models/User.ts (แก้ไขเฉพาะ schema)
 const userSchema = new Schema({
   // Common fields for all roles
   email: { type: String, required: true, unique: true },
@@ -30,11 +31,11 @@ const userSchema = new Schema({
   name: { type: String, required: true },
   role: { 
     type: String, 
-    enum: ['admin', 'staff', 'driver', 'station'], // แก้ตรงนี้ เพิ่ม 'station' ใน enum
+    enum: ['admin', 'staff', 'driver', 'station'],
     required: true 
   },
   
-  // Driver specific fields - will only be populated for driver role
+  // Driver specific fields
   employeeId: { type: String, sparse: true },
   phone: { type: String },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
@@ -42,7 +43,12 @@ const userSchema = new Schema({
   lastCheckIn: { type: Date },
   lastCheckOut: { type: Date },
   
-  // Station specific fields - will only be populated for station role
+  // เพิ่มฟิลด์สำหรับรูปภาพ
+  idCardNumber: { type: String },
+  idCardImage: { type: String },
+  userImage: { type: String },
+  
+  // Station specific fields
   stationId: { type: String, sparse: true },
   stationName: { type: String },
   location: { type: String }

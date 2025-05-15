@@ -1,5 +1,6 @@
 // app/dashboard/users/components/UserCard.tsx
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { 
   FiMail, 
   FiPhone, 
@@ -34,6 +35,7 @@ const UserCard: React.FC<UserCardProps> = ({
   const { canShowCheckInOutButton, canEditUser, canDeleteUser } = useUserPermissions();
   const { checkingInOut, handleCheckInOut } = useCheckInOut(onRefresh);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const isDriver = user.role === 'driver';
   const isStaffUser = user.role === 'staff';
@@ -42,8 +44,13 @@ const UserCard: React.FC<UserCardProps> = ({
   const showEditButton = canEditUser(user);
   const showDeleteButton = canDeleteUser(user) && !(user.role === 'admin' && admins.length <= 1);
   
+  // ตรวจสอบว่า userImage เป็น URL ที่ถูกต้องหรือไม่
+  const hasValidImage = user && user.userImage && 
+                        typeof user.userImage === 'string' && 
+                        user.userImage.startsWith('http') &&
+                        !imageError;
+  
   // ฟังก์ชันสำหรับการ check in/out และเรียกข้อมูลใหม่
-  // app/dashboard/users/components/UserCard.tsx (ต่อ)
   const handleUserCheckInOut = async (userId: string, currentStatus: string) => {
     await handleCheckInOut(userId, currentStatus);
     // เพิ่มการเรียก onRefresh เพื่ออัพเดท UI ทันที
@@ -64,13 +71,14 @@ const UserCard: React.FC<UserCardProps> = ({
     <>
       <div className="border border-gray-200 rounded-lg mb-3 overflow-hidden">
         <div className="p-4 flex flex-wrap items-center">
-          {/* Avatar */}
-          <div className={`w-12 h-12 ${bg} rounded-full flex items-center justify-center mr-4`}>
-            {user.userImage ? (
+          {/* Avatar - แสดงเฉพาะรูปภาพที่ถูกต้อง */}
+          <div className={`w-12 h-12 ${bg} rounded-full flex items-center justify-center mr-4 overflow-hidden`}>
+            {hasValidImage ? (
               <img 
-                src={user.userImage} 
+                src={user.userImage!} 
                 alt={user.name} 
-                className="w-full h-full rounded-full object-cover"
+                className="w-full h-full object-cover"
+                onError={() => setImageError(true)}
               />
             ) : (
               <FiUser size={24} className={text} />

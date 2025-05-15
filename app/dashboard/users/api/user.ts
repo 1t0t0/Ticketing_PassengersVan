@@ -3,8 +3,11 @@
 import { User, NewUser } from '../types';
 
 // ดึงข้อมูลผู้ใช้ทั้งหมด
+// app/dashboard/users/api/user.ts
+// app/dashboard/users/api/user.ts
 export async function fetchAllUsers(): Promise<User[]> {
   try {
+    console.log('Calling API to fetch all users');
     const response = await fetch('/api/users');
     
     if (!response.ok) {
@@ -13,7 +16,23 @@ export async function fetchAllUsers(): Promise<User[]> {
       throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
     }
     
-    return await response.json();
+    const data = await response.json();
+    console.log('API returned users count:', data.length);
+    
+    // ตรวจสอบข้อมูล userImage
+    if (data.length > 0) {
+      console.log('First user from API:', {
+        id: data[0]._id,
+        name: data[0].name,
+        hasUserImage: !!data[0].userImage
+      });
+      
+      // ตรวจสอบว่าข้อมูล userImage ถูกส่งกลับมาหรือไม่
+      const usersWithImages = data.filter(user => !!user.userImage);
+      console.log(`Users with userImage: ${usersWithImages.length} out of ${data.length}`);
+    }
+    
+    return data;
   } catch (error) {
     console.error('Error in fetchAllUsers:', error);
     throw error;

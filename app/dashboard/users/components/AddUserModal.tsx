@@ -40,26 +40,61 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
   } = useUserForm(activeTab);
   
   // ฟังก์ชันจำลองการอัปโหลดรูปภาพ (ในระบบจริงต้องเชื่อมต่อกับ API)
-  const uploadImage = async (file: File, type: 'idCard' | 'user') => {
-    // โค้ดนี้เป็นการจำลองการอัปโหลด
-    return new Promise<string>((resolve) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        setUploadProgress(progress);
-        
-        if (progress >= 100) {
-          clearInterval(interval);
-          // Return a fake URL
-          resolve(`https://example.com/images/${type}-${Date.now()}.jpg`);
-        }
-      }, 100);
+// app/dashboard/users/components/AddUserModal.tsx
+// แก้ไขฟังก์ชัน uploadImage
+const uploadImage = async (file: File, type: 'idCard' | 'user') => {
+  try {
+    setUploadProgress(10); // เริ่มต้นที่ 10%
+    
+    // สร้าง FormData สำหรับส่งไปยัง API
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('type', type);
+    
+    // แสดงข้อมูลการอัปโหลด
+    console.log(`Uploading ${type} image:`, file.name, file.type, file.size);
+    
+    // อัปโหลดรูปภาพ
+    const response = await fetch('/api/upload-cloudinary', {
+      method: 'POST',
+      body: formData
     });
-  };
+    
+    setUploadProgress(70); // อัปเดตความคืบหน้า
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Upload error response:', errorData);
+      throw new Error(errorData.error || 'Upload failed');
+    }
+    
+    const data = await response.json();
+    console.log('Upload response:', data);
+    
+    setUploadProgress(100); // เสร็จสิ้นที่ 100%
+    
+    // ตรวจสอบการอัปโหลดสำเร็จ
+    if (!data.success || !data.url) {
+      throw new Error('Upload response invalid');
+    }
+    
+    // ส่งคืน URL ของรูปภาพ
+    return data.url;
+  } catch (error) {
+    console.error('Upload error:', error);
+    notificationService.error('Failed to upload image. Using sample image instead.');
+    
+    // หากมีข้อผิดพลาด ใช้รูปภาพตัวอย่างแทน
+    return type === 'idCard' 
+      ? 'https://randomuser.me/api/portraits/lego/0.jpg'
+      : 'https://randomuser.me/api/portraits/lego/1.jpg';
+  }
+};
   
   // ฟังก์ชันบันทึกข้อมูลผู้ใช้
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     
     try {
       // ตรวจสอบข้อมูลที่จำเป็น
@@ -126,6 +161,8 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
       setLoading(false);
       setUploadProgress(0);
     }
+
+    
   };
   
   // เลือกฟอร์มตามประเภทผู้ใช้
