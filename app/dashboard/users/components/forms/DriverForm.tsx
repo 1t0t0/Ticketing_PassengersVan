@@ -1,3 +1,4 @@
+// app/dashboard/users/components/forms/DriverForm.tsx
 import React from 'react';
 import { 
   FiUser, 
@@ -5,19 +6,15 @@ import {
   FiPhone, 
   FiCalendar, 
   FiCreditCard,
-  FiCamera,
-  FiTruck 
+  FiCamera
 } from 'react-icons/fi';
 
 import FormField from './FormField';
-import { CAR_TYPES } from '../../config/constants';
-import { User, Car } from '../../types';
+import { User } from '../../types';
 
 interface DriverFormProps {
   user: Partial<User>;
-  car: Partial<Car>;
   updateUser: (field: string, value: string | number) => void;
-  updateCar: (field: string, value: string | number) => void;
   idCardImageFile: File | null;
   userImageFile: File | null;
   setIdCardImageFile: (file: File | null) => void;
@@ -27,9 +24,7 @@ interface DriverFormProps {
 
 const DriverForm: React.FC<DriverFormProps> = ({
   user,
-  car,
   updateUser,
-  updateCar,
   idCardImageFile,
   userImageFile,
   setIdCardImageFile,
@@ -183,56 +178,6 @@ const DriverForm: React.FC<DriverFormProps> = ({
             <p className="text-xs text-gray-500 mt-1">ອັບໂຫລດ: {uploadProgress}%</p>
           </div>
         )}
-      </div>
-      
-      {/* ข้อมูลรถ */}
-      <div className="mb-6 border-t border-gray-200 pt-4">
-        <h4 className="font-semibold text-lg mb-4">ຂໍ້ມູນລົດ</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField 
-            label="ຊື່ລົດ"
-            type="text"
-            icon={<FiTruck />}
-            placeholder="Toyota Hiace"
-            value={car.car_name || ''}
-            onChange={(e) => updateCar('car_name', e.target.value)}
-            required
-          />
-          
-          <FormField 
-            label="ທະບຽນລົດ"
-            type="text"
-            placeholder="12ກຂ 3456"
-            value={car.car_registration || ''}
-            onChange={(e) => updateCar('car_registration', e.target.value)}
-            required
-          />
-          
-          <FormField 
-            label="ຄວາມຈຸຜູ້ໂດຍສານ"
-            type="number"
-            value={car.car_capacity?.toString() || '10'}
-            onChange={(e) => updateCar('car_capacity', parseInt(e.target.value) || 10)}
-            required
-            min="1"
-          />
-
-          <div>
-            <label className="block text-sm font-bold mb-2">ປະເພດລົດ</label>
-            <select 
-              className="w-full border-2 border-gray-300 rounded p-2"
-              value={car.car_type || 'van'}
-              onChange={(e) => updateCar('car_type', e.target.value)}
-              required
-            >
-              {CAR_TYPES.map(type => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
       </div>
     </>
   );

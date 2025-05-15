@@ -1,6 +1,7 @@
+// app/dashboard/users/hooks/useUserForm.ts
 import { useState, useCallback } from 'react';
-import { DEFAULT_USER, DEFAULT_CAR } from '../config/constants';
-import { User, Car } from '../types';
+import { DEFAULT_USER } from '../config/constants';
+import { User } from '../types';
 import notificationService from '@/lib/notificationService';
 
 export default function useUserForm(activeTab: 'drivers' | 'staff' | 'admin' | 'station') {
@@ -12,8 +13,6 @@ export default function useUserForm(activeTab: 'drivers' | 'staff' | 'admin' | '
           activeTab === 'admin' ? 'admin' : 'station'
   });
   
-  const [car, setCar] = useState<Partial<Car>>({...DEFAULT_CAR});
-  
   // สถานะไฟล์รูปภาพ
   const [idCardImageFile, setIdCardImageFile] = useState<File | null>(null);
   const [userImageFile, setUserImageFile] = useState<File | null>(null);
@@ -21,11 +20,6 @@ export default function useUserForm(activeTab: 'drivers' | 'staff' | 'admin' | '
   // ฟังก์ชันอัปเดตข้อมูลผู้ใช้
   const updateUser = useCallback((field: string, value: string | number) => {
     setUser(prev => ({ ...prev, [field]: value }));
-  }, []);
-  
-  // ฟังก์ชันอัปเดตข้อมูลรถ
-  const updateCar = useCallback((field: string, value: string | number) => {
-    setCar(prev => ({ ...prev, [field]: value }));
   }, []);
   
   // ฟังก์ชันรีเซ็ตฟอร์ม
@@ -36,7 +30,6 @@ export default function useUserForm(activeTab: 'drivers' | 'staff' | 'admin' | '
             activeTab === 'staff' ? 'staff' :
             activeTab === 'admin' ? 'admin' : 'station'
     });
-    setCar({...DEFAULT_CAR});
     setIdCardImageFile(null);
     setUserImageFile(null);
   }, [activeTab]);
@@ -51,8 +44,8 @@ export default function useUserForm(activeTab: 'drivers' | 'staff' | 'admin' | '
     
     // ตรวจสอบข้อมูลเฉพาะตามประเภทผู้ใช้
     if (user.role === 'driver') {
-      if (!user.idCardNumber || !car.car_name || !car.car_registration) {
-        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນຄົນຂັບລົດແລະລົດທີ່ຈຳເປັນ');
+      if (!user.idCardNumber) {
+        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນຄົນຂັບລົດທີ່ຈຳເປັນ');
         return false;
       }
     } else if (user.role === 'staff') {
@@ -68,7 +61,7 @@ export default function useUserForm(activeTab: 'drivers' | 'staff' | 'admin' | '
     }
     
     return true;
-  }, [user, car]);
+  }, [user]);
   
   // อัปเดตประเภทผู้ใช้เมื่อ activeTab เปลี่ยน
   useCallback(() => {
@@ -82,9 +75,7 @@ export default function useUserForm(activeTab: 'drivers' | 'staff' | 'admin' | '
   
   return {
     user,
-    car,
     updateUser,
-    updateCar,
     idCardImageFile,
     userImageFile,
     setIdCardImageFile,

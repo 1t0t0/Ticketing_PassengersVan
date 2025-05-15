@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+// app/dashboard/users/components/AddUserModal.tsx
+import React, { useState } from 'react';
 import NeoButton from '@/components/ui/NotionButton';
-import { createUser, createCarForDriver } from '../api/user';
+import { createUser } from '../api/user';
 import notificationService from '@/lib/notificationService';
 import { TABS } from '../config/constants';
-import { DEFAULT_USER, DEFAULT_CAR } from '../config/constants';
+import { DEFAULT_USER } from '../config/constants';
 import useUserForm from '../hooks/useUserForm';
-import FormField from './forms/FormField';
-import { User, NewUser, NewCar } from '../types';
+import { User, NewUser } from '../types';
 
 import DriverForm from './forms/DriverForm';
 import StaffForm from './forms/StaffForm';
@@ -30,9 +30,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
   // ใช้ Custom hook สำหรับจัดการฟอร์ม
   const {
     user,
-    car,
     updateUser,
-    updateCar,
     idCardImageFile,
     userImageFile,
     setIdCardImageFile,
@@ -111,19 +109,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
       }
       
       // สร้างผู้ใช้
-      const createdUser = await createUser(userData);
-      
-      // ถ้าเป็นคนขับ ให้สร้างข้อมูลรถด้วย
-      if (user.role === 'driver' && createdUser) {
-        const carData: NewCar = {
-          car_name: car.car_name,
-          car_capacity: car.car_capacity,
-          car_registration: car.car_registration,
-          car_type: car.car_type,
-        };
-        
-        await createCarForDriver(carData, createdUser._id);
-      }
+      await createUser(userData);
       
       // รีเซ็ตฟอร์มและรีเฟรชข้อมูล
       resetForm();
@@ -149,9 +135,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
         return (
           <DriverForm 
             user={user}
-            car={car}
             updateUser={updateUser}
-            updateCar={updateCar}
             idCardImageFile={idCardImageFile}
             userImageFile={userImageFile}
             setIdCardImageFile={setIdCardImageFile}

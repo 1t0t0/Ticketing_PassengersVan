@@ -1,8 +1,9 @@
+// app/dashboard/users/components/EditUserModal.tsx
 import React, { useState, useEffect } from 'react';
 import NeoButton from '@/components/ui/NotionButton';
 import notificationService from '@/lib/notificationService';
 import { TABS } from '../config/constants';
-import { User, Driver, Car } from '../types';
+import { User } from '../types';
 
 import DriverForm from './forms/DriverForm';
 import StaffForm from './forms/StaffForm';
@@ -25,7 +26,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   
   // State for form data
   const [userData, setUserData] = useState<Partial<User>>(user);
-  const [carData, setCarData] = useState<Partial<Car>>((user as Driver)?.assignedCar || {});
   
   // State for image files
   const [idCardImageFile, setIdCardImageFile] = useState<File | null>(null);
@@ -34,11 +34,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   // Update user data field
   const updateUser = (field: string, value: string | number) => {
     setUserData(prev => ({ ...prev, [field]: value }));
-  };
-  
-  // Update car data field
-  const updateCar = (field: string, value: string | number) => {
-    setCarData(prev => ({ ...prev, [field]: value }));
   };
   
   // Simulate file upload
@@ -71,8 +66,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
     
     // Role-specific validation
     if (userData.role === 'driver') {
-      if (!userData.idCardNumber || !carData.car_name || !carData.car_registration) {
-        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນຄົນຂັບລົດແລະລົດທີ່ຈຳເປັນ');
+      if (!userData.idCardNumber) {
+        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນຄົນຂັບລົດທີ່ຈຳເປັນ');
         return false;
       }
     } else if (userData.role === 'staff') {
@@ -119,11 +114,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
       // Remove sensitive or unnecessary fields
       delete payload.password;
       
-      // If driver, include car data
-      if (user.role === 'driver' && (user as Driver).assignedCar) {
-        payload.car = carData;
-      }
-      
       // Call update API
       const response = await fetch(`/api/users/${user._id}`, {
         method: 'PUT',
@@ -157,9 +147,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         return (
           <DriverForm 
             user={userData}
-            car={carData}
             updateUser={updateUser}
-            updateCar={updateCar}
             idCardImageFile={idCardImageFile}
             userImageFile={userImageFile}
             setIdCardImageFile={setIdCardImageFile}

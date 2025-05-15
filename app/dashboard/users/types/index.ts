@@ -1,3 +1,4 @@
+// app/dashboard/users/types/index.ts
 // Types for User Management
 
 // User interface
@@ -22,22 +23,6 @@ export interface User {
   lastCheckOut?: Date;
 }
 
-// Car interface
-export interface Car {
-  _id?: string;
-  car_id?: string;
-  car_name: string;
-  car_capacity: number;
-  car_registration: string;
-  car_type: string;
-  user_id?: string;
-}
-
-// Driver interface (extended from User)
-export interface Driver extends User {
-  assignedCar?: Car;
-}
-
 // Interface for creating a new user
 export interface NewUser {
   name: string;
@@ -52,14 +37,6 @@ export interface NewUser {
   status?: 'active' | 'inactive';
   checkInStatus?: 'checked-in' | 'checked-out';
   location?: string;
-}
-
-// Interface for creating a new car
-export interface NewCar {
-  car_name: string;
-  car_capacity: number;
-  car_registration: string;
-  car_type: string;
 }
 
 // API Error interface

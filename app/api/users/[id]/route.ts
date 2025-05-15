@@ -1,9 +1,7 @@
-// app/api/users/[id]/route.ts - Update this file to include a PUT method
-
+// app/api/users/[id]/route.ts
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
-import Car from '@/models/Car';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -40,10 +38,6 @@ export async function PUT(
       );
     }
     
-    // Extract car data if present
-    const carData = body.car;
-    delete body.car;
-    
     // Create updateData object with fields to update
     const updateData: any = {};
     
@@ -65,34 +59,6 @@ export async function PUT(
       { $set: updateData },
       { new: true }
     ).select('-password');
-    
-    // Update car data if user is a driver and car data is provided
-    if (user.role === 'driver' && carData) {
-      // Find car associated with driver
-      const car = await Car.findOne({ user_id: userId });
-      
-      if (car) {
-        // Update car details
-        const allowedCarFields = [
-          'car_name', 'car_capacity', 'car_registration', 'car_type'
-        ];
-        
-        const carUpdateData: any = {};
-        
-        allowedCarFields.forEach(field => {
-          if (carData[field] !== undefined) {
-            carUpdateData[field] = carData[field];
-          }
-        });
-        
-        // Update car
-        await Car.findByIdAndUpdate(
-          car._id,
-          { $set: carUpdateData },
-          { new: true }
-        );
-      }
-    }
     
     return NextResponse.json({
       success: true,

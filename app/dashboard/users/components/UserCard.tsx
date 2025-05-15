@@ -1,3 +1,4 @@
+// app/dashboard/users/components/UserCard.tsx
 import React, { useState } from 'react';
 import { 
   FiMail, 
@@ -8,12 +9,11 @@ import {
   FiHome, 
   FiMapPin, 
   FiLogIn, 
-  FiLogOut,
-  FiTruck
+  FiLogOut
 } from 'react-icons/fi';
 import NeoButton from '@/components/ui/NotionButton';
 
-import { User, Driver } from '../types';
+import { User } from '../types';
 import useUserPermissions from '../hooks/useUserPermissions';
 import useCheckInOut from '../hooks/useCheckinOut';
 import EditUserModal from './EditUserModal';
@@ -43,6 +43,7 @@ const UserCard: React.FC<UserCardProps> = ({
   const showDeleteButton = canDeleteUser(user) && !(user.role === 'admin' && admins.length <= 1);
   
   // ฟังก์ชันสำหรับการ check in/out และเรียกข้อมูลใหม่
+  // app/dashboard/users/components/UserCard.tsx (ต่อ)
   const handleUserCheckInOut = async (userId: string, currentStatus: string) => {
     await handleCheckInOut(userId, currentStatus);
     // เพิ่มการเรียก onRefresh เพื่ออัพเดท UI ทันที
@@ -131,16 +132,6 @@ const UserCard: React.FC<UserCardProps> = ({
               <div className="flex items-center m-2">
                 <FiHome size={18} className="text-gray-400 mr-2" />
                 <span>{(user as any).stationName}</span>
-              </div>
-            )}
-            
-            {isDriver && (user as Driver).assignedCar && (
-              <div className="flex items-center m-2">
-                <FiTruck size={18} className="text-gray-400 mr-2" />
-                <span>
-                  {(user as Driver).assignedCar?.car_registration} 
-                  ({(user as Driver).assignedCar?.car_name})
-                </span>
               </div>
             )}
           </div>

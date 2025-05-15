@@ -1,15 +1,23 @@
+// app/dashboard/users/api/user.ts
 // API functions สำหรับการจัดการผู้ใช้
-import { User, NewUser, NewCar } from '../types';
+import { User, NewUser } from '../types';
 
 // ดึงข้อมูลผู้ใช้ทั้งหมด
 export async function fetchAllUsers(): Promise<User[]> {
-  const response = await fetch('/api/users');
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch users');
+  try {
+    const response = await fetch('/api/users');
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error fetching users:', errorText);
+      throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error in fetchAllUsers:', error);
+    throw error;
   }
-  
-  return response.json();
 }
 
 // ดึงข้อมูลผู้ใช้ตามบทบาท
@@ -18,17 +26,6 @@ export async function fetchUsersByRole(role: string): Promise<User[]> {
   
   if (!response.ok) {
     throw new Error(`Failed to fetch ${role}s`);
-  }
-  
-  return response.json();
-}
-
-// ดึงข้อมูลรถทั้งหมด
-export async function fetchCarsByUser(): Promise<any[]> {
-  const response = await fetch('/api/cars');
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch cars');
   }
   
   return response.json();
@@ -64,27 +61,7 @@ export async function createUser(userData: NewUser): Promise<User> {
   return response.json();
 }
 
-// สร้างรถสำหรับคนขับ
-export async function createCarForDriver(carData: NewCar, driverId: string): Promise<any> {
-  const response = await fetch('/api/cars', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...carData,
-      user_id: driverId,
-    }),
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to create car');
-  }
-  
-  return response.json();
-}
-
 // ลบผู้ใช้
-// app/dashboard/users/api/user.ts
 export async function deleteUser(userId: string): Promise<void> {
   try {
     const response = await fetch(`/api/users/${userId}`, {
@@ -115,43 +92,3 @@ export async function deleteUser(userId: string): Promise<void> {
   }
 }
 
-// ลบรถที่เกี่ยวข้องกับคนขับ
-export async function deleteDriverCars(driverId: string): Promise<void> {
-  const response = await fetch(`/api/cars/by-driver/${driverId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      console.error('Failed to delete associated cars:', errorData);
-    } catch (jsonError) {
-      // If JSON parsing fails, log the error but don't throw
-      console.error('Error parsing JSON when deleting cars:', jsonError);
-    }
-  }
-}
-
-// Helper function to handle API responses consistently
-async function handleApiResponse(response: Response) {
-  if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `API error: ${response.status}`);
-    } catch (jsonError) {
-      throw new Error(`API error: ${response.status} ${response.statusText || 'Unknown error'}`);
-    }
-  }
-  
-  // For non-empty responses, return parsed JSON
-  if (response.headers.get('content-length') !== '0') {
-    try {
-      return await response.json();
-    } catch (error) {
-      console.error('Error parsing response as JSON', error);
-      return null;
-    }
-  }
-  
-  return null;
-}

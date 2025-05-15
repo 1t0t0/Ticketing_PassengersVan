@@ -1,4 +1,5 @@
-import { User, Car } from '../types';
+// app/dashboard/users/config/constants.ts
+import { User } from '../types';
 
 // ค่าคงที่สำหรับแท็บประเภทผู้ใช้
 export const TABS = {
@@ -20,19 +21,3 @@ export const DEFAULT_USER: Partial<User> = {
   idCardImage: '',
   userImage: ''
 };
-
-// ค่าเริ่มต้นสำหรับรถใหม่
-export const DEFAULT_CAR: Partial<Car> = {
-  car_name: '',
-  car_capacity: 10,
-  car_registration: '',
-  car_type: 'van'
-};
-
-// ประเภทรถ
-export const CAR_TYPES = [
-  { value: 'van', label: 'ລົດຕູ້ (Van)' },
-  { value: 'minibus', label: 'ລົດມິນິບັສ (Minibus)' },
-  { value: 'bus', label: 'ລົດບັສ (Bus)' },
-  { value: 'sedan', label: 'ລົດເກັງ (Sedan)' }
-];

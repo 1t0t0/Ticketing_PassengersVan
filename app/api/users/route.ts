@@ -6,43 +6,6 @@ import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// GET - Get all users
-export async function GET(request: Request) {
-  try {
-    // Check authorization
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    await connectDB();
-    
-    // Get query parameters (optional)
-    const { searchParams } = new URL(request.url);
-    const role = searchParams.get('role');
-    
-    // Build query
-    const query: any = {};
-    if (role) {
-      query.role = role;
-    }
-    
-    // Find users based on query
-    const users = await User.find(query).select('-password');
-    
-    return NextResponse.json(users);
-  } catch (error) {
-    console.error('Get Users Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
-    );
-  }
-}
-
 // POST - Create a new user
 export async function POST(request: Request) {
   try {
@@ -195,6 +158,42 @@ export async function POST(request: Request) {
     console.error('Create User Error:', error);
     return NextResponse.json(
       { error: 'Failed to create user: ' + (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    // Check authorization
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+    
+    // Get query parameters (optional)
+    const { searchParams } = new URL(request.url);
+    const role = searchParams.get('role');
+    
+    // Build query
+    const query: any = {};
+    if (role) {
+      query.role = role;
+    }
+    
+    // Find users based on query
+    const users = await User.find(query).select('-password');
+    
+    return NextResponse.json(users);
+  } catch (error) {
+    console.error('Get Users Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch users: ' + (error instanceof Error ? error.message : 'Unknown error') },
       { status: 500 }
     );
   }

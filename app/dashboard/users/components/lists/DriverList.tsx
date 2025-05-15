@@ -1,7 +1,8 @@
+// app/dashboard/users/components/lists/DriverList.tsx
 import React, { useState } from 'react';
 import UserCard from '../UserCard';
 import { Driver, User } from '../../types';
-import { deleteUser, deleteDriverCars } from '../../api/user';
+import { deleteUser } from '../../api/user';
 import notificationService from '@/lib/notificationService';
 
 interface DriverListProps {
@@ -19,10 +20,7 @@ const DriverList: React.FC<DriverListProps> = ({ drivers, showConfirmation, onRe
       try {
         setLoading(true);
         
-        // ลบรถที่เกี่ยวข้องกับคนขับ
-        await deleteDriverCars(userId);
-        
-        // ลบผู้ใช้
+        // ลบผู้ใช้ (ไม่ต้องลบรถที่เกี่ยวข้องอีกต่อไป)
         await deleteUser(userId);
         
         // เรียก onRefresh เพื่อโหลดข้อมูลใหม่
