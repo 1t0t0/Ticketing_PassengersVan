@@ -4,3 +4,4 @@ export { default as useUserPermissions } from './useUserPermissions';
 export { default as useUserForm } from './useUserForm';
 export { default as useCheckInOut } from './useCheckinOut';
 export { default as useEditUser } from './useEditUser';
+export { default as useUserSearch } from './useUserSearch';

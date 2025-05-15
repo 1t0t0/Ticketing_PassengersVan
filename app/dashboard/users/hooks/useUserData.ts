@@ -1,5 +1,5 @@
 // app/dashboard/users/hooks/useUserData.ts
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { fetchAllUsers } from '../api/user';
 import { User, ApiError } from '../types';
 import notificationService from '@/lib/notificationService';
@@ -13,10 +13,17 @@ export default function useUserData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // ใช้ ref เพื่อเก็บสถานะว่าได้โหลดข้อมูลแล้วหรือไม่
+  const isDataLoaded = useRef(false);
+  
   // ฟังก์ชันดึงข้อมูลผู้ใช้ทั้งหมด
   const fetchUsers = useCallback(async () => {
-    try {
+    // ป้องกันการเรียกข้อมูลซ้ำในครั้งแรก
+    if (isDataLoaded.current && !loading) {
       setLoading(true);
+    }
+    
+    try {
       setError(null);
       
       // ดึงข้อมูลผู้ใช้ทั้งหมด
@@ -34,6 +41,9 @@ export default function useUserData() {
       setAdmins(adminUsers);
       setStations(stationUsers);
       
+      // อัปเดตสถานะว่าได้โหลดข้อมูลแล้ว
+      isDataLoaded.current = true;
+      
     } catch (error) {
       console.error('Error fetching users:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -48,7 +58,14 @@ export default function useUserData() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loading]);
+  
+  // โหลดข้อมูลครั้งแรกเมื่อ component mount
+  useEffect(() => {
+    if (!isDataLoaded.current) {
+      fetchUsers();
+    }
+  }, [fetchUsers]);
   
   return {
     drivers,
