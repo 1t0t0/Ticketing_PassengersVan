@@ -49,17 +49,26 @@ export default function TicketHistoryPage() {
   }, [status, router]);
   
   // ดึงค่า page และ paymentMethod จาก URL
-  useEffect(() => {
-    const page = searchParams.get('page');
-    if (page) {
-      setFilters(prev => ({ ...prev, page: parseInt(page) }));
-    }
-    
-    const pmMethod = searchParams.get('paymentMethod');
-    if (pmMethod && (pmMethod === 'cash' || pmMethod === 'qr')) {
-      setFilters(prev => ({ ...prev, paymentMethod: pmMethod as 'cash' | 'qr' }));
-    }
-  }, [searchParams, setFilters]);
+  // ในไฟล์ app/dashboard/tickets/history/page.tsx (ส่วนของ useEffect)
+
+// ดึงค่า page และ paymentMethod จาก URL
+useEffect(() => {
+  const page = searchParams.get('page');
+  if (page) {
+    setFilters(prev => ({ ...prev, page: parseInt(page) }));
+  }
+  
+  const pmMethod = searchParams.get('paymentMethod');
+  if (pmMethod && (pmMethod === 'cash' || pmMethod === 'qr')) {
+    setFilters(prev => ({ ...prev, paymentMethod: pmMethod as 'cash' | 'qr' }));
+  }
+
+  // หาวันที่จาก URL หรือใช้วันที่ปัจจุบัน
+  const date = searchParams.get('date');
+  if (date) {
+    setFilters(prev => ({ ...prev, startDate: date }));
+  }
+}, [searchParams, setFilters]);
 
   return (
     <div className="container mx-auto p-6">

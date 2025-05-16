@@ -1,3 +1,5 @@
+// แก้ไขที่ app/dashboard/tickets/hooks/useTicketHistory.ts
+
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { searchTickets, deleteTicket } from '../api/ticket';
@@ -11,6 +13,12 @@ import notificationService from '@/lib/notificationService';
 export default function useTicketHistory(
   showConfirmation: (message: string, onConfirm: () => void) => void
 ) {
+  // กำหนดวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD
+  const getCurrentDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0]; // รูปแบบ YYYY-MM-DD
+  };
+
   // State
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -22,7 +30,7 @@ export default function useTicketHistory(
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<TicketFilter>({
     searchQuery: '',
-    startDate: '',
+    startDate: getCurrentDate(), // กำหนดค่าเริ่มต้นเป็นวันนี้
     paymentMethod: 'all',
     page: 1,
     limit: 10
@@ -33,7 +41,7 @@ export default function useTicketHistory(
   // ดึงข้อมูลตั๋วเมื่อ filters เปลี่ยน
   useEffect(() => {
     fetchTickets();
-  }, [filters.page, filters.paymentMethod]);
+  }, [filters.page, filters.paymentMethod, filters.startDate]); // เพิ่ม filters.startDate เพื่อให้โหลดข้อมูลใหม่เมื่อวันที่เปลี่ยน
   
   // ดึงข้อมูลตั๋ว
   const fetchTickets = useCallback(async () => {
@@ -108,7 +116,7 @@ export default function useTicketHistory(
   const handleClear = useCallback(() => {
     const clearedFilters = {
       searchQuery: '',
-      startDate: '',
+      startDate: getCurrentDate(), // เมื่อล้างการค้นหา ให้กลับไปใช้วันที่ปัจจุบัน
       paymentMethod: 'all',
       page: 1,
       limit: 10
