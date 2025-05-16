@@ -1,4 +1,5 @@
-// app/dashboard/users/components/UserCard.tsx
+// แก้ไขไฟล์ app/dashboard/users/components/UserCard.tsx
+
 import React, { useState } from 'react';
 import { 
   FiMail, 
@@ -9,7 +10,8 @@ import {
   FiHome, 
   FiMapPin, 
   FiLogIn, 
-  FiLogOut
+  FiLogOut,
+  FiEye // เพิ่ม import icon ตา สำหรับปุ่ม View
 } from 'react-icons/fi';
 import NeoButton from '@/components/ui/NotionButton';
 
@@ -17,6 +19,7 @@ import { User } from '../types';
 import useUserPermissions from '../hooks/useUserPermissions';
 import useCheckInOut from '../hooks/useCheckinOut';
 import EditUserModal from './EditUserModal';
+import ViewUserModal from './ViewUserModal'; // เพิ่ม import ViewUserModal
 
 interface UserCardProps {
  user: User;
@@ -34,6 +37,7 @@ const UserCard: React.FC<UserCardProps> = ({
  const { canShowCheckInOutButton, canEditUser, canDeleteUser } = useUserPermissions();
  const { checkingInOut, handleCheckInOut } = useCheckInOut(onRefresh);
  const [showEditModal, setShowEditModal] = useState(false);
+ const [showViewModal, setShowViewModal] = useState(false); // เพิ่ม state สำหรับ View modal
  const [imageError, setImageError] = useState(false);
 
  const isDriver = user.role === 'driver';
@@ -172,6 +176,16 @@ const UserCard: React.FC<UserCardProps> = ({
              </div>
            )}
            
+           {/* เพิ่มปุ่ม View icon */}
+           <div className="m-1">
+             <button 
+               className="p-2 text-green-500 hover:bg-green-50 rounded-full"
+               onClick={() => setShowViewModal(true)}
+             >
+               <FiEye size={18} />
+             </button>
+           </div>
+           
            {showEditButton && (
              <div className="m-1">
                <button 
@@ -203,6 +217,14 @@ const UserCard: React.FC<UserCardProps> = ({
          user={user}
          onClose={() => setShowEditModal(false)}
          onSuccess={onRefresh}
+       />
+     )}
+
+     {/* View User Modal */}
+     {showViewModal && (
+       <ViewUserModal
+         user={user}
+         onClose={() => setShowViewModal(false)}
        />
      )}
    </>
