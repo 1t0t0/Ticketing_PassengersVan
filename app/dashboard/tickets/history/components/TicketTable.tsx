@@ -1,15 +1,22 @@
-// แก้ไขส่วน style ของตาราง TicketTable.tsx
+// แก้ไขไฟล์ app/dashboard/tickets/history/components/TicketTable.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Ticket } from '../../types';
+import { FiEdit2 } from 'react-icons/fi'; // เพิ่ม icon แก้ไข
 
 interface TicketTableProps {
   tickets: Ticket[];
   loading: boolean;
   onDeleteTicket: (ticketId: string, ticketNumber: string) => void;
+  onEditPaymentMethod?: (ticketId: string, ticketNumber: string, currentMethod: string) => void;
 }
 
-const TicketTable: React.FC<TicketTableProps> = ({ tickets, loading, onDeleteTicket }) => {
+const TicketTable: React.FC<TicketTableProps> = ({ 
+  tickets, 
+  loading, 
+  onDeleteTicket,
+  onEditPaymentMethod 
+}) => {
   // ฟังก์ชันแสดงแท็กสีสำหรับวิธีการชำระเงิน
   const getPaymentMethodBadge = (method: string) => {
     switch (method) {
@@ -86,12 +93,24 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, loading, onDeleteTic
                 })}
               </td>
               <td className="p-3 text-center">
-                <button 
-                  className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded text-sm font-medium transition-colors shadow-sm"
-                  onClick={() => onDeleteTicket(ticket._id, ticket.ticketNumber)}
-                >
-                  ລົບ
-                </button>
+                <div className="flex justify-center space-x-2">
+                  {/* ปุ่มแก้ไข */}
+                  <button 
+                    className="px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm font-medium transition-colors shadow-sm flex items-center"
+                    onClick={() => onEditPaymentMethod && onEditPaymentMethod(ticket._id, ticket.ticketNumber, ticket.paymentMethod)}
+                  >
+                    <FiEdit2 className="mr-1" size={14} />
+                    ແກ້ໄຂ
+                  </button>
+
+                  {/* ปุ่มลบ */}
+                  <button 
+                    className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded text-sm font-medium transition-colors shadow-sm"
+                    onClick={() => onDeleteTicket(ticket._id, ticket.ticketNumber)}
+                  >
+                    ລົບ
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

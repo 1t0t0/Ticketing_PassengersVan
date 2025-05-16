@@ -103,3 +103,26 @@ export async function searchTickets(filter: TicketFilter): Promise<TicketSearchR
   
   return response.json();
 }
+
+
+export async function updateTicketPaymentMethod(id: string, paymentMethod: string): Promise<Ticket> {
+  try {
+    const response = await fetch(`/api/tickets/${id}/payment-method`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ paymentMethod }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update ticket payment method');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error updating ticket payment method:', error);
+    throw error;
+  }
+}

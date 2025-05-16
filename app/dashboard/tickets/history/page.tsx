@@ -1,6 +1,8 @@
+// แก้ไขไฟล์ app/dashboard/tickets/history/page.tsx
+
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
@@ -8,15 +10,29 @@ import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 
 // Components
 import { TicketTable, TicketFilters } from './components';
+import EditPaymentMethodModal from './components/EditPaymentMethodModal'; // เพิ่ม import
 
 // Hooks
 import useTicketHistory from '../hooks/useTicketHistory';
 import useConfirmation from '@/hooks/useConfirmation';
 
+// API
+import { updateTicketPaymentMethod } from '../api/ticket'; // เพิ่ม import
+
+import notificationService from '@/lib/notificationService';
+
 export default function TicketHistoryPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // State สำหรับแก้ไขวิธีการชำระเงิน
+  const [editPaymentModal, setEditPaymentModal] = useState({
+    isOpen: false,
+    ticketId: '',
+    ticketNumber: '',
+    currentMethod: 'cash'
+  });
   
   // Confirmation hooks
   const {
@@ -38,7 +54,8 @@ export default function TicketHistoryPage() {
     handleClear,
     handlePageChange,
     handlePaymentMethodChange,
-    handleDeleteTicket
+    handleDeleteTicket,
+    refreshTickets // เพิ่ม refreshTickets เพื่อโหลดข้อมูลใหม่หลังการแก้ไข
   } = useTicketHistory(showConfirmation);
   
   // ตรวจสอบการเข้าสู่ระบบ
@@ -49,89 +66,114 @@ export default function TicketHistoryPage() {
   }, [status, router]);
   
   // ดึงค่า page และ paymentMethod จาก URL
-  // ในไฟล์ app/dashboard/tickets/history/page.tsx (ส่วนของ useEffect)
+  useEffect(() => {
+    const page = searchParams.get('page');
+    if (page) {
+      setFilters(prev => ({ ...prev, page: parseInt(page) }));
+    }
+    
+    const pmMethod = searchParams.get('paymentMethod');
+    if (pmMethod && (pmMethod === 'cash' || pmMethod === 'qr')) {
+      setFilters(prev => ({ ...prev, paymentMethod: pmMethod as 'cash' | 'qr' }));
+    }
 
-// ดึงค่า page และ paymentMethod จาก URL
-useEffect(() => {
-  const page = searchParams.get('page');
-  if (page) {
-    setFilters(prev => ({ ...prev, page: parseInt(page) }));
-  }
+    // หาวันที่จาก URL หรือใช้วันที่ปัจจุบัน
+    const date = searchParams.get('date');
+    if (date) {
+      setFilters(prev => ({ ...prev, startDate: date }));
+    }
+  }, [searchParams, setFilters]);
+
+  // ฟังก์ชันเปิด modal แก้ไขวิธีการชำระเงิน
+  const handleEditPaymentMethod = (ticketId: string, ticketNumber: string, currentMethod: string) => {
+    setEditPaymentModal({
+      isOpen: true,
+      ticketId,
+      ticketNumber,
+      currentMethod
+    });
+  };
   
-  const pmMethod = searchParams.get('paymentMethod');
-  if (pmMethod && (pmMethod === 'cash' || pmMethod === 'qr')) {
-    setFilters(prev => ({ ...prev, paymentMethod: pmMethod as 'cash' | 'qr' }));
-  }
-
-  // หาวันที่จาก URL หรือใช้วันที่ปัจจุบัน
-  const date = searchParams.get('date');
-  if (date) {
-    setFilters(prev => ({ ...prev, startDate: date }));
-  }
-}, [searchParams, setFilters]);
+  // ฟังก์ชันบันทึกการแก้ไขวิธีการชำระเงิน
+  const handleSavePaymentMethod = async (ticketId: string, newMethod: string) => {
+    try {
+      await updateTicketPaymentMethod(ticketId, newMethod);
+      notificationService.success('ອັບເດດວິທີການຊຳລະເງິນສຳເລັດແລ້ວ');
+      
+      // รีเฟรชข้อมูลตั๋วหลังจากอัปเดต
+      refreshTickets();
+      
+    } catch (error: any) {
+      console.error('Error updating payment method:', error);
+      notificationService.error(error.message || 'ເກີດຂໍ້ຜິດພາດໃນການອັບເດດວິທີການຊຳລະເງິນ');
+    }
+  };
+  
+  // ปิด modal แก้ไขวิธีการชำระเงิน
+  const closeEditModal = () => {
+    setEditPaymentModal(prev => ({ ...prev, isOpen: false }));
+  };
 
   return (
     <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-black mb-6">ລາຍການປີ້</h1>
+      <h1 className="text-2xl font-bold mb-6">ລາຍການປີ້</h1>
       
       {/* ส่วนค้นหาและกรอง */}
-      <NeoCard className="p-6 mb-6">
-        <TicketFilters 
-          filters={filters}
-          onSearch={handleSearch}
-          onClear={handleClear}
-          onFilterChange={setFilters}
-        />
-      </NeoCard>
+      <TicketFilters 
+        filters={filters}
+        onSearch={handleSearch}
+        onClear={handleClear}
+        onFilterChange={setFilters}
+      />
       
-      {/* ตารางตั๋ว */}
-      <NeoCard className="p-6">
-
-{/* ปุ่มกรองด้วยวิธีชำระเงิน */}
-<div className="mb-4 flex flex-col md:flex-row items-center justify-between gap-4">
-  <div className="font-medium text-gray-600">ຮູບແບບການຊຳລະ:</div>
-  
-  <div className="flex gap-2">
-    <button 
-      className={`px-3 py-1.5 rounded-md transition-colors ${
-        filters.paymentMethod === 'all' 
-          ? 'bg-blue-500 text-white font-medium shadow-sm' 
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-      }`}
-      onClick={() => handlePaymentMethodChange('all')}
-    >
-      ທັງໝົດ
-    </button>
-    <button 
-      className={`px-3 py-1.5 rounded-md transition-colors flex items-center ${
-        filters.paymentMethod === 'cash' 
-          ? 'bg-blue-500 text-white font-medium shadow-sm' 
-          : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
-      }`}
-      onClick={() => handlePaymentMethodChange('cash')}
-    >
-      ເງິນສົດ
-    </button>
-    <button 
-      className={`px-3 py-1.5 rounded-md transition-colors flex items-center ${
-        filters.paymentMethod === 'qr' 
-          ? 'bg-blue-500 text-white font-medium shadow-sm' 
-          : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-      }`}
-      onClick={() => handlePaymentMethodChange('qr')}
-    >
-      ເງິນໂອນ
-    </button>
-  </div>
-  <div className='text-sm text-gray-500'>
-    ທັງໝົດ {pagination?.totalItems || 0} ລາຍການ
-  </div>
-</div>
+      {/* ตาราง Ticket */}
+      <NeoCard className="p-6 mt-6">
+        {/* ตัวกรองวิธีการชำระเงิน */}
+        <div className="flex justify-between items-center mb-4">
+          <div className="font-medium text-gray-600">ຮູບແບບການຊຳລະ:</div>
+          
+          <div className="flex items-center space-x-2">
+            <button 
+              className={`px-4 py-2 rounded-md transition-colors ${
+                filters.paymentMethod === 'all' 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              onClick={() => handlePaymentMethodChange('all')}
+            >
+              ທັງໝົດ
+            </button>
+            <button 
+              className={`px-4 py-2 rounded-md transition-colors flex items-center ${
+                filters.paymentMethod === 'cash' 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-blue-50 text-blue-700 border border-blue-300 hover:bg-blue-100'
+              }`}
+              onClick={() => handlePaymentMethodChange('cash')}
+            >
+              ເງິນສົດ
+            </button>
+            <button 
+              className={`px-4 py-2 rounded-md transition-colors flex items-center ${
+                filters.paymentMethod === 'qr' 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-green-50 text-green-700 border border-green-300 hover:bg-green-100'
+              }`}
+              onClick={() => handlePaymentMethodChange('qr')}
+            >
+              ເງິນໂອນ
+            </button>
+          </div>
+          <div className='text-sm text-gray-500'>
+            ທັງໝົດ {pagination?.totalItems || 0} ລາຍການ
+          </div>
+        </div>
         
         <TicketTable 
           tickets={tickets}
           loading={loading}
           onDeleteTicket={handleDeleteTicket}
+          onEditPaymentMethod={handleEditPaymentMethod} // เพิ่มฟังก์ชันแก้ไข
         />
         
         {/* Pagination */}
@@ -154,9 +196,21 @@ useEffect(() => {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
       />
+      
+      {/* Edit Payment Method Modal */}
+      <EditPaymentMethodModal 
+        isOpen={editPaymentModal.isOpen}
+        ticketId={editPaymentModal.ticketId}
+        ticketNumber={editPaymentModal.ticketNumber}
+        currentMethod={editPaymentModal.currentMethod}
+        onClose={closeEditModal}
+        onSave={handleSavePaymentMethod}
+      />
     </div>
   );
 }
+
+
 
 // Pagination component (ย้ายมาไว้ในไฟล์เดียวกันเพื่อให้ทำงานได้ทันที)
 interface PaginationProps {

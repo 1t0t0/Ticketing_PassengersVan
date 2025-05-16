@@ -1,9 +1,10 @@
-// แก้ไขที่ app/dashboard/tickets/hooks/useTicketHistory.ts
+// แก้ไขไฟล์ app/dashboard/tickets/hooks/useTicketHistory.ts
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { searchTickets, deleteTicket } from '../api/ticket';
 import { Ticket, TicketFilter, Pagination } from '../types';
+import { PAYMENT_METHOD_OPTIONS } from '../config/constants';
 import notificationService from '@/lib/notificationService';
 
 /**
@@ -12,12 +13,6 @@ import notificationService from '@/lib/notificationService';
 export default function useTicketHistory(
   showConfirmation: (message: string, onConfirm: () => void) => void
 ) {
-  // กำหนดวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD
-  const getCurrentDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0]; // รูปแบบ YYYY-MM-DD
-  };
-
   // State
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -37,15 +32,13 @@ export default function useTicketHistory(
   
   const router = useRouter();
   
-  // ดึงข้อมูลตั๋วเมื่อ filters เปลี่ยน
- useEffect(() => {
-  // เรียกการค้นหาทันทีเมื่อมีการเปลี่ยนแปลงวันที่หรือวิธีการชำระเงิน
-  if (filters.startDate || filters.paymentMethod !== 'all') {
-    fetchTickets();
+  // กำหนดวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD
+  function getCurrentDate() {
+    const today = new Date();
+    return today.toISOString().split('T')[0]; // รูปแบบ YYYY-MM-DD
   }
-}, [filters.page, filters.paymentMethod, filters.startDate, filters.searchQuery]);
   
-  // ดึงข้อมูลตั๋ว
+  // ดึงข้อมูลตั๋ว - ย้ายการประกาศฟังก์ชันขึ้นมาก่อนที่จะใช้
   const fetchTickets = useCallback(async () => {
     setLoading(true);
     try {
@@ -72,6 +65,16 @@ export default function useTicketHistory(
       setLoading(false);
     }
   }, [filters]);
+  
+  // ดึงข้อมูลตั๋วเมื่อ filters เปลี่ยน
+  useEffect(() => {
+    fetchTickets();
+  }, [filters.page, filters.paymentMethod, filters.startDate, fetchTickets]);
+  
+  // ฟังก์ชัน refreshTickets สำหรับรีเฟรชข้อมูล
+  const refreshTickets = useCallback(() => {
+    fetchTickets();
+  }, [fetchTickets]);
   
   // ค้นหาตั๋ว
   const handleSearch = useCallback(async () => {
@@ -133,18 +136,6 @@ export default function useTicketHistory(
     notificationService.info('ລ້າງການຄົ້ນຫາແລ້ວ');
   }, [fetchTickets]);
   
-  // เปลี่ยนหน้า
-  const handlePageChange = useCallback((page: number) => {
-    setFilters(prev => ({ ...prev, page }));
-    updateURL(page, filters.paymentMethod as string);
-  }, [filters.paymentMethod]);
-  
-  // เปลี่ยนวิธีการชำระเงิน
-  const handlePaymentMethodChange = useCallback((method: 'all' | 'cash' | 'qr') => {
-    setFilters(prev => ({ ...prev, paymentMethod: method, page: 1 }));
-    updateURL(1, method);
-  }, []);
-  
   // อัปเดต URL
   const updateURL = useCallback((page: number, method: string = 'all') => {
     const url = new URL(window.location.href);
@@ -158,6 +149,18 @@ export default function useTicketHistory(
     
     router.push(`${url.pathname}${url.search}`);
   }, [router]);
+  
+  // เปลี่ยนหน้า
+  const handlePageChange = useCallback((page: number) => {
+    setFilters(prev => ({ ...prev, page }));
+    updateURL(page, filters.paymentMethod as string);
+  }, [filters.paymentMethod, updateURL]);
+  
+  // เปลี่ยนวิธีการชำระเงิน
+  const handlePaymentMethodChange = useCallback((method: 'all' | 'cash' | 'qr') => {
+    setFilters(prev => ({ ...prev, paymentMethod: method, page: 1 }));
+    updateURL(1, method);
+  }, [updateURL]);
   
   // ลบตั๋ว
   const handleDeleteTicket = useCallback((ticketId: string, ticketNumber: string) => {
@@ -185,6 +188,7 @@ export default function useTicketHistory(
     handleClear,
     handlePageChange,
     handlePaymentMethodChange,
-    handleDeleteTicket
+    handleDeleteTicket,
+    refreshTickets
   };
 }
