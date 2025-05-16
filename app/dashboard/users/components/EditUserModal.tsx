@@ -1,6 +1,6 @@
 // app/dashboard/users/components/EditUserModal.tsx
 import React, { useState, useEffect } from 'react';
-import NeoButton from '@/components/ui/NotionButton';
+import { fetchUserDetailed } from '../api/user';
 import notificationService from '@/lib/notificationService';
 import { TABS } from '../config/constants';
 import { User } from '../types';
@@ -17,72 +17,109 @@ interface EditUserModalProps {
 }
 
 const EditUserModal: React.FC<EditUserModalProps> = ({ 
-  user,
+  user: initialUser,
   onClose,
   onSuccess
 }) => {
   const [loading, setLoading] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [uploadProgress, setUploadProgress] = useState(0);
   
   // State for form data
-  const [userData, setUserData] = useState<Partial<User>>(user);
+  const [userData, setUserData] = useState<Partial<User>>(initialUser);
   
-  // State for image files
+  // State for image files and previews
   const [idCardImageFile, setIdCardImageFile] = useState<File | null>(null);
   const [userImageFile, setUserImageFile] = useState<File | null>(null);
+  const [idCardImagePreview, setIdCardImagePreview] = useState<string | null>(null);
+  const [userImagePreview, setUserImagePreview] = useState<string | null>(null);
+  
+  // โหลดข้อมูลผู้ใช้แบบละเอียด
+  useEffect(() => {
+    const loadUserDetails = async () => {
+      try {
+        setLoadingUser(true);
+        if (initialUser._id) {
+          const detailedUser = await fetchUserDetailed(initialUser._id);
+          
+          // ตั้งค่าพรีวิวของรูปภาพ
+          if (detailedUser.idCardImage) {
+            setIdCardImagePreview(detailedUser.idCardImage);
+          }
+
+          setUserData(detailedUser);
+
+          
+          if (detailedUser.userImage) {
+            setUserImagePreview(detailedUser.userImage);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load user details:', error);
+        notificationService.error('ບໍ່ສາມາດໂຫລດຂໍ້ມູນຜູ້ໃຊ້ໄດ້');
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+    
+    loadUserDetails();
+  }, [initialUser._id]);
+  
+  // จัดการการเปลี่ยนแปลงไฟล์รูปภาพ
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'idCard' | 'user') => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      if (type === 'idCard') {
+        setIdCardImageFile(file);
+        // สร้าง URL ชั่วคราวสำหรับแสดงพรีวิว
+        const previewUrl = URL.createObjectURL(file);
+        setIdCardImagePreview(previewUrl);
+      } else {
+        setUserImageFile(file);
+        // สร้าง URL ชั่วคราวสำหรับแสดงพรีวิว
+        const previewUrl = URL.createObjectURL(file);
+        setUserImagePreview(previewUrl);
+      }
+    }
+  };
+  
+  // อัพเดทฟังก์ชั่นอัปโหลดรูปภาพ
+  const uploadImage = async (file: File, type: 'idCard' | 'user') => {
+    try {
+      setUploadProgress(10);
+      
+      // สร้าง FormData สำหรับส่งไปยัง API
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('type', type);
+      
+      const response = await fetch('/api/upload-cloudinary', {
+        method: 'POST',
+        body: formData
+      });
+      
+      setUploadProgress(70);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+      
+      const data = await response.json();
+      setUploadProgress(100);
+      
+      return data.url;
+    } catch (error) {
+      console.error('Upload error:', error);
+      notificationService.error('ອັບໂຫລດຮູບບໍ່ສຳເລັດ');
+      return null;
+    }
+  };
   
   // Update user data field
   const updateUser = (field: string, value: string | number) => {
     setUserData(prev => ({ ...prev, [field]: value }));
-  };
-  
-  // Simulate file upload
-  const uploadImage = async (file: File, type: 'idCard' | 'user') => {
-    // Simulate an upload - in a real app you would post to an API
-    return new Promise<string>((resolve) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        setUploadProgress(progress);
-        
-        if (progress >= 100) {
-          clearInterval(interval);
-          // Return a fake URL or the existing URL
-          resolve(type === 'idCard' ? 
-            userData.idCardImage || `https://example.com/images/idCard-${Date.now()}.jpg` : 
-            userData.userImage || `https://example.com/images/user-${Date.now()}.jpg`);
-        }
-      }, 100);
-    });
-  };
-  
-  // Validate form based on role
-  const validateForm = () => {
-    // Basic validation
-    if (!userData.name || !userData.email) {
-      notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນທີ່ຈຳເປັນ');
-      return false;
-    }
-    
-    // Role-specific validation
-    if (userData.role === 'driver') {
-      if (!userData.idCardNumber) {
-        notificationService.error('ກະລຸນາກວດສອບຂໍ້ມູນຄົນຂັບລົດທີ່ຈຳເປັນ');
-        return false;
-      }
-    } else if (userData.role === 'staff') {
-      if (!userData.idCardNumber) {
-        notificationService.error('ກະລຸນາລະບຸເລກບັດປະຈຳຕົວ');
-        return false;
-      }
-    } else if (userData.role === 'station') {
-      if (!userData.location) {
-        notificationService.error('ກະລຸນາລະບຸທີ່ຕັ້ງສະຖານີ');
-        return false;
-      }
-    }
-    
-    return true;
   };
   
   // Submit form
@@ -90,35 +127,46 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
     e.preventDefault();
     
     try {
-      // Validate form
-      if (!validateForm()) {
-        return;
-      }
-      
       setLoading(true);
       
-      // Upload images if needed
+      // อัปโหลดรูปภาพใหม่ถ้ามี
       if (idCardImageFile) {
         const idCardImageUrl = await uploadImage(idCardImageFile, 'idCard');
-        userData.idCardImage = idCardImageUrl;
+        if (idCardImageUrl) {
+          userData.idCardImage = idCardImageUrl;
+        }
       }
       
       if (userImageFile) {
         const userImageUrl = await uploadImage(userImageFile, 'user');
-        userData.userImage = userImageUrl;
+        if (userImageUrl) {
+          userData.userImage = userImageUrl;
+        }
       }
       
-      // Prepare API payload
-      const payload: any = { ...userData };
+      // เตรียมข้อมูลสำหรับอัพเดท
+      const updateData: any = { ...userData };
       
-      // Remove sensitive or unnecessary fields
-      delete payload.password;
+      // ลบฟิลด์ที่ไม่ต้องการส่งไป API
+      delete updateData._id;
+      delete updateData.__v;
+      delete updateData.createdAt;
+      delete updateData.updatedAt;
+      delete updateData.unhashedPassword; // ลบฟิลด์ที่เราเพิ่มเอง
       
-      // Call update API
-      const response = await fetch(`/api/users/${user._id}`, {
+      // ถ้ามีการเปลี่ยนรหัสผ่าน
+      if (userData.password && userData.password !== '********') {
+        // ไม่ต้องแฮชรหัสผ่านที่นี่ เพราะจะทำในฝั่ง API
+      } else {
+        // ไม่มีการเปลี่ยนรหัสผ่าน
+        delete updateData.password;
+      }
+      
+      // เรียก API เพื่ออัพเดทข้อมูล
+      const response = await fetch(`/api/users/${initialUser._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(updateData),
       });
       
       if (!response.ok) {
@@ -126,11 +174,9 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         throw new Error(error.error || 'Failed to update user');
       }
       
-      // Success
-      notificationService.success(`ແກ້ໄຂຂໍ້ມູນສຳເລັດແລ້ວ`);
+      notificationService.success('บันทึกข้อมูลเรียบร้อยแล้ว');
       onSuccess();
       onClose();
-      
     } catch (error: any) {
       console.error('Error updating user:', error);
       notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
@@ -142,7 +188,11 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   
   // Render appropriate form based on user role
   const renderForm = () => {
-    switch (user.role) {
+    if (loadingUser) {
+      return <div className="p-4 text-center">ກຳລັງໂຫລດຂໍ້ມູນ...</div>;
+    }
+    
+    switch(initialUser.role) {
       case 'driver':
         return (
           <DriverForm 
@@ -153,6 +203,10 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
             setIdCardImageFile={setIdCardImageFile}
             setUserImageFile={setUserImageFile}
             uploadProgress={uploadProgress}
+            idCardImagePreview={idCardImagePreview}
+            userImagePreview={userImagePreview}
+            isEditing={true}
+            handleFileChange={handleFileChange}
           />
         );
       case 'staff':
@@ -165,23 +219,39 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
             setIdCardImageFile={setIdCardImageFile}
             setUserImageFile={setUserImageFile}
             uploadProgress={uploadProgress}
+            idCardImagePreview={idCardImagePreview}
+            userImagePreview={userImagePreview}
+            isEditing={true}
+            handleFileChange={handleFileChange}
           />
         );
       case 'admin':
-        return <AdminForm user={userData} updateUser={updateUser} />;
+        return <AdminForm user={userData} updateUser={updateUser} isEditing={true} />;
       case 'station':
-        return <StationForm user={userData} updateUser={updateUser} />;
+        return <StationForm user={userData} updateUser={updateUser} isEditing={true} />;
       default:
         return null;
     }
   };
   
+  // แสดง loading indicator ขณะโหลดข้อมูล
+  if (loadingUser) {
+    return (
+      <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="text-center">
+            <p className="text-lg font-semibold">ກຳລັງໂຫລດຂໍ້ມູນ...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 backdrop-blur-sm  bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-4xl mx-4 shadow-xl overflow-y-auto max-h-[90vh]">
         <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">ແກ້ໄຂຂໍ້ມູນ {TABS[user.role as keyof typeof TABS]}</h3>
+          <div className="flex justify-end items-center mb-4">
             <button 
               className="text-gray-500 hover:text-gray-700 text-xl"
               onClick={onClose}

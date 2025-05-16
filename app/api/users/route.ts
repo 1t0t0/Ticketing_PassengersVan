@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log('User creation request body:', body);
     
-    const { name, email, password, role, phone, location, idCardNumber, idCardImage, userImage } = body;
+    const { name, email, password, role, phone,birthDate, location, idCardNumber, idCardImage, userImage } = body;
     // Validate required fields
     if (!name || !email || !password || !role) {
       return NextResponse.json(
@@ -51,7 +51,8 @@ export async function POST(request: Request) {
       name,
       email,
       password: hashedPassword,
-      role
+      role,
+      birthDate: birthDate ? new Date(birthDate) : undefined
     };
     
     // รูปแบบ Auto Number แบบไทย (ตัวอักษรบอกประเภท-ปีเดือนวัน-เลขลำดับ)

@@ -17,6 +17,9 @@ export interface IUser extends Document {
   lastCheckIn?: Date;
   lastCheckOut?: Date;
   
+  // เพิ่มฟิลด์ birthDate
+  birthDate?: string;
+  
   // Station specific fields
   stationId?: string;
   stationName?: string;
@@ -42,6 +45,9 @@ const userSchema = new Schema({
   checkInStatus: { type: String, enum: ['checked-in', 'checked-out'], default: 'checked-out' },
   lastCheckIn: { type: Date },
   lastCheckOut: { type: Date },
+  
+  // เพิ่มฟิลด์สำหรับวันเกิด
+  birthDate: { type: String },
   
   // เพิ่มฟิลด์สำหรับรูปภาพ
   idCardNumber: { type: String },

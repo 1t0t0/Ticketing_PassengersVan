@@ -3,8 +3,6 @@
 import { User, NewUser } from '../types';
 
 // ดึงข้อมูลผู้ใช้ทั้งหมด
-// app/dashboard/users/api/user.ts
-// app/dashboard/users/api/user.ts
 export async function fetchAllUsers(): Promise<User[]> {
   try {
     console.log('Calling API to fetch all users');
@@ -48,6 +46,42 @@ export async function fetchUsersByRole(role: string): Promise<User[]> {
   }
   
   return response.json();
+}
+
+// ดึงข้อมูลผู้ใช้โดยละเอียด
+export async function fetchUserDetailed(userId: string): Promise<User> {
+  try {
+    const response = await fetch(`/api/users/${userId}/detailed`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to fetch user details');
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    throw error;
+  }
+}
+
+// รีเซ็ตรหัสผ่านผู้ใช้ (สำหรับแอดมิน)
+export async function resetUserPassword(userId: string): Promise<{temporaryPassword: string}> {
+  try {
+    const response = await fetch(`/api/users/admin/reset-password/${userId}`, {
+      method: 'POST',
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to reset password');
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    throw error;
+  }
 }
 
 // เปลี่ยนสถานะการเช็คอิน/เช็คเอาท์
@@ -110,4 +144,3 @@ export async function deleteUser(userId: string): Promise<void> {
     throw error;
   }
 }
-

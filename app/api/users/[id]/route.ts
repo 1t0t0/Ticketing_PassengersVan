@@ -4,6 +4,50 @@ import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import bcrypt from 'bcryptjs';
+
+// GET - Get user by ID
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Check authorization
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+    
+    // Find user by ID
+    const user = await User.findById(params.id);
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Convert user to a plain object
+    const userData = user.toObject();
+    
+    // Remove sensitive data
+    delete userData.password;
+    
+    return NextResponse.json(userData);
+  } catch (error) {
+    console.error('Get User Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch user: ' + (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
 
 // PUT - Update a user
 export async function PUT(
@@ -44,7 +88,7 @@ export async function PUT(
     // Add fields to update (excluding sensitive fields)
     const allowedFields = [
       'name', 'email', 'phone', 'status', 'idCardNumber', 
-      'idCardImage', 'userImage', 'location'
+      'idCardImage', 'userImage', 'location', 'birthDate'
     ];
     
     allowedFields.forEach(field => {
@@ -52,6 +96,12 @@ export async function PUT(
         updateData[field] = body[field];
       }
     });
+    
+    // ถ้ามีการส่งรหัสผ่านมาด้วย (กรณีเปลี่ยนรหัสผ่าน)
+    if (body.password) {
+      // แฮชรหัสผ่านใหม่
+      updateData.password = await bcrypt.hash(body.password, 10);
+    }
     
     // Update user
     const updatedUser = await User.findByIdAndUpdate(
@@ -73,6 +123,7 @@ export async function PUT(
   }
 }
 
+// DELETE - Delete a user
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }

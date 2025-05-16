@@ -124,6 +124,7 @@ const uploadImage = async (file: File, type: 'idCard' | 'user') => {
         password: user.password || '',
         role: user.role,
         phone: user.phone,
+        birthDate: user.birthDate,
       };
       
       // เพิ่มข้อมูลเฉพาะตามประเภทผู้ใช้
@@ -202,7 +203,7 @@ const uploadImage = async (file: File, type: 'idCard' | 'user') => {
   };
   
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-4xl mx-4 shadow-xl overflow-y-auto max-h-[90vh]">
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">

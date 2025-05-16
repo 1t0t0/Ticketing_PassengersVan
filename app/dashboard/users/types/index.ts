@@ -21,6 +21,7 @@ export interface User {
   checkInStatus?: 'checked-in' | 'checked-out';
   lastCheckIn?: Date;
   lastCheckOut?: Date;
+  unhashedPassword?: string; // เพิ่มฟิลด์นี้
 }
 
 // Interface for creating a new user
