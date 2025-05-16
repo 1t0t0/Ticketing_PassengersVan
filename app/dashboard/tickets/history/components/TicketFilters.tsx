@@ -1,8 +1,8 @@
-// แก้ไขไฟล์ app/dashboard/tickets/history/components/TicketFilters.tsx
+// แก้ไขไฟล์ app/dashboard/tickets/history/components/TicketFilters.tsx (เฉพาะส่วน style)
 
 import React from 'react';
-import NeoButton from '@/components/ui/NotionButton';
 import { TicketFilter } from '../../types';
+import { FiSearch, FiCalendar } from 'react-icons/fi'; // เพิ่ม import icon
 
 interface TicketFiltersProps {
   filters: TicketFilter;
@@ -11,9 +11,6 @@ interface TicketFiltersProps {
   onFilterChange: (filters: TicketFilter) => void;
 }
 
-/**
- * คอมโพเนนต์สำหรับกรองและค้นหาตั๋ว
- */
 const TicketFilters: React.FC<TicketFiltersProps> = ({
   filters,
   onSearch,
@@ -35,32 +32,39 @@ const TicketFilters: React.FC<TicketFiltersProps> = ({
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 items-end">
-      <div className="flex-1">
-        <label className="block text-sm font-bold mb-2">ຄົ້ນຫາ</label>
-        <input
-          type="text"
-          className="w-full border-2 border-black p-2"
-          placeholder="ຄົ້ນຫາໂດຍເລກປີ້"
-          value={filters.searchQuery || ''}
-          onChange={handleSearchQueryChange}
-          onKeyPress={handleKeyPress}
-        />
-      </div>
-      
-      <div className="flex-1">
-        <label className="block text-sm font-bold mb-2">ວັນເວລາ</label>
-        <input
-          type="date"
-          className="w-full border-2 border-black p-2"
-          value={filters.startDate || ''}
-          onChange={handleDateChange}
-        />
-      </div>
-      
-      <div className="flex gap-2">
-        <NeoButton onClick={onSearch}>ຄົ້ນຫາ</NeoButton>
-        <NeoButton variant="secondary" onClick={onClear}>ແກ້ໄຂ</NeoButton>
+    <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="flex flex-col md:flex-row gap-6 items-end">
+        <div className="flex-1">
+          <label className="block text-gray-600 font-medium mb-2">ຄົ້ນຫາ</label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiSearch className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="w-full border border-gray-300 rounded-md pl-10 py-2.5 pr-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+              placeholder="ຄົ້ນຫາໂດຍເລກປີ້"
+              value={filters.searchQuery || ''}
+              onChange={handleSearchQueryChange}
+              onKeyPress={handleKeyPress}
+            />
+          </div>
+        </div>
+        
+        <div className="flex-1">
+          <label className="block text-gray-600 font-medium mb-2">ວັນເວລາ</label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiCalendar className="text-gray-400" />
+            </div>
+            <input
+              type="date"
+              className="w-full border border-gray-300 rounded-md pl-10 py-2.5 pr-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+              value={filters.startDate || ''}
+              onChange={handleDateChange}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

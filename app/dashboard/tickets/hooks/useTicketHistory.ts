@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { searchTickets, deleteTicket } from '../api/ticket';
 import { Ticket, TicketFilter, Pagination } from '../types';
-import { PAYMENT_METHOD_OPTIONS } from '../config/constants';
 import notificationService from '@/lib/notificationService';
 
 /**
@@ -39,9 +38,12 @@ export default function useTicketHistory(
   const router = useRouter();
   
   // ดึงข้อมูลตั๋วเมื่อ filters เปลี่ยน
-  useEffect(() => {
+ useEffect(() => {
+  // เรียกการค้นหาทันทีเมื่อมีการเปลี่ยนแปลงวันที่หรือวิธีการชำระเงิน
+  if (filters.startDate || filters.paymentMethod !== 'all') {
     fetchTickets();
-  }, [filters.page, filters.paymentMethod, filters.startDate]); // เพิ่ม filters.startDate เพื่อให้โหลดข้อมูลใหม่เมื่อวันที่เปลี่ยน
+  }
+}, [filters.page, filters.paymentMethod, filters.startDate, filters.searchQuery]);
   
   // ดึงข้อมูลตั๋ว
   const fetchTickets = useCallback(async () => {

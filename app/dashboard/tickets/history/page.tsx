@@ -86,43 +86,47 @@ useEffect(() => {
       
       {/* ตารางตั๋ว */}
       <NeoCard className="p-6">
-        <div className="mb-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="font-bold">ຮູບແບບການຊຳລະ:</div>
-          
-          <div className="flex gap-2">
-            <button 
-              className={`px-3 py-1 rounded ${filters.paymentMethod === 'all' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-              onClick={() => handlePaymentMethodChange('all')}
-            >
-              ທັງໝົດ
-            </button>
-            <button 
-              className={`px-3 py-1 rounded flex items-center ${
-                filters.paymentMethod === 'cash' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'
-              }`}
-              onClick={() => handlePaymentMethodChange('cash')}
-            >
-              <span></span>
-              ເງິນສົດ
-            </button>
-            <button 
-              className={`px-3 py-1 rounded flex items-center ${
-                filters.paymentMethod === 'qr' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'border border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-              }`}
-              onClick={() => handlePaymentMethodChange('qr')}
-            >
-              <span ></span>
-              ເງິນໂອນ
-            </button>
-          </div>
-          <div className='text-sm text-gray-600'>
-            ທັງໝົດ {pagination?.totalItems || 0} ລາຍການ
-          </div>
-        </div>
+
+{/* ปุ่มกรองด้วยวิธีชำระเงิน */}
+<div className="mb-4 flex flex-col md:flex-row items-center justify-between gap-4">
+  <div className="font-medium text-gray-600">ຮູບແບບການຊຳລະ:</div>
+  
+  <div className="flex gap-2">
+    <button 
+      className={`px-3 py-1.5 rounded-md transition-colors ${
+        filters.paymentMethod === 'all' 
+          ? 'bg-blue-500 text-white font-medium shadow-sm' 
+          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+      }`}
+      onClick={() => handlePaymentMethodChange('all')}
+    >
+      ທັງໝົດ
+    </button>
+    <button 
+      className={`px-3 py-1.5 rounded-md transition-colors flex items-center ${
+        filters.paymentMethod === 'cash' 
+          ? 'bg-blue-500 text-white font-medium shadow-sm' 
+          : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+      }`}
+      onClick={() => handlePaymentMethodChange('cash')}
+    >
+      ເງິນສົດ
+    </button>
+    <button 
+      className={`px-3 py-1.5 rounded-md transition-colors flex items-center ${
+        filters.paymentMethod === 'qr' 
+          ? 'bg-blue-500 text-white font-medium shadow-sm' 
+          : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+      }`}
+      onClick={() => handlePaymentMethodChange('qr')}
+    >
+      ເງິນໂອນ
+    </button>
+  </div>
+  <div className='text-sm text-gray-500'>
+    ທັງໝົດ {pagination?.totalItems || 0} ລາຍການ
+  </div>
+</div>
         
         <TicketTable 
           tickets={tickets}
