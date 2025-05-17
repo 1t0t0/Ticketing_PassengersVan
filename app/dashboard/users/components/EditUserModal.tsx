@@ -4,6 +4,7 @@ import { fetchUserDetailed } from '../api/user';
 import notificationService from '@/lib/notificationService';
 import { TABS } from '../config/constants';
 import { User } from '../types';
+import { FiUser, FiSave, FiX, FiLoader } from 'react-icons/fi';
 
 import DriverForm from './forms/DriverForm';
 import StaffForm from './forms/StaffForm';
@@ -49,7 +50,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
 
           setUserData(detailedUser);
 
-          
           if (detailedUser.userImage) {
             setUserImagePreview(detailedUser.userImage);
           }
@@ -174,7 +174,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         throw new Error(error.error || 'Failed to update user');
       }
       
-      notificationService.success('บันทึกข้อมูลเรียบร้อยแล้ว');
+      notificationService.success('ບັນທຶກຂໍ້ມູນຮຽບຮ້ອຍແລ້ວ');
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -189,7 +189,11 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   // Render appropriate form based on user role
   const renderForm = () => {
     if (loadingUser) {
-      return <div className="p-4 text-center">ກຳລັງໂຫລດຂໍ້ມູນ...</div>;
+      return (
+        <div className="flex justify-center items-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+      );
     }
     
     switch(initialUser.role) {
@@ -233,54 +237,66 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         return null;
     }
   };
-  
-  // แสดง loading indicator ขณะโหลดข้อมูล
-  if (loadingUser) {
-    return (
-      <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md">
-          <div className="text-center">
-            <p className="text-lg font-semibold">ກຳລັງໂຫລດຂໍ້ມູນ...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
+
   return (
-    <div className="fixed inset-0 backdrop-blur-sm  bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-4xl mx-4 shadow-xl overflow-y-auto max-h-[90vh]">
-        <div className="p-6">
-          <div className="flex justify-end items-center mb-4">
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl w-full max-w-4xl mx-4 shadow-xl overflow-y-auto max-h-[90vh] animate-fadeIn">
+        {/* ส่วนหัว */}
+        <div className="bg-blue-500 text-white p-5 rounded-t-xl">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold flex items-center">
+              <FiUser className="mr-2" size={22} />
+              ແກ້ໄຂຂໍ້ມູນ: {initialUser.name}
+            </h2>
             <button 
-              className="text-gray-500 hover:text-gray-700 text-xl"
+              className="p-1 hover:bg-blue-600 rounded-full transition-colors"
               onClick={onClose}
             >
-              &times;
+              <FiX size={22} />
             </button>
           </div>
-          
+        </div>
+        
+        {loadingUser ? (
+          <div className="flex justify-center items-center p-12">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
+            <p className="ml-4 text-lg">ກຳລັງໂຫລດຂໍ້ມູນ...</p>
+          </div>
+        ) : (
           <form onSubmit={handleSubmit}>
-            {renderForm()}
-            
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                type="button"
-                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
-                onClick={onClose}
-              >
-                ຍົກເລີກ
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                disabled={loading}
-              >
-                {loading ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກ'}
-              </button>
+            <div className="p-6">
+              {renderForm()}
+              
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                  onClick={onClose}
+                  disabled={loading}
+                >
+                  ຍົກເລີກ
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-sm flex items-center"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <FiLoader className="animate-spin mr-2" />
+                      ກຳລັງບັນທຶກ...
+                    </>
+                  ) : (
+                    <>
+                      <FiSave className="mr-2" />
+                      ບັນທຶກ
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
-        </div>
+        )}
       </div>
     </div>
   );

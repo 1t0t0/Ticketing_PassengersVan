@@ -1,5 +1,4 @@
-// สร้างไฟล์ใหม่ที่ app/dashboard/users/components/ViewUserModal.tsx
-
+// app/dashboard/users/components/ViewUserModal.tsx
 import React from 'react';
 import { 
   FiUser, 
@@ -7,7 +6,8 @@ import {
   FiPhone, 
   FiMapPin, 
   FiCalendar,
-  FiCreditCard 
+  FiCreditCard,
+  FiX
 } from 'react-icons/fi';
 import { User } from '../types';
 
@@ -30,31 +30,34 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({
           {icon}
           <span className="ml-2">{label}</span>
         </div>
-        <div className="text-lg">{value}</div>
+        <div className="text-lg pl-6">{value}</div>
       </div>
     );
   };
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-2xl mx-4 shadow-xl overflow-y-auto max-h-[90vh]">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl w-full max-w-2xl mx-4 shadow-xl overflow-y-auto max-h-[90vh] animate-fadeIn">
+        {/* ส่วนหัว */}
+        <div className="bg-blue-500 text-white p-5 rounded-t-xl">
+          <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold">ລາຍລະອຽດຜູ້ໃຊ້</h2>
             <button 
-              className="text-gray-500 hover:text-gray-700 text-xl"
+              className="p-1 hover:bg-blue-600 rounded-full transition-colors"
               onClick={onClose}
             >
-              &times;
+              <FiX size={24} />
             </button>
           </div>
-          
+        </div>
+        
+        <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* ข้อมูลหลัก */}
             <div>
-              <div className="flex items-center mb-4">
+              <div className="flex items-center mb-6">
                 {user.userImage ? (
-                  <div className="w-20 h-20 rounded-full overflow-hidden mr-4">
+                  <div className="w-24 h-24 rounded-full overflow-hidden mr-4 border-4 border-blue-100 shadow-md">
                     <img 
                       src={user.userImage} 
                       alt={user.name} 
@@ -62,24 +65,24 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({
                     />
                   </div>
                 ) : (
-                  <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                    <FiUser size={32} className="text-blue-500" />
+                  <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mr-4 border-4 border-blue-100 shadow-md">
+                    <FiUser size={40} className="text-blue-500" />
                   </div>
                 )}
                 
                 <div>
-                  <h3 className="text-xl font-bold">{user.name}</h3>
-                  <p className="text-sm text-gray-500 capitalize">{user.role}</p>
+                  <h3 className="text-2xl font-bold">{user.name}</h3>
+                  <p className="text-sm text-blue-500 bg-blue-50 px-2 py-1 rounded-full inline-block capitalize mb-1">{user.role}</p>
                   {user.employeeId && <p className="text-sm">ID: {user.employeeId}</p>}
                   {user.stationId && <p className="text-sm">ID: {user.stationId}</p>}
                 </div>
               </div>
               
-              {renderField('ອີເມວ', user.email, <FiMail size={16} />)}
-              {renderField('ເບີໂທລະສັບ', user.phone, <FiPhone size={16} />)}
-              {renderField('ວັນເດືອນປີເກີດ', user.birthDate, <FiCalendar size={16} />)}
-              {renderField('ເລກບັດປະຈຳຕົວ', user.idCardNumber, <FiCreditCard size={16} />)}
-              {renderField('ສະຖານທີ່ຕັ້ງ', user.location, <FiMapPin size={16} />)}
+              {renderField('ອີເມວ', user.email, <FiMail size={18} className="text-blue-500" />)}
+              {renderField('ເບີໂທລະສັບ', user.phone, <FiPhone size={18} className="text-blue-500" />)}
+              {renderField('ວັນເດືອນປີເກີດ', user.birthDate, <FiCalendar size={18} className="text-blue-500" />)}
+              {renderField('ເລກບັດປະຈຳຕົວ', user.idCardNumber, <FiCreditCard size={18} className="text-blue-500" />)}
+              {renderField('ສະຖານທີ່ຕັ້ງ', user.location, <FiMapPin size={18} className="text-blue-500" />)}
             </div>
             
             {/* ข้อมูลเพิ่มเติม */}
@@ -89,10 +92,10 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({
                 <>
                   <div className="mb-4">
                     <div className="text-sm font-semibold text-gray-500 mb-1">ສະຖານະການເຂົ້າວຽກ</div>
-                    <div className={`inline-block px-3 py-1 rounded-full ${
+                    <div className={`inline-block px-3 py-1 rounded-full font-medium ${
                       user.checkInStatus === 'checked-in' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800 border border-green-200' 
+                        : 'bg-red-100 text-red-800 border border-red-200'
                     }`}>
                       {user.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກແລ້ວ' : 'ຍັງບໍ່ໄດ້ເຂົ້າວຽກ'}
                     </div>
@@ -100,15 +103,21 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({
                   
                   {user.lastCheckIn && (
                     <div className="mb-4">
-                      <div className="text-sm font-semibold text-gray-500 mb-1">ເວລາເຂົ້າວຽກລ່າສຸດ</div>
-                      <div>{new Date(user.lastCheckIn).toLocaleString()}</div>
+                      <div className="text-sm font-semibold text-gray-500 mb-1 flex items-center">
+                        <span className="mr-2">🕒</span>
+                        ເວລາເຂົ້າວຽກລ່າສຸດ
+                      </div>
+                      <div className="pl-6">{new Date(user.lastCheckIn).toLocaleString()}</div>
                     </div>
                   )}
                   
                   {user.lastCheckOut && (
                     <div className="mb-4">
-                      <div className="text-sm font-semibold text-gray-500 mb-1">ເວລາອອກວຽກລ່າສຸດ</div>
-                      <div>{new Date(user.lastCheckOut).toLocaleString()}</div>
+                      <div className="text-sm font-semibold text-gray-500 mb-1 flex items-center">
+                        <span className="mr-2">🕒</span>
+                        ເວລາອອກວຽກລ່າສຸດ
+                      </div>
+                      <div className="pl-6">{new Date(user.lastCheckOut).toLocaleString()}</div>
                     </div>
                   )}
                 </>
@@ -126,7 +135,7 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({
               {user.idCardImage && (
                 <div className="mb-4">
                   <div className="text-sm font-semibold text-gray-500 mb-1">ຮູບບັດປະຈຳຕົວ</div>
-                  <div className="border rounded-lg overflow-hidden mt-2">
+                  <div className="border rounded-lg overflow-hidden mt-2 shadow-md">
                     <img 
                       src={user.idCardImage} 
                       alt="ID Card" 
@@ -138,14 +147,7 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({
             </div>
           </div>
           
-          <div className="mt-6 flex justify-end">
-            <button
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              onClick={onClose}
-            >
-              ປິດ
-            </button>
-          </div>
+          {/* ลบปุ่ม "ປິດ" ออกตามที่ต้องการ */}
         </div>
       </div>
     </div>
