@@ -1,3 +1,4 @@
+// app/dashboard/tickets/page.tsx (ปรับปรุง)
 'use client';
 
 import { useEffect } from 'react';
@@ -6,7 +7,8 @@ import { useRouter } from 'next/navigation';
 
 // คอมโพเนนต์
 import NeoCard from '@/components/ui/NotionCard';
-import { StatsCards, TicketSalesForm, RecentTicketsList, PrintableTicket } from './components';
+import { StatsCards, TicketSalesForm, RecentTicketsList } from './components';
+import PrintableTickets from './components/PrintableTickets';
 
 // Hooks
 import useTicketSales from './hooks/useTicketSales';
@@ -20,12 +22,13 @@ export default function TicketSalesPage() {
   const { 
     ticketPrice, 
     paymentMethod, 
-    setPaymentMethod, 
-    lastTicket, 
+    ticketQuantity,
+    setPaymentMethod,
+    setTicketQuantity,
+    lastTickets, 
     sellTicket, 
     loading, 
-    printRef, 
-     
+    printRef,
   } = useTicketSales();
   
   const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
@@ -60,7 +63,9 @@ export default function TicketSalesPage() {
           <TicketSalesForm
             ticketPrice={ticketPrice}
             paymentMethod={paymentMethod}
+            ticketQuantity={ticketQuantity}
             setPaymentMethod={setPaymentMethod}
+            setTicketQuantity={setTicketQuantity}
             onSellTicket={sellTicket}
             loading={loading}
           />
@@ -79,14 +84,8 @@ export default function TicketSalesPage() {
 
       {/* ส่วนซ่อนสำหรับการพิมพ์ตั๋ว */}
       <div ref={printRef} className="hidden">
-        {lastTicket && (
-          <PrintableTicket
-            ticketNumber={lastTicket.ticketNumber}
-            price={lastTicket.price}
-            soldAt={new Date(lastTicket.soldAt)}
-            soldBy={lastTicket.soldBy}
-            paymentMethod={lastTicket.paymentMethod}
-          />
+        {lastTickets && lastTickets.length > 0 && (
+          <PrintableTickets tickets={lastTickets} />
         )}
       </div>
     </div>

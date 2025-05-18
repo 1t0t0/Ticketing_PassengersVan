@@ -1,3 +1,4 @@
+// app/dashboard/tickets/hooks/useTicketSales.ts (ปรับปรุง)
 import { useState, useRef, useCallback } from 'react';
 import { createTicket } from '../api/ticket';
 import { DEFAULT_TICKET_PRICE, PAYMENT_METHODS } from '../config/constants';
@@ -11,8 +12,9 @@ export default function useTicketSales() {
   // State
   const [ticketPrice] = useState(DEFAULT_TICKET_PRICE);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qr'>(PAYMENT_METHODS.CASH);
+  const [ticketQuantity, setTicketQuantity] = useState<number>(1); // เพิ่ม state สำหรับจำนวนตั๋ว
   const [loading, setLoading] = useState(false);
-  const [lastTicket, setLastTicket] = useState<Ticket | null>(null);
+  const [lastTickets, setLastTickets] = useState<Ticket[]>([]); // เปลี่ยนจาก lastTicket เป็น lastTickets (array)
   
   // Ref สำหรับการพิมพ์
   const printRef = useRef<HTMLDivElement>(null);
@@ -38,23 +40,36 @@ export default function useTicketSales() {
   const sellTicket = useCallback(async () => {
     setLoading(true);
     try {
-      // สร้างตั๋วใหม่
-      const ticketData = {
-        price: ticketPrice,
-        paymentMethod,
-      };
+      const newTickets: Ticket[] = [];
       
-      const newTicket = await createTicket(ticketData);
+      // สร้างตั๋วตามจำนวนที่เลือก
+      for (let i = 0; i < ticketQuantity; i++) {
+        // สร้างตั๋วใหม่
+        const ticketData = {
+          price: ticketPrice,
+          paymentMethod,
+        };
+        
+        const newTicket = await createTicket(ticketData);
+        newTickets.push(newTicket);
+      }
       
       // เก็บข้อมูลตั๋วล่าสุด
-      setLastTicket(newTicket);
+      setLastTickets(newTickets);
       
       // พิมพ์ตั๋ว
       requestAnimationFrame(() => {
         handlePrint();
       });
       
-      return newTicket;
+      // แสดงข้อความแจ้งเตือน
+      notificationService.success(
+        ticketQuantity > 1 
+          ? `ອອກປີ້ສຳເລັດ ${ticketQuantity} ໃບ`
+          : 'ອອກປີ້ສຳເລັດແລ້ວ'
+      );
+      
+      return newTickets;
     } catch (error: any) {
       console.error('Error selling ticket:', error);
       notificationService.error(error.message || 'ເກີດຂໍ້ຜິດພາດໃນການຂາຍປີ້');
@@ -62,14 +77,16 @@ export default function useTicketSales() {
     } finally {
       setLoading(false);
     }
-  }, [ticketPrice, paymentMethod, handlePrint]);
+  }, [ticketPrice, paymentMethod, ticketQuantity, handlePrint]);
   
   return {
     ticketPrice,
     paymentMethod,
+    ticketQuantity,
     setPaymentMethod,
+    setTicketQuantity,
     loading,
-    lastTicket,
+    lastTickets,
     sellTicket,
     printRef,
     handlePrint

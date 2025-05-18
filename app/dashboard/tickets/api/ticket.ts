@@ -5,6 +5,13 @@ import { Ticket, NewTicket, TicketFilter, TicketSearchResults } from '../types';
  * @param ticketData ข้อมูลตั๋วใหม่
  * @returns ข้อมูลตั๋วที่สร้างเสร็จแล้ว
  */
+// app/dashboard/tickets/api/ticket.ts (ปรับปรุงฟังก์ชัน createTicket)
+
+/**
+ * สร้างตั๋วใหม่
+ * @param ticketData ข้อมูลตั๋วใหม่
+ * @returns ข้อมูลตั๋วที่สร้างเสร็จแล้ว
+ */
 export async function createTicket(ticketData: NewTicket): Promise<Ticket> {
   const response = await fetch('/api/tickets', {
     method: 'POST',
