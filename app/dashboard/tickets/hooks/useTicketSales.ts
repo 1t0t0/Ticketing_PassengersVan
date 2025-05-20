@@ -1,4 +1,4 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts (ปรับปรุง)
+// app/dashboard/tickets/hooks/useTicketSales.ts
 import { useState, useRef, useCallback } from 'react';
 import { createTicket } from '../api/ticket';
 import { DEFAULT_TICKET_PRICE, PAYMENT_METHODS } from '../config/constants';
@@ -12,38 +12,80 @@ export default function useTicketSales() {
   // State
   const [ticketPrice] = useState(DEFAULT_TICKET_PRICE);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qr'>(PAYMENT_METHODS.CASH);
-  const [ticketQuantity, setTicketQuantity] = useState<number>(1); // เพิ่ม state สำหรับจำนวนตั๋ว
+  const [ticketQuantity, setTicketQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
-  const [lastTickets, setLastTickets] = useState<Ticket[]>([]); // เปลี่ยนจาก lastTicket เป็น lastTickets (array)
+  const [lastTickets, setLastTickets] = useState<Ticket[]>([]);
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
   
   // Ref สำหรับการพิมพ์
   const printRef = useRef<HTMLDivElement>(null);
   
   /**
-   * ฟังก์ชันสำหรับพิมพ์ตั๋ว
+   * ฟังก์ชันเตรียมการขายตั๋ว - เปิด dialog
+   */
+  const prepareSellTicket = useCallback(() => {
+    setShowPrintDialog(true);
+  }, []);
+  
+  /**
+   * ฟังก์ชันยกเลิกการขายตั๋ว
+   */
+  const cancelSellTicket = useCallback(() => {
+    setShowPrintDialog(false);
+  }, []);
+  
+  /**
+   * ฟังก์ชันพิมพ์ตั๋ว
    */
   const handlePrint = useCallback(() => {
     if (printRef.current) {
-      const printContents = printRef.current.innerHTML;
-      const originalContents = document.body.innerHTML;
-
-      document.body.innerHTML = printContents;
-      window.print();
-      document.body.innerHTML = originalContents;
-      window.location.reload();
+      // สร้าง iframe สำหรับพิมพ์
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '80mm';
+      iframe.style.height = '0';
+      iframe.style.border = 'none';
+      
+      document.body.appendChild(iframe);
+      
+      const frameDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (frameDoc) {
+        frameDoc.body.innerHTML = printRef.current.innerHTML;
+        
+        // เพิ่ม CSS สำหรับการพิมพ์
+        const style = frameDoc.createElement('style');
+        style.textContent = `
+          @page { size: 80mm auto; margin: 0; }
+          body { margin: 0; padding: 0; }
+        `;
+        frameDoc.head.appendChild(style);
+        
+        // พิมพ์ และลบ iframe หลังจากพิมพ์เสร็จ
+        iframe.contentWindow?.print();
+        
+        // ลบ iframe หลังจากพิมพ์เสร็จ
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          
+          // รีโหลดหน้าหลังจากลบ iframe
+          window.location.reload();
+        }, 1000);
+      }
     }
   }, []);
   
   /**
-   * ฟังก์ชันขายตั๋ว
+   * ฟังก์ชันขายตั๋ว ที่ทำงานเมื่อกดปุ่ม Print ใน dialog
    */
-  const sellTicket = useCallback(async () => {
+  const sellTicket = useCallback(async (copies: number) => {
     setLoading(true);
     try {
       const newTickets: Ticket[] = [];
       
       // สร้างตั๋วตามจำนวนที่เลือก
-      for (let i = 0; i < ticketQuantity; i++) {
+      for (let i = 0; i < copies; i++) {
         // สร้างตั๋วใหม่
         const ticketData = {
           price: ticketPrice,
@@ -57,15 +99,18 @@ export default function useTicketSales() {
       // เก็บข้อมูลตั๋วล่าสุด
       setLastTickets(newTickets);
       
+      // ปิด dialog
+      setShowPrintDialog(false);
+      
       // พิมพ์ตั๋ว
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         handlePrint();
-      });
+      }, 500);
       
       // แสดงข้อความแจ้งเตือน
       notificationService.success(
-        ticketQuantity > 1 
-          ? `ອອກປີ້ສຳເລັດ ${ticketQuantity} ໃບ`
+        copies > 1 
+          ? `ອອກປີ້ສຳເລັດ ${copies} ໃບ`
           : 'ອອກປີ້ສຳເລັດແລ້ວ'
       );
       
@@ -77,7 +122,7 @@ export default function useTicketSales() {
     } finally {
       setLoading(false);
     }
-  }, [ticketPrice, paymentMethod, ticketQuantity, handlePrint]);
+  }, [ticketPrice, paymentMethod, handlePrint]);
   
   return {
     ticketPrice,
@@ -87,8 +132,10 @@ export default function useTicketSales() {
     setTicketQuantity,
     loading,
     lastTickets,
+    showPrintDialog,
+    prepareSellTicket,
+    cancelSellTicket,
     sellTicket,
-    printRef,
-    handlePrint
+    printRef
   };
 }

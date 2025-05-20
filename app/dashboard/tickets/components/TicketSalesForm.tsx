@@ -1,4 +1,4 @@
-// app/dashboard/tickets/components/TicketSalesForm.tsx (ปรับปรุง)
+// app/dashboard/tickets/components/TicketSalesForm.tsx
 import React from 'react';
 
 interface TicketSalesFormProps {
@@ -7,7 +7,7 @@ interface TicketSalesFormProps {
   ticketQuantity: number;
   setPaymentMethod: (method: 'cash' | 'qr') => void;
   setTicketQuantity: (quantity: number) => void;
-  onSellTicket: () => Promise<void>;
+  onSellTicket: () => void;
   loading: boolean;
 }
 
@@ -26,57 +26,14 @@ const TicketSalesForm: React.FC<TicketSalesFormProps> = ({
   // คำนวณราคารวม
   const totalPrice = ticketPrice * ticketQuantity;
 
-  // ฟังก์ชันเพิ่ม/ลดจำนวนตั๋ว (ไม่น้อยกว่า 1)
-  const decreaseQuantity = () => {
-    if (ticketQuantity > 1) {
-      setTicketQuantity(ticketQuantity - 1);
-    }
-  };
-
-  const increaseQuantity = () => {
-    setTicketQuantity(ticketQuantity + 1);
-  };
-
   return (
     <div>
       <div className="mb-6">
         <p className="text-xs text-gray-600 uppercase font-medium mb-1">ລາຄາປີ້</p>
         <p className="text-3xl font-bold text-blue-600">
-          {ticketQuantity > 1 
-            ? `₭${totalPrice.toLocaleString()}`
-            : `₭${ticketPrice.toLocaleString()}`
-          }
+          ₭{ticketPrice.toLocaleString()}
         </p>
-        <p className="text-sm text-gray-500">{ticketQuantity} ປີ້ x ₭{ticketPrice.toLocaleString()}</p>
-      </div>
-
-      {/* เพิ่มส่วนเลือกจำนวนตั๋ว */}
-      <div className="mb-6">
-        <p className="text-xs text-gray-600 uppercase font-medium mb-1">ຈຳນວນປີ້</p>
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={decreaseQuantity}
-            className="w-10 h-10 bg-gray-200 rounded-l flex items-center justify-center text-gray-700 text-xl border border-gray-300"
-            disabled={ticketQuantity <= 1}
-          >
-            -
-          </button>
-          <input
-            type="number"
-            className="w-16 h-10 border-t border-b border-gray-300 text-center text-lg font-bold"
-            value={ticketQuantity}
-            min="1"
-            onChange={(e) => setTicketQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-          />
-          <button
-            type="button"
-            onClick={increaseQuantity}
-            className="w-10 h-10 bg-gray-200 rounded-r flex items-center justify-center text-gray-700 text-xl border border-gray-300"
-          >
-            +
-          </button>
-        </div>
+        <p className="text-sm text-gray-500">1 ປີ້ x ₭{ticketPrice.toLocaleString()}</p>
       </div>
 
       <div className="mb-6">

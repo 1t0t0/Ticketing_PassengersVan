@@ -1,4 +1,4 @@
-// app/dashboard/tickets/page.tsx (ปรับปรุง)
+// app/dashboard/tickets/page.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
 import { StatsCards, TicketSalesForm, RecentTicketsList } from './components';
 import PrintableTickets from './components/PrintableTickets';
+import CustomPrintDialog from './components/CustomPrintDialog';
 
 // Hooks
 import useTicketSales from './hooks/useTicketSales';
@@ -26,9 +27,12 @@ export default function TicketSalesPage() {
     setPaymentMethod,
     setTicketQuantity,
     lastTickets, 
-    sellTicket, 
-    loading, 
-    printRef,
+    loading,
+    showPrintDialog,
+    prepareSellTicket,
+    cancelSellTicket,
+    sellTicket,
+    printRef
   } = useTicketSales();
   
   const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
@@ -66,7 +70,7 @@ export default function TicketSalesPage() {
             ticketQuantity={ticketQuantity}
             setPaymentMethod={setPaymentMethod}
             setTicketQuantity={setTicketQuantity}
-            onSellTicket={sellTicket}
+            onSellTicket={prepareSellTicket}
             loading={loading}
           />
         </NeoCard>
@@ -81,6 +85,16 @@ export default function TicketSalesPage() {
           />
         </NeoCard>
       </div>
+
+      {/* Custom Print Dialog */}
+      <CustomPrintDialog
+        isOpen={showPrintDialog}
+        ticketPrice={ticketPrice}
+        ticketQuantity={ticketQuantity}
+        paymentMethod={paymentMethod}
+        onCancel={cancelSellTicket}
+        onConfirm={sellTicket}
+      />
 
       {/* ส่วนซ่อนสำหรับการพิมพ์ตั๋ว */}
       <div ref={printRef} className="hidden">
