@@ -1,4 +1,4 @@
-// app/dashboard/tickets/page.tsx (Updated)
+// app/dashboard/tickets/page.tsx (Enhanced Version)
 'use client';
 
 import { useEffect } from 'react';
@@ -23,7 +23,7 @@ export default function TicketSalesPage() {
     ticketPrice, 
     paymentMethod, 
     setPaymentMethod, 
-    createdTickets, // เปลี่ยนจาก lastTicket
+    createdTickets,
     showConfirmation,
     cancelConfirmation,
     confirmSellTicket,
@@ -34,7 +34,17 @@ export default function TicketSalesPage() {
     printRef, 
   } = useTicketSales();
   
-  const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
+  // Enhanced stats hook with real-time features
+  const { 
+    stats, 
+    recentTickets, 
+    loading: statsLoading, 
+    fetchData,
+    addNewTicketOptimistic,
+    refreshData,
+    getLastUpdateText,
+    lastUpdate
+  } = useTicketStats();
 
   // ตรวจสอบการเข้าสู่ระบบ
   useEffect(() => {
@@ -50,9 +60,64 @@ export default function TicketSalesPage() {
     }
   }, [status, fetchData]);
 
+  // Enhanced ticket selling function with optimistic updates
+  const handleSellTicketWithOptimisticUpdate = async () => {
+    try {
+      // แสดง confirmation modal
+      showConfirmation();
+    } catch (error) {
+      console.error('Error in ticket selling process:', error);
+    }
+  };
+
+  // Enhanced confirm sell function
+  const handleConfirmSellTicket = async () => {
+    try {
+      // เรียกใช้ฟังก์ชันขายตั๋วเดิม
+      const newTickets = await confirmSellTicket();
+      
+      // ถ้าขายสำเร็จ ให้อัพเดทแบบ optimistic สำหรับตั๋วทั้งหมดพร้อมกัน
+      if (newTickets && newTickets.length > 0) {
+        // แสดง notification เพียงครั้งเดียวสำหรับจำนวนรวม
+        // (การแสดง notification จะถูกจัดการใน confirmSellTicket แล้ว)
+        
+        // อัพเดทตั๋วทีละใบเพื่อให้มี animation effect โดยไม่แสดง notification
+        newTickets.forEach((ticket, index) => {
+          setTimeout(() => {
+            addNewTicketOptimistic(ticket, false); // ไม่แสดง notification
+          }, index * 200); // แสดงทีละ 200ms เพื่อให้เห็น effect
+        });
+        
+        // รีเฟรชข้อมูลจริงหลัง 2 วินาที
+        setTimeout(() => {
+          fetchData(undefined, undefined, true);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Error in enhanced ticket selling:', error);
+      // ถ้าเกิดข้อผิดพลาด ให้รีเฟรชข้อมูลทันที
+      refreshData();
+    }
+  };
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">ຫນ້າການອອກປີ້</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">ຫນ້າການອອກປີ້</h1>
+        
+        {/* Real-time status indicator */}
+        <div className="flex items-center space-x-4 text-sm text-gray-600">
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span>ອັບເດດສົດ</span>
+          </div>
+          {lastUpdate && (
+            <span className="text-xs">
+              ອັບເດດລ່າສຸດ: {lastUpdate.toLocaleTimeString('lo-LA')}
+            </span>
+          )}
+        </div>
+      </div>
       
       {/* แสดงการ์ดสถิติ */}
       <StatsCards stats={stats} loading={statsLoading} />
@@ -67,18 +132,22 @@ export default function TicketSalesPage() {
             ticketPrice={ticketPrice}
             paymentMethod={paymentMethod}
             setPaymentMethod={setPaymentMethod}
-            onSellTicket={showConfirmation}
+            onSellTicket={handleSellTicketWithOptimisticUpdate}
             loading={loading}
           />
         </NeoCard>
 
-        {/* ส่วนแสดงตั๋วล่าสุด */}
+        {/* ส่วนแสดงตั๋วล่าสุดพร้อม Real-time */}
         <NeoCard className="p-6">
           <h2 className="text-lg font-bold mb-4">ປີ້ທີ່ອອກລ່າສຸດ</h2>
           
           <RecentTicketsList 
             tickets={recentTickets} 
-            onViewAllClick={() => router.push('/dashboard/tickets/history')} 
+            onViewAllClick={() => router.push('/dashboard/tickets/history')}
+            lastUpdate={lastUpdate}
+            onRefresh={refreshData}
+            loading={statsLoading}
+            getLastUpdateText={getLastUpdateText}
           />
         </NeoCard>
       </div>
@@ -90,12 +159,12 @@ export default function TicketSalesPage() {
         paymentMethod={paymentMethod}
         quantity={quantity}
         onQuantityChange={updateQuantity}
-        onConfirm={confirmSellTicket}
+        onConfirm={handleConfirmSellTicket}
         onCancel={cancelConfirmation}
         loading={loading}
       />
 
-      {/* ส่วนซ่อนสำหรับการพิมพ์ตั๋ว - ไม่ใช้แล้วเพราะใช้ popup window แทน */}
+      {/* ส่วนซ่อนสำหรับการพิมพ์ตั๋ว */}
       <div ref={printRef} className="hidden">
         {createdTickets.length > 0 && createdTickets.map((ticket, index) => (
           <PrintableTicket
