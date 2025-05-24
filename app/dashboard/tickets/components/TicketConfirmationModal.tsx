@@ -1,4 +1,4 @@
-// app/dashboard/tickets/components/TicketConfirmationModal.tsx
+// app/dashboard/tickets/components/TicketConfirmationModal.tsx (Updated)
 import React from 'react';
 import { FiX, FiPrinter } from 'react-icons/fi';
 
@@ -40,10 +40,10 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+    <div className="fixed inset-0 bg-white/80 backdrop-blur-md flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200 border border-gray-200">
         {/* ส่วนหัว */}
-        <div className="bg-blue-500 text-white p-4 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 flex items-center justify-between">
           <div className="flex items-center">
             <FiPrinter className="mr-2" size={20} />
             <h3 className="text-lg font-bold">ຢືນຢັນອອກປີ້</h3>
@@ -59,16 +59,21 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
         
         {/* ส่วนเนื้อหา */}
         <div className="p-6">
-          {/* ราคาต่อใบ */}
+          {/* ราคาต่อใบและราคารวม */}
           <div className="mb-6">
             <div className="text-sm text-gray-500 mb-1">ລາຄາຕໍ່ໃບ</div>
             <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
-              <div className="text-3xl font-bold text-blue-600 mb-1">₭{ticketPrice.toLocaleString()}</div>
-              <div className="text-sm text-gray-500">
+              <div className="text-xl font-bold text-gray-800 mb-1">₭{ticketPrice.toLocaleString()}</div>
+              <div className="text-sm text-gray-500 mb-3">
                 {quantity} ໃບ x ₭{ticketPrice.toLocaleString()}
               </div>
-              <div className="text-right text-sm text-gray-500 mt-1">
-                ລາຄາລວມທັງໝົດ
+              
+              {/* แสดงราคารวมที่เด่นชัด */}
+              <div className="border-t border-gray-300 pt-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold text-gray-700">ລາຄາລວມທັງໝົດ:</span>
+                  <span className="text-3xl font-bold text-blue-600">₭{totalAmount.toLocaleString()}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -82,7 +87,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                 onClick={() => handleQuantityChange(-1)}
                 disabled={quantity <= 1 || loading}
                 className={`
-                  w-10 h-10 rounded-lg border-2 flex items-center justify-center font-bold text-lg
+                  w-12 h-12 rounded-lg border-2 flex items-center justify-center font-bold text-lg transition-all
                   ${quantity <= 1 || loading
                     ? 'border-gray-300 text-gray-300 cursor-not-allowed bg-gray-100' 
                     : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 bg-white'}
@@ -100,7 +105,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                 onClick={() => handleQuantityChange(1)}
                 disabled={quantity >= 10 || loading}
                 className={`
-                  w-10 h-10 rounded-lg border-2 flex items-center justify-center font-bold text-lg
+                  w-12 h-12 rounded-lg border-2 flex items-center justify-center font-bold text-lg transition-all
                   ${quantity >= 10 || loading
                     ? 'border-gray-300 text-gray-300 cursor-not-allowed bg-gray-100' 
                     : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 bg-white'}
@@ -108,6 +113,21 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
               >
                 +
               </button>
+            </div>
+          </div>
+
+          {/* ข้อมูลการชำระเงิน */}
+          <div className="mb-6">
+            <div className="text-sm font-semibold text-gray-700 mb-2">ວິທີການຊຳລະ</div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center">
+                <div className={`w-3 h-3 rounded-full mr-2 ${
+                  paymentMethod === 'cash' ? 'bg-blue-500' : 'bg-green-500'
+                }`}></div>
+                <span className="font-medium text-gray-700">
+                  {getPaymentMethodText(paymentMethod)}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -125,7 +145,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
           <div className="flex space-x-3">
             <button
               type="button"
-              className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+              className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors border border-gray-300"
               onClick={onCancel}
               disabled={loading}
             >
@@ -135,7 +155,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             <button
               type="button"
               className={`
-                flex-1 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center
+                flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center shadow-md
                 ${loading ? 'opacity-70 cursor-not-allowed' : ''}
               `}
               onClick={onConfirm}

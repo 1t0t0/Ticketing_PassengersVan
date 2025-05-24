@@ -23,7 +23,7 @@ export default function TicketSalesPage() {
     ticketPrice, 
     paymentMethod, 
     setPaymentMethod, 
-    lastTicket, 
+    createdTickets, // เปลี่ยนจาก lastTicket
     showConfirmation,
     cancelConfirmation,
     confirmSellTicket,
@@ -95,17 +95,18 @@ export default function TicketSalesPage() {
         loading={loading}
       />
 
-      {/* ส่วนซ่อนสำหรับการพิมพ์ตั๋ว */}
+      {/* ส่วนซ่อนสำหรับการพิมพ์ตั๋ว - ไม่ใช้แล้วเพราะใช้ popup window แทน */}
       <div ref={printRef} className="hidden">
-        {lastTicket && (
+        {createdTickets.length > 0 && createdTickets.map((ticket, index) => (
           <PrintableTicket
-            ticketNumber={lastTicket.ticketNumber}
-            price={lastTicket.price}
-            soldAt={new Date(lastTicket.soldAt)}
-            soldBy={lastTicket.soldBy}
-            paymentMethod={lastTicket.paymentMethod}
+            key={index}
+            ticketNumber={ticket.ticketNumber}
+            price={ticket.price}
+            soldAt={new Date(ticket.soldAt)}
+            soldBy={ticket.soldBy}
+            paymentMethod={ticket.paymentMethod}
           />
-        )}
+        ))}
       </div>
     </div>
   );

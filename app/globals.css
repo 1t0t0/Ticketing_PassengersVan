@@ -73,48 +73,135 @@ input, button, textarea, select {
 }
 
 
-/* นำไฟล์นี้ไปรวมกับ global.css หรือนำเข้าในส่วนที่เกี่ยวข้องกับการพิมพ์ */
+/* เพิ่มใน app/globals.css สำหรับ N160II Thermal Printer */
 
-/* กำหนดสไตล์สำหรับการพิมพ์ */
+/* Thermal Printer Specific Styles */
 @media print {
+  /* กำหนดขนาดกระดาษสำหรับ Thermal Printer */
   @page {
-    size: 80mm auto; /* กำหนดขนาดกระดาษสำหรับ POS */
+    size: 58mm auto; /* หรือ 80mm auto สำหรับกระดาษขนาดใหญ่ */
     margin: 0;
     padding: 0;
   }
   
-  body {
-    margin: 0;
-    padding: 0;
-  }
-  
-  /* กำหนดให้พิมพ์เฉพาะเนื้อหาที่มีข้อความเท่านั้น */
-  #printable-content {
-    page-break-inside: avoid;
-    page-break-after: avoid;
-    page-break-before: avoid;
-    height: 200mm !important;
-    width: 100mm !important;
-    margin: 20px !important;
-    margin-top: 30px !important;
-    padding: 10px !important;
-    overflow: hidden !important;
-  }
-  
-  /* ซ่อนองค์ประกอบอื่นๆ นอกจากตั๋ว */
-  body > *:not(#printable-content) {
+  /* ซ่อนทุกอย่างยกเว้นส่วนที่ต้องพิมพ์ */
+  body > *:not(.thermal-print-content) {
     display: none !important;
   }
-
-  /* กำหนดให้ไม่มีพื้นที่ว่างด้านล่าง */
-  #printable-content::after {
-    content: none !important;
-    display: none !important;
-    height: 0 !important;
+  
+  /* กำหนดสไตล์สำหรับ thermal printer */
+  .thermal-print-content {
+    width: 58mm !important;
     margin: 0 !important;
     padding: 0 !important;
+    font-family: 'Courier New', monospace !important; /* ใช้ฟอนต์ที่เครื่องพิมพ์รองรับ */
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    color: black !important;
+    background: white !important;
+  }
+  
+  /* ป้องกันการแบ่งหน้าในที่ไม่เหมาะสม */
+  .thermal-ticket {
+    page-break-inside: avoid;
+    page-break-after: always;
+  }
+  
+  .thermal-ticket:last-child {
+    page-break-after: avoid;
+  }
+  
+  /* กำหนดขนาดตัวอักษรสำหรับ thermal printer */
+  .thermal-header {
+    font-size: 12px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+  }
+  
+  .thermal-details {
+    font-size: 10px !important;
+  }
+  
+  .thermal-footer {
+    font-size: 9px !important;
+    text-align: center !important;
+  }
+  
+  /* เส้นประ */
+  .thermal-divider {
+    border-top: 1px dashed black !important;
+    margin: 2mm 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Cut line */
+  .thermal-cut-line {
+    text-align: center !important;
+    font-size: 8px !important;
+    color: #666 !important;
+    margin: 3mm 0 !important;
   }
 }
+
+/* สำหรับการแสดงผลบนหน้าจอ (Preview) */
+.thermal-preview {
+  width: 58mm;
+  min-height: auto;
+  border: 1px solid #ddd;
+  margin: 10px auto;
+  padding: 2mm;
+  font-family: 'Phetsarath', serif;
+  font-size: 11px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* สำหรับ 80mm thermal printer */
+.thermal-80mm {
+  width: 80mm !important;
+}
+
+@media print {
+  .thermal-80mm {
+    @page {
+      size: 80mm auto;
+    }
+  }
+}
+
+/* กำหนดสีและความคมชัดสำหรับ thermal printer */
+.thermal-print-content * {
+  color: black !important;
+  background: white !important;
+  border-color: black !important;
+}
+
+/* ซ่อน element ที่ไม่จำเป็นในการพิมพ์ */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+}
+
+/* สำหรับการจัดการฟอนต์ที่เหมาะกับ thermal printer */
+.thermal-font {
+  font-family: 'Courier New', 'DejaVu Sans Mono', monospace !important;
+  font-weight: normal !important;
+}
+
+/* QR Code styling for thermal printer */
+.thermal-qr {
+  text-align: center;
+  font-size: 8px;
+  margin: 2mm 0;
+  padding: 1mm;
+  border: 1px solid black;
+}
+
 
 /* กำหนดสไตล์เพิ่มเติมสำหรับองค์ประกอบภายในตั๋ว */
 #printable-content > div:last-child {
