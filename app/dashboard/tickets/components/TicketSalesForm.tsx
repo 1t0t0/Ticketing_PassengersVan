@@ -1,3 +1,4 @@
+// app/dashboard/tickets/components/TicketSalesForm.tsx (Updated)
 import React from 'react';
 
 interface TicketSalesFormProps {
@@ -29,6 +30,7 @@ const TicketSalesForm: React.FC<TicketSalesFormProps> = ({
         <p className="text-xs text-gray-600 uppercase font-medium mb-1">ປະເພດການຊຳລະ</p>
         <div className="grid grid-cols-2 gap-2">
           <button
+            type="button"
             className={`py-2 px-4 text-center font-medium rounded ${
               paymentMethod === 'cash' 
                 ? 'bg-blue-500 text-white' 
@@ -39,6 +41,7 @@ const TicketSalesForm: React.FC<TicketSalesFormProps> = ({
             ເງິນສົດ
           </button>
           <button
+            type="button"
             className={`py-2 px-4 text-center font-medium rounded ${
               paymentMethod === 'qr' 
                 ? 'bg-blue-500 text-white' 
@@ -52,6 +55,7 @@ const TicketSalesForm: React.FC<TicketSalesFormProps> = ({
       </div>
 
       <button
+        type="button"
         className="w-full py-3 px-4 bg-blue-500 text-xl text-white font-medium rounded"
         onClick={onSellTicket}
         disabled={loading}

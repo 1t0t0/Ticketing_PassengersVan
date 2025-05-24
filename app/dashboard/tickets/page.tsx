@@ -1,3 +1,4 @@
+// app/dashboard/tickets/page.tsx (Updated)
 'use client';
 
 import { useEffect } from 'react';
@@ -7,6 +8,7 @@ import { useRouter } from 'next/navigation';
 // คอมโพเนนต์
 import NeoCard from '@/components/ui/NotionCard';
 import { StatsCards, TicketSalesForm, RecentTicketsList, PrintableTicket } from './components';
+import TicketConfirmationModal from './components/TicketConfirmationModal';
 
 // Hooks
 import useTicketSales from './hooks/useTicketSales';
@@ -22,10 +24,14 @@ export default function TicketSalesPage() {
     paymentMethod, 
     setPaymentMethod, 
     lastTicket, 
-    sellTicket, 
+    showConfirmation,
+    cancelConfirmation,
+    confirmSellTicket,
+    showConfirmModal,
+    quantity,
+    updateQuantity,
     loading, 
     printRef, 
-     
   } = useTicketSales();
   
   const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
@@ -61,7 +67,7 @@ export default function TicketSalesPage() {
             ticketPrice={ticketPrice}
             paymentMethod={paymentMethod}
             setPaymentMethod={setPaymentMethod}
-            onSellTicket={sellTicket}
+            onSellTicket={showConfirmation}
             loading={loading}
           />
         </NeoCard>
@@ -76,6 +82,18 @@ export default function TicketSalesPage() {
           />
         </NeoCard>
       </div>
+
+      {/* Modal ยืนยันการขายตั๋ว */}
+      <TicketConfirmationModal
+        isOpen={showConfirmModal}
+        ticketPrice={ticketPrice}
+        paymentMethod={paymentMethod}
+        quantity={quantity}
+        onQuantityChange={updateQuantity}
+        onConfirm={confirmSellTicket}
+        onCancel={cancelConfirmation}
+        loading={loading}
+      />
 
       {/* ส่วนซ่อนสำหรับการพิมพ์ตั๋ว */}
       <div ref={printRef} className="hidden">

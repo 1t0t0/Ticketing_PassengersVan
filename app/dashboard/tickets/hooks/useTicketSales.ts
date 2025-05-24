@@ -1,3 +1,4 @@
+// app/dashboard/tickets/hooks/useTicketSales.ts (Updated)
 import { useState, useRef, useCallback } from 'react';
 import { createTicket } from '../api/ticket';
 import { DEFAULT_TICKET_PRICE, PAYMENT_METHODS } from '../config/constants';
@@ -13,6 +14,8 @@ export default function useTicketSales() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qr'>(PAYMENT_METHODS.CASH);
   const [loading, setLoading] = useState(false);
   const [lastTicket, setLastTicket] = useState<Ticket | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [quantity, setQuantity] = useState(1);
   
   // Ref สำหรับการพิมพ์
   const printRef = useRef<HTMLDivElement>(null);
@@ -33,28 +36,64 @@ export default function useTicketSales() {
   }, []);
   
   /**
-   * ฟังก์ชันขายตั๋ว
+   * ฟังก์ชันแสดง Modal ยืนยัน
    */
-  const sellTicket = useCallback(async () => {
+  const showConfirmation = useCallback(() => {
+    setShowConfirmModal(true);
+  }, []);
+
+  /**
+   * ฟังก์ชันยกเลิก Modal
+   */
+  const cancelConfirmation = useCallback(() => {
+    setShowConfirmModal(false);
+    setQuantity(1); // รีเซ็ตจำนวนเมื่อยกเลิก
+  }, []);
+
+  /**
+   * ฟังก์ชันเปลี่ยนจำนวนตั๋ว
+   */
+  const updateQuantity = useCallback((newQuantity: number) => {
+    setQuantity(newQuantity);
+  }, []);
+
+  /**
+   * ฟังก์ชันยืนยันการขายตั๋ว
+   */
+  const confirmSellTicket = useCallback(async () => {
     setLoading(true);
     try {
-      // สร้างตั๋วใหม่
-      const ticketData = {
-        price: ticketPrice,
-        paymentMethod,
-      };
+      // ลูปสร้างตั๋วตามจำนวนที่กำหนด
+      const tickets: Ticket[] = [];
       
-      const newTicket = await createTicket(ticketData);
+      for (let i = 0; i < quantity; i++) {
+        const ticketData = {
+          price: ticketPrice,
+          paymentMethod,
+        };
+        
+        const newTicket = await createTicket(ticketData);
+        tickets.push(newTicket);
+      }
       
-      // เก็บข้อมูลตั๋วล่าสุด
-      setLastTicket(newTicket);
+      // เก็บตั๋วล่าสุดสำหรับการพิมพ์
+      if (tickets.length > 0) {
+        setLastTicket(tickets[tickets.length - 1]);
+      }
       
-      // พิมพ์ตั๋ว
+      // ปิด Modal และรีเซ็ตจำนวน
+      setShowConfirmModal(false);
+      setQuantity(1);
+      
+      // แสดงข้อความสำเร็จ
+      notificationService.success(`ອອກປີ້ສຳເລັດ ${quantity} ໃບ`);
+      
+      // พิมพ์ตั๋วทันที
       requestAnimationFrame(() => {
         handlePrint();
       });
       
-      return newTicket;
+      return tickets;
     } catch (error: any) {
       console.error('Error selling ticket:', error);
       notificationService.error(error.message || 'ເກີດຂໍ້ຜິດພາດໃນການຂາຍປີ້');
@@ -62,7 +101,7 @@ export default function useTicketSales() {
     } finally {
       setLoading(false);
     }
-  }, [ticketPrice, paymentMethod, handlePrint]);
+  }, [ticketPrice, paymentMethod, quantity, handlePrint]);
   
   return {
     ticketPrice,
@@ -70,7 +109,12 @@ export default function useTicketSales() {
     setPaymentMethod,
     loading,
     lastTicket,
-    sellTicket,
+    showConfirmation,
+    cancelConfirmation,
+    confirmSellTicket,
+    showConfirmModal,
+    quantity,
+    updateQuantity,
     printRef,
     handlePrint
   };
