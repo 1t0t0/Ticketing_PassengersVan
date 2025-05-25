@@ -1,52 +1,17 @@
-// app/dashboard/tickets/components/RecentTicketsList.tsx (Enhanced Version)
-import React, { useState, useEffect } from 'react';
+// app/dashboard/tickets/components/RecentTicketsList.tsx - แสดงเต็ม 5 ใบ
+import React from 'react';
 import { Ticket } from '../types';
-import { FiRefreshCw, FiClock, FiTrendingUp } from 'react-icons/fi';
+import { FiClock, FiArrowRight, FiList } from 'react-icons/fi';
 
 interface RecentTicketsListProps {
   tickets: Ticket[];
   onViewAllClick: () => void;
-  lastUpdate?: Date;
-  onRefresh?: () => void;
-  loading?: boolean;
-  getLastUpdateText?: () => string;
 }
 
 /**
- * คอมโพเนนต์แสดงรายการตั๋วล่าสุดพร้อม Real-time Updates
+ * คอมโพเนนต์แสดงรายการตั๋วล่าสุด - แสดงเต็ม 5 ใบ
  */
-const RecentTicketsList: React.FC<RecentTicketsListProps> = ({ 
-  tickets, 
-  onViewAllClick,
-  lastUpdate,
-  onRefresh,
-  loading = false,
-  getLastUpdateText
-}) => {
-  const [animatingTickets, setAnimatingTickets] = useState<Set<string>>(new Set());
-
-  // Animation effect สำหรับตั๋วใหม่
-  useEffect(() => {
-    if (tickets.length > 0) {
-      const latestTicket = tickets[0];
-      const ticketAge = new Date().getTime() - new Date(latestTicket.soldAt).getTime();
-      
-      // ถ้าตั๋วใหม่กว่า 30 วินาที ให้แสดง animation
-      if (ticketAge < 30000) {
-        setAnimatingTickets(prev => new Set([...prev, latestTicket._id]));
-        
-        // หยุด animation หลัง 3 วินาที
-        setTimeout(() => {
-          setAnimatingTickets(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(latestTicket._id);
-            return newSet;
-          });
-        }, 3000);
-      }
-    }
-  }, [tickets]);
-
+const RecentTicketsList: React.FC<RecentTicketsListProps> = ({ tickets, onViewAllClick }) => {
   // ฟังก์ชันแปลง payment method เป็นภาษาลาว
   const getPaymentMethodText = (method: string) => {
     switch (method) {
@@ -59,20 +24,15 @@ const RecentTicketsList: React.FC<RecentTicketsListProps> = ({
     }
   };
 
-  // ฟังก์ชันคำนวณเวลาที่ผ่านมา
-  const getTimeAgo = (date: Date | string) => {
-    const now = new Date();
-    const ticketDate = new Date(date);
-    const diffInSeconds = Math.floor((now.getTime() - ticketDate.getTime()) / 1000);
-    
-    if (diffInSeconds < 60) {
-      return `${diffInSeconds} ວິນາທີທີ່ແລ້ວ`;
-    } else if (diffInSeconds < 3600) {
-      const minutes = Math.floor(diffInSeconds / 60);
-      return `${minutes} ນາທີທີ່ແລ້ວ`;
-    } else {
-      const hours = Math.floor(diffInSeconds / 3600);
-      return `${hours} ຊົ່ວໂມງທີ່ແລ້ວ`;
+  // ฟังก์ชันแปลง payment method เป็นสี
+  const getPaymentMethodStyle = (method: string) => {
+    switch (method) {
+      case 'cash':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'qr':
+        return 'bg-green-100 text-green-800 border-green-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -101,132 +61,95 @@ const RecentTicketsList: React.FC<RecentTicketsListProps> = ({
       soldAt: new Date(),
       soldBy: 'System',
       paymentMethod: 'cash'
+    },
+    {
+      _id: '4',
+      ticketNumber: 'T1746505407724',
+      price: 45000,
+      soldAt: new Date(),
+      soldBy: 'System',
+      paymentMethod: 'qr'
+    },
+    {
+      _id: '5',
+      ticketNumber: 'T1746505407725',
+      price: 45000,
+      soldAt: new Date(),
+      soldBy: 'System',
+      paymentMethod: 'cash'
     }
   ];
 
-  // ใช้ข้อมูลจริงหรือข้อมูลตัวอย่าง
-  const ticketsToShow = tickets.length > 0 ? tickets : placeholderTickets;
+  // ใช้ข้อมูลจริงหรือข้อมูลตัวอย่าง และให้แสดงครบ 5 ใบ
+  const ticketsToShow = tickets.length > 0 ? tickets.slice(0, 5) : placeholderTickets;
+
+  if (ticketsToShow.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <FiList className="h-8 w-8 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">ຍັງບໍ່ມີປີ້</h3>
+        <p className="text-gray-500 mb-4">ປີ້ທີ່ອອກຈະປາກົດຢູ່ນີ້</p>
+        
+        {/* ปุ่มดูทั้งหมด - แม้ไม่มีข้อมูล */}
+        <button 
+          className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center group"
+          onClick={onViewAllClick}
+        >
+          <span>ເບິ່ງປີ້ທັງໝົດ</span>
+          <FiArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-1">
-      {/* Header พร้อมข้อมูลการอัพเดท */}
-      <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
-        <div className="flex items-center space-x-2">
-          <FiTrendingUp className="text-blue-500" size={16} />
-          <span className="text-sm font-medium text-gray-600">ປີ້ລ່າສຸດ</span>
-          {tickets.length > 0 && (
-            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-              {tickets.length} ລາຍການ
-            </span>
-          )}
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          {getLastUpdateText && (
-            <div className="flex items-center text-xs text-gray-500">
-              <FiClock size={12} className="mr-1" />
-              <span>{getLastUpdateText()}</span>
-            </div>
-          )}
-          
-          {onRefresh && (
-            <button
-              onClick={onRefresh}
-              disabled={loading}
-              className={`p-1 rounded-full hover:bg-gray-100 transition-colors ${
-                loading ? 'text-gray-400' : 'text-gray-600 hover:text-blue-500'
-              }`}
-              title="ລີເຟຣດຂໍ້ມູນ"
-            >
-              <FiRefreshCw 
-                size={14} 
-                className={loading ? 'animate-spin' : ''} 
-              />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Loading state */}
-      {loading && (
-        <div className="text-center py-4">
-          <div className="inline-flex items-center text-sm text-gray-500">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
-            ກຳລັງອັບເດດຂໍ້ມູນ...
-          </div>
-        </div>
-      )}
-
-      {/* Tickets list */}
-      <div className="space-y-1">
-        {ticketsToShow.map((ticket, index) => {
-          const isAnimating = animatingTickets.has(ticket._id || index.toString());
-          const isNew = tickets.length > 0 && index === 0 && 
-                       new Date().getTime() - new Date(ticket.soldAt).getTime() < 60000; // น้อยกว่า 1 นาที
-          
-          return (
-            <div 
-              key={ticket._id || index} 
-              className={`py-3 px-2 border-b border-gray-100 last:border-b-0 rounded-md transition-all duration-300 ${
-                isAnimating ? 'bg-green-50 border-green-200 shadow-sm' : 
-                isNew ? 'bg-blue-50' : 'hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <p className="font-medium text-sm">{ticket.ticketNumber}</p>
-                    {isNew && (
-                      <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full animate-pulse">
-                        ໃໝ່
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600 font-medium">
-                    ₭{ticket.price.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {getTimeAgo(ticket.soldAt)}
-                  </p>
+    <div className="space-y-3">
+      {/* แสดงตั๋วทั้ง 5 ใบ */}
+      {ticketsToShow.map((ticket, index) => (
+        <div 
+          key={ticket._id || index} 
+          className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-all duration-200"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold text-gray-900 text-sm">{ticket.ticketNumber}</h4>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPaymentMethodStyle(ticket.paymentMethod)}`}>
+                  {getPaymentMethodText(ticket.paymentMethod)}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center text-gray-600">
+                  <span className="font-semibold text-gray-900">₭{ticket.price.toLocaleString()}</span>
                 </div>
-                
-                <div className="text-right">
-                  <span className={`inline-block px-2 py-1 text-xs rounded-full font-medium ${
-                    ticket.paymentMethod === 'cash' 
-                      ? 'bg-blue-100 text-blue-800 border border-blue-200' 
-                      : 'bg-green-100 text-green-800 border border-green-200'
-                  }`}>
-                    {getPaymentMethodText(ticket.paymentMethod)}
-                  </span>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(ticket.soldAt).toLocaleTimeString('lo-LA', {
+                <div className="flex items-center text-gray-500">
+                  <FiClock className="h-3 w-3 mr-1" />
+                  <span className="text-xs">
+                    {new Date(ticket.soldAt).toLocaleTimeString('en-US', {
                       hour: '2-digit',
                       minute: '2-digit',
                       hour12: false
                     })}
-                  </p>
+                  </span>
                 </div>
               </div>
             </div>
-          );
-        })}
-      </div>
-      
-      {/* View all button */}
-      <button 
-        className="w-full py-3 px-4 text-sm bg-gray-100 text-gray-700 font-medium rounded-lg mt-4 hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center space-x-2"
-        onClick={onViewAllClick}
-      >
-        <span>ເບິ່ງປີ້ທັງໝົດ</span>
-        <span className="text-xs text-gray-500">→</span>
-      </button>
-      
-      {/* Real-time indicator */}
-      <div className="flex justify-center pt-2">
-        <div className="flex items-center text-xs text-gray-400 space-x-1">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span>ອັບເດດອັດຕະໂນມັດ</span>
+          </div>
         </div>
+      ))}
+      
+      {/* ปุ่มดูทั้งหมด - ย้ายมาด้านล่าง */}
+      <div className="pt-3">
+        <button 
+          className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center group"
+          onClick={onViewAllClick}
+        >
+          <span>ເບິ່ງປີ້ທັງໝົດ</span>
+          <FiArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
+        </button>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+// app/dashboard/tickets/config/constants.ts - เปลี่ยนจำนวนตั๋วล่าสุดเป็น 5
 // ค่าตั๋วเริ่มต้น
 export const DEFAULT_TICKET_PRICE = 45000;
 
@@ -12,7 +13,7 @@ export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 // ตัวเลือกการเรียงลำดับ
 export const SORT_OPTIONS = [
-  { value: 'newest', label: 'ລ່າສຸດ' },
+  { value: 'newest', label: 'ລ่າສຸດ' },
   { value: 'oldest', label: 'ເກົ່າສຸດ' },
   { value: 'price_high', label: 'ລາຄາສູງ-ຕໍ່າ' },
   { value: 'price_low', label: 'ລາຄາຕໍ່າ-ສູງ' }
@@ -25,8 +26,8 @@ export const PAYMENT_METHOD_OPTIONS = [
   { value: 'qr', label: 'QR' }
 ];
 
-// จำนวนตั๋วล่าสุดที่แสดงในหน้าขายตั๋ว
-export const RECENT_TICKETS_COUNT = 3;
+// จำนวนตั๋วล่าสุดที่แสดงในหน้าขายตั๋ว - เปลี่ยนเป็น 5
+export const RECENT_TICKETS_COUNT = 5;
 
 // รูปแบบประเภทการชำระเงิน
 export const PAYMENT_METHOD_COLORS = {
