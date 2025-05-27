@@ -1,4 +1,4 @@
-// app/dashboard/users/components/forms/DriverForm.tsx - Enhanced with Car Information
+// app/dashboard/users/components/forms/DriverForm.tsx - แปลเป็นภาษาลาว
 import React, { useState, useEffect } from 'react';
 import { 
   FiUser, 
@@ -102,7 +102,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
       }
     } catch (error) {
       console.error('Error fetching car types:', error);
-      notificationService.error('ไม่สามารถโหลดประเภทรถได้');
+      notificationService.error('ບໍ່ສາມາດໂຫລດປະເພດລົດໄດ້');
     } finally {
       setLoadingCarTypes(false);
     }
@@ -111,7 +111,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
   // ฟังก์ชันเพิ่มประเภทรถใหม่
   const handleAddCarType = async () => {
     if (!newCarTypeName.trim()) {
-      notificationService.error('กรุณากรอกชื่อประเภทรถ');
+      notificationService.error('ກະລຸນາກຣອກຊື່ປະເພດລົດ');
       return;
     }
 
@@ -129,13 +129,13 @@ const DriverForm: React.FC<DriverFormProps> = ({
         setCarData(prev => ({ ...prev, car_type_id: newCarType._id }));
         setNewCarTypeName('');
         setShowAddCarType(false);
-        notificationService.success('เพิ่มประเภทรถสำเร็จ');
+        notificationService.success('ເພີ່ມປະເພດລົດສຳເລັດ');
       } else {
         throw new Error('Failed to add car type');
       }
     } catch (error) {
       console.error('Error adding car type:', error);
-      notificationService.error('ไม่สามารถเพิ่มประเภทรถได้');
+      notificationService.error('ບໍ່ສາມາດເພີ່ມປະເພດລົດໄດ້');
     } finally {
       setAddingCarType(false);
     }
@@ -185,10 +185,10 @@ const DriverForm: React.FC<DriverFormProps> = ({
       setShowTempPassword(true);
       updateUser('password', response.temporaryPassword);
       
-      notificationService.success('รีเซ็ตรหัสผ่านสำเร็จ');
+      notificationService.success('ລີເຊັດລະຫັດຜ່ານສຳເລັດ');
     } catch (error: any) {
       console.error('Error resetting password:', error);
-      notificationService.error(`เกิดข้อผิดพลาด: ${error.message}`);
+      notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
     } finally {
       setResetPasswordLoading(false);
     }
@@ -210,15 +210,15 @@ const DriverForm: React.FC<DriverFormProps> = ({
 
   return (
     <>
-      {/* ข้อมูลทั่วไป */}
+      {/* ຂໍ້ມູນທົ່ວໄປ */}
       <div className="mb-6">
         <h4 className="font-semibold text-lg mb-4 text-blue-600 border-b border-blue-200 pb-2">
           <FiUser className="inline mr-2" />
-          ข้อมูลทั่วไป
+          ຂໍ້ມູນທົ່ວໄປ
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField 
-            label="ชื่อ และ นามสกุล"
+            label="ຊື່ ແລະ ນາມສະກຸນ"
             type="text"
             icon={<FiUser />}
             value={user.name || ''}
@@ -227,7 +227,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
           />
           
           <FormField 
-            label="วันเดือนปีเกิด"
+            label="ວັນເດືອນປີເກີດ"
             type="date"
             icon={<FiCalendar />}
             value={formatDateForInput(user.birthDate)}
@@ -236,7 +236,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
           />
           
           <FormField 
-            label="อีเมล"
+            label="ອີເມວ"
             type="email"
             icon={<FiMail />}
             value={user.email || ''}
@@ -245,7 +245,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
           />
           
           <FormField 
-            label="เบอร์โทรศัพท์"
+            label="ເບີໂທລະສັບ"
             type="tel"
             icon={<FiPhone />}
             placeholder="0812345678"
@@ -253,16 +253,16 @@ const DriverForm: React.FC<DriverFormProps> = ({
             onChange={(e) => updateUser('phone', e.target.value)}
           />
           
-          {/* รหัสผ่าน */}
+          {/* ລະຫັດຜ່ານ */}
           <div>
-            <label className="block text-sm font-bold mb-2">รหัสผ่าน</label>
+            <label className="block text-sm font-bold mb-2">ລະຫັດຜ່ານ</label>
             <div className="relative">
               <input
                 type="text"
                 className="w-full border-2 border-gray-300 rounded p-2 pr-10 focus:border-blue-500 focus:outline-none"
                 value={user.password || ''}
                 onChange={(e) => updateUser('password', e.target.value)}
-                placeholder={isEditing ? "ใส่รหัสผ่านใหม่หรือปล่อยว่างไว้เพื่อใช้รหัสผ่านเดิม" : "รหัสผ่าน"}
+                placeholder={isEditing ? "ໃສ່ລະຫັດຜ່ານໃໝ່ ຫຼື ປ່ອຍວ່າງຄືເກົ່າ" : "ລະຫັດຜ່ານ"}
               />
               {isEditing && (
                 <button
@@ -278,14 +278,14 @@ const DriverForm: React.FC<DriverFormProps> = ({
             {showTempPassword && (
               <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded-md">
                 <p className="text-sm text-yellow-800">
-                  รหัสผ่านชั่วคราว: <strong>{tempPassword}</strong>
+                  ລະຫັດຜ່ານຊົ່ວຄາວ: <strong>{tempPassword}</strong>
                 </p>
               </div>
             )}
           </div>
 
           <FormField 
-            label="เลขบัตรประจำตัว"
+            label="ເລກບັດປະຈຳຕົວ"
             type="text"
             icon={<FiCreditCard />}
             value={user.idCardNumber || ''}
@@ -295,16 +295,16 @@ const DriverForm: React.FC<DriverFormProps> = ({
         </div>
       </div>
       
-      {/* รูปภาพ */}
+      {/* ຮູບພາບ */}
       <div className="mb-6 border-t border-gray-200 pt-6">
         <h4 className="font-semibold text-lg mb-4 text-blue-600 border-b border-blue-200 pb-2">
           <FiCamera className="inline mr-2" />
-          รูปภาพ
+          ຮູບພາບ
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* รูปบัตรประจำตัว */}
+          {/* ຮູບບັດປະຈຳຕົວ */}
           <div>
-            <label className="block text-sm font-bold mb-2">รูปบัตรประจำตัว</label>
+            <label className="block text-sm font-bold mb-2">ຮູບບັດປະຈຳຕົວ</label>
             <div className="flex items-center">
               <input
                 type="file"
@@ -343,17 +343,17 @@ const DriverForm: React.FC<DriverFormProps> = ({
                 ) : (
                   <div className="text-center">
                     <FiCamera className="mx-auto text-3xl text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600">อัปโหลดรูปบัตรประจำตัว</p>
-                    <p className="text-xs text-gray-400 mt-1">คลิกเพื่อเลือกไฟล์</p>
+                    <p className="text-sm text-gray-600">ອັບໂຫລດຮູບບັດປະຈຳຕົວ</p>
+                    <p className="text-xs text-gray-400 mt-1">ກົດເພື່ອເລືອກໄຟລ໌</p>
                   </div>
                 )}
               </label>
             </div>
           </div>
           
-          {/* รูปถ่าย */}
+          {/* ຮູບຖ່າຍ */}
           <div>
-            <label className="block text-sm font-bold mb-2">รูปถ่าย</label>
+            <label className="block text-sm font-bold mb-2">ຮູບຖ່າຍ</label>
             <div className="flex items-center">
               <input
                 type="file"
@@ -392,8 +392,8 @@ const DriverForm: React.FC<DriverFormProps> = ({
                 ) : (
                   <div className="text-center">
                     <FiCamera className="mx-auto text-3xl text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600">อัปโหลดรูปถ่าย</p>
-                    <p className="text-xs text-gray-400 mt-1">คลิกเพื่อเลือกไฟล์</p>
+                    <p className="text-sm text-gray-600">ອັບໂຫລດຮູບຖ່າຍ</p>
+                    <p className="text-xs text-gray-400 mt-1">ກົດເພື່ອເລືອກໄຟລ໌</p>
                   </div>
                 )}
               </label>
@@ -410,38 +410,38 @@ const DriverForm: React.FC<DriverFormProps> = ({
                 style={{ width: `${uploadProgress}%` }}
               ></div>
             </div>
-            <p className="text-xs text-gray-500 mt-1">กำลังอัปโหลด: {uploadProgress}%</p>
+            <p className="text-xs text-gray-500 mt-1">ກຳລັງອັບໂຫລດ: {uploadProgress}%</p>
           </div>
         )}
       </div>
 
-      {/* ข้อมูลรถ */}
+      {/* ຂໍ້ມູນລົດ */}
       <div className="mb-6 border-t border-gray-200 pt-6">
         <h4 className="font-semibold text-lg mb-4 text-green-600 border-b border-green-200 pb-2">
           <FiTruck className="inline mr-2" />
-          ข้อมูลรถ
+          ຂໍ້ມູນລົດ
         </h4>
         
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
           <p className="text-sm text-green-700">
             <FiSettings className="inline mr-1" />
-            กรุณากรอกข้อมูลรถที่คนขับคนนี้จะรับผิดชอบ
+            ກະລຸນາກຣອກຂໍ້ມູນລົດທີ່ຄົນຂັບຄົນນີ້ຈະຮັບຜິດຊອບ
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField 
-            label="ชื่อรถ / รุ่นรถ"
+            label="ຊື່ລົດ / ຮຸ່ນລົດ"
             type="text"
             icon={<FiTruck />}
             value={carData.car_name}
             onChange={(e) => updateCarData('car_name', e.target.value)}
-            placeholder="Toyota Commuter, Isuzu D-Max, etc."
+            placeholder="Toyota Commuter, Isuzu D-Max, ແລະອື່ນໆ"
             required
           />
 
           <FormField 
-            label="ความจุรถ (จำนวนที่นั่ง)"
+            label="ຄວາມຈຸລົດ (ຈຳນວນທີ່ນັ່ງ)"
             type="number"
             icon={<FiUser />}
             value={carData.car_capacity.toString()}
@@ -451,7 +451,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
           />
 
           <FormField 
-            label="หมายเลขทะเบียนรถ"
+            label="ໝາຍເລກທະບຽນລົດ"
             type="text"
             icon={<FiCreditCard />}
             value={carData.car_registration}
@@ -460,9 +460,9 @@ const DriverForm: React.FC<DriverFormProps> = ({
             required
           />
 
-          {/* ประเภทรถ */}
+          {/* ປະເພດລົດ */}
           <div>
-            <label className="block text-sm font-bold mb-2">ประเภทรถ</label>
+            <label className="block text-sm font-bold mb-2">ປະເພດລົດ</label>
             <div className="flex gap-2">
               <div className="flex-1">
                 <select
@@ -472,7 +472,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
                   disabled={loadingCarTypes}
                   required
                 >
-                  <option value="">-- เลือกประเภทรถ --</option>
+                  <option value="">-- ເລືອກປະເພດລົດ --</option>
                   {carTypes.map((type) => (
                     <option key={type._id} value={type._id}>
                       {type.carType_name}
@@ -484,7 +484,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
                 type="button"
                 className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                 onClick={() => setShowAddCarType(true)}
-                title="เพิ่มประเภทรถใหม่"
+                title="ເພີ່ມປະເພດລົດໃໝ່"
               >
                 <FiPlus size={18} />
               </button>
@@ -492,15 +492,15 @@ const DriverForm: React.FC<DriverFormProps> = ({
           </div>
         </div>
 
-        {/* ส่วนเพิ่มประเภทรถใหม่ */}
+        {/* ສ່ວນເພີ່ມປະເພດລົດໃໝ່ */}
         {showAddCarType && (
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h5 className="font-semibold mb-3 text-blue-700">เพิ่มประเภทรถใหม่</h5>
+            <h5 className="font-semibold mb-3 text-blue-700">ເພີ່ມປະເພດລົດໃໝ່</h5>
             <div className="flex gap-2">
               <input
                 type="text"
                 className="flex-1 border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none"
-                placeholder="ชื่อประเภทรถ เช่น รถตู้, รถบัส, รถกระบะ"
+                placeholder="ຊື່ປະເພດລົດ ເຊັ່ນ ລົດຕູ້, ລົດບັດ, ລົດກະບະ"
                 value={newCarTypeName}
                 onChange={(e) => setNewCarTypeName(e.target.value)}
                 onKeyPress={(e) => {
@@ -515,7 +515,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
                 onClick={handleAddCarType}
                 disabled={addingCarType || !newCarTypeName.trim()}
               >
-                {addingCarType ? 'กำลังเพิ่ม...' : 'เพิ่ม'}
+                {addingCarType ? 'ກຳລັງເພີ່ມ...' : 'ເພີ່ມ'}
               </button>
               <button
                 type="button"
@@ -525,22 +525,22 @@ const DriverForm: React.FC<DriverFormProps> = ({
                   setNewCarTypeName('');
                 }}
               >
-                ยกเลิก
+                ຍົກເລີກ
               </button>
             </div>
           </div>
         )}
 
-        {/* สรุปข้อมูลรถ */}
+        {/* ສະຫຼຸບຂໍ້ມູນລົດ */}
         {carData.car_name && carData.car_registration && (
           <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-            <h5 className="font-semibold mb-2 text-gray-700">สรุปข้อมูลรถ</h5>
+            <h5 className="font-semibold mb-2 text-gray-700">ສະຫຼຸບຂໍ້ມູນລົດ</h5>
             <div className="text-sm text-gray-600 space-y-1">
-              <p><strong>รถ:</strong> {carData.car_name}</p>
-              <p><strong>ทะเบียน:</strong> {carData.car_registration}</p>
-              <p><strong>ความจุ:</strong> {carData.car_capacity} ที่นั่ง</p>
+              <p><strong>ລົດ:</strong> {carData.car_name}</p>
+              <p><strong>ທະບຽນ:</strong> {carData.car_registration}</p>
+              <p><strong>ຄວາມຈຸ:</strong> {carData.car_capacity} ທີ່ນັ່ງ</p>
               {carData.car_type_id && (
-                <p><strong>ประเภท:</strong> {carTypes.find(t => t._id === carData.car_type_id)?.carType_name || 'ไม่ระบุ'}</p>
+                <p><strong>ປະເພດ:</strong> {carTypes.find(t => t._id === carData.car_type_id)?.carType_name || 'ບໍ່ລະບຸ'}</p>
               )}
             </div>
           </div>
