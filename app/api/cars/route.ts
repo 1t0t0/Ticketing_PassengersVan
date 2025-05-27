@@ -1,4 +1,4 @@
-// app/api/cars/route.ts - Enhanced with CarType support
+// app/api/cars/route.ts - Enhanced with better CarType population and debugging
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Car from '@/models/Car';
@@ -7,7 +7,7 @@ import User from '@/models/User';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// GET - Get all cars with populated car type information
+// GET - Get all cars with populated car type information - Enhanced
 export async function GET(request: Request) {
   try {
     // Check authorization
@@ -31,39 +31,70 @@ export async function GET(request: Request) {
       query.user_id = driverId;
     }
     
+    console.log('Cars API Query:', query); // Debug log
+    
     // Find cars and populate related data
     const cars = await Car.find(query)
       .populate('user_id', 'name email employeeId')
       .sort({ createdAt: -1 });
     
-    // Manually populate car type information
+    console.log(`Found ${cars.length} cars before CarType population`); // Debug log
+    
+    // Manually populate car type information with better error handling
     const carsWithCarType = await Promise.all(
-      cars.map(async (car) => {
+      cars.map(async (car, index) => {
         const carObj = car.toObject();
+        
         try {
           if (carObj.car_type_id) {
+            console.log(`Populating CarType for car ${index + 1}: ${carObj.car_registration}, CarType ID: ${carObj.car_type_id}`);
+            
             const carType = await CarType.findById(carObj.car_type_id);
-            carObj.carType = carType;
+            
+            if (carType) {
+              carObj.carType = carType.toObject();
+              console.log(`✅ CarType found for ${carObj.car_registration}: ${carType.carType_name}`);
+            } else {
+              console.warn(`❌ CarType not found for car ${carObj.car_registration} with CarType ID: ${carObj.car_type_id}`);
+              carObj.carType = null;
+            }
+          } else {
+            console.warn(`⚠️ Car ${carObj.car_registration} has no car_type_id`);
+            carObj.carType = null;
           }
         } catch (error) {
-          console.warn('Failed to populate car type for car:', carObj._id);
+          console.error(`🔥 Error populating CarType for car ${carObj.car_registration}:`, error);
           carObj.carType = null;
         }
+        
         return carObj;
       })
     );
+    
+    // Log final results
+    const carsWithTypes = carsWithCarType.filter(car => car.carType !== null);
+    const carsWithoutTypes = carsWithCarType.filter(car => car.carType === null);
+    
+    console.log(`📊 Final Results: ${carsWithTypes.length} cars with CarType, ${carsWithoutTypes.length} cars without CarType`);
+    
+    if (carsWithoutTypes.length > 0) {
+      console.log('Cars without CarType:', carsWithoutTypes.map(car => ({
+        registration: car.car_registration,
+        carTypeId: car.car_type_id
+      })));
+    }
     
     return NextResponse.json(carsWithCarType);
   } catch (error) {
     console.error('Get Cars Error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch cars' },
+      { error: 'Failed to fetch cars: ' + (error as Error).message },
       { status: 500 }
     );
   }
 }
 
-// POST - Create a new car with car type
+// POST method remains the same...
 export async function POST(request: Request) {
   try {
     // Check authorization
@@ -174,7 +205,7 @@ export async function POST(request: Request) {
         .populate('user_id', 'name email employeeId');
       
       const carObj = populatedCar.toObject();
-      carObj.carType = carType;
+      carObj.carType = carType.toObject(); // Add the CarType data
       
       return NextResponse.json(carObj);
     } catch (innerError) {

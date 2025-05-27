@@ -11,9 +11,13 @@ import {
   FiLogIn, 
   FiLogOut, 
   FiSearch, 
+  FiFilter, 
   FiUser,
+  FiTruck,
+  FiSettings,
+  FiCar,
+  FiTag
 } from 'react-icons/fi';
-import { TfiCar } from 'react-icons/tfi';
 
 // Define interfaces for our data types
 interface CarType {
@@ -96,9 +100,11 @@ export default function DriversManagementPage() {
       const driversResponse = await fetch('/api/users?role=driver');
       const driversData = await driversResponse.json();
       
-      // Fetch all cars
+      // Fetch all cars with populated CarType data
       const carsResponse = await fetch('/api/cars');
       const carsData = await carsResponse.json();
+      
+      console.log('Cars data with types:', carsData); // Debug log
       
       // Map cars to drivers
       const driversWithCars = driversData.map((driver: Driver) => {
@@ -329,7 +335,7 @@ export default function DriversManagementPage() {
           <div className="mt-3 pt-3 border-t border-gray-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <TfiCar className="text-gray-500 mr-2" size={14} />
+                <FiCar className="text-gray-500 mr-2" size={14} />
                 <span className="text-sm text-gray-600">ລົດທີ່ຮັບຜິດຊອບ:</span>
               </div>
               {driver.assignedCars && driver.assignedCars.length > 0 && (

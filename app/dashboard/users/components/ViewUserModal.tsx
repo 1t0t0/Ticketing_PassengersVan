@@ -53,10 +53,14 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({
   const fetchAssignedCars = async () => {
     try {
       setLoadingCars(true);
-      const response = await fetch(`/api/cars/by-driver/${user._id}`);
+      // ใช้ API cars แทน cars/by-driver เพื่อให้ได้ CarType data ครบถ้วน
+      const response = await fetch(`/api/cars?user_id=${user._id}`);
       if (response.ok) {
         const carsData = await response.json();
         setAssignedCars(carsData);
+        console.log('Cars data with types:', carsData); // Debug log
+      } else {
+        console.error('Failed to fetch cars:', response.status);
       }
     } catch (error) {
       console.error('Error fetching assigned cars:', error);
