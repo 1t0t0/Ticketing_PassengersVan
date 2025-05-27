@@ -1,4 +1,4 @@
-// app/dashboard/users/components/forms/DriverForm.tsx - แปลเป็นภาษาลาว
+// app/dashboard/users/components/forms/DriverForm.tsx - แก้ไขการจัดการประเภทรถ
 import React, { useState, useEffect } from 'react';
 import { 
   FiUser, 
@@ -86,6 +86,14 @@ const DriverForm: React.FC<DriverFormProps> = ({
   const [newCarTypeName, setNewCarTypeName] = useState('');
   const [addingCarType, setAddingCarType] = useState(false);
 
+  // อัพเดต carData เมื่อ initialCarData เปลี่ยน (สำหรับโหมดแก้ไข)
+  useEffect(() => {
+    if (initialCarData) {
+      console.log('Updating carData with initial data:', initialCarData);
+      setCarData(initialCarData);
+    }
+  }, [initialCarData]);
+
   // โหลดประเภทรถเมื่อ component mount
   useEffect(() => {
     fetchCarTypes();
@@ -95,10 +103,16 @@ const DriverForm: React.FC<DriverFormProps> = ({
   const fetchCarTypes = async () => {
     try {
       setLoadingCarTypes(true);
+      console.log('Fetching car types...');
+      
       const response = await fetch('/api/car-types');
       if (response.ok) {
         const data = await response.json();
+        console.log('Car types fetched:', data);
         setCarTypes(data);
+      } else {
+        console.error('Failed to fetch car types:', response.status);
+        notificationService.error('ບໍ່ສາມາດໂຫລດປະເພດລົດໄດ້');
       }
     } catch (error) {
       console.error('Error fetching car types:', error);
@@ -126,16 +140,24 @@ const DriverForm: React.FC<DriverFormProps> = ({
       if (response.ok) {
         const newCarType = await response.json();
         setCarTypes(prev => [...prev, newCarType]);
-        setCarData(prev => ({ ...prev, car_type_id: newCarType._id }));
+        
+        // อัปเดต carData ให้เลือกประเภทใหม่ที่เพิ่งสร้าง
+        const updatedCarData = { ...carData, car_type_id: newCarType._id };
+        setCarData(updatedCarData);
+        if (onCarDataChange) {
+          onCarDataChange(updatedCarData);
+        }
+        
         setNewCarTypeName('');
         setShowAddCarType(false);
         notificationService.success('ເພີ່ມປະເພດລົດສຳເລັດ');
       } else {
-        throw new Error('Failed to add car type');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add car type');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding car type:', error);
-      notificationService.error('ບໍ່ສາມາດເພີ່ມປະເພດລົດໄດ້');
+      notificationService.error(`ບໍ່ສາມາດເພີ່ມປະເພດລົດໄດ້: ${error.message}`);
     } finally {
       setAddingCarType(false);
     }
@@ -143,6 +165,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
 
   // อัปเดตข้อมูลรถและแจ้งให้ parent component ทราบ
   const updateCarData = (field: keyof CarData, value: string | number) => {
+    console.log(`Updating car data: ${field} = ${value}`);
     const updatedCarData = { ...carData, [field]: value };
     setCarData(updatedCarData);
     if (onCarDataChange) {
@@ -207,6 +230,12 @@ const DriverForm: React.FC<DriverFormProps> = ({
   };
   
   const fileChangeHandler = handleFileChange || defaultHandleFileChange;
+
+  // ค้นหาชื่อประเภทรถตาม ID
+  const getCarTypeName = (carTypeId: string): string => {
+    const carType = carTypes.find(type => type._id === carTypeId);
+    return carType ? carType.carType_name : 'ບໍ່ລະບຸ';
+  };
 
   return (
     <>
@@ -460,7 +489,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
             required
           />
 
-          {/* ປະເພດລົດ */}
+          {/* ປະເພດລົດ - แก้ไขให้แสดงข้อมูลถูกต้อง */}
           <div>
             <label className="block text-sm font-bold mb-2">ປະເພດລົດ</label>
             <div className="flex gap-2">
@@ -468,11 +497,16 @@ const DriverForm: React.FC<DriverFormProps> = ({
                 <select
                   className="w-full border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none"
                   value={carData.car_type_id}
-                  onChange={(e) => updateCarData('car_type_id', e.target.value)}
+                  onChange={(e) => {
+                    console.log('Car type selected:', e.target.value);
+                    updateCarData('car_type_id', e.target.value);
+                  }}
                   disabled={loadingCarTypes}
                   required
                 >
-                  <option value="">-- ເລືອກປະເພດລົດ --</option>
+                  <option value="">
+                    {loadingCarTypes ? 'ກຳລັງໂຫລດ...' : '-- ເລືອກປະເພດລົດ --'}
+                  </option>
                   {carTypes.map((type) => (
                     <option key={type._id} value={type._id}>
                       {type.carType_name}
@@ -489,6 +523,15 @@ const DriverForm: React.FC<DriverFormProps> = ({
                 <FiPlus size={18} />
               </button>
             </div>
+            
+            {/* แสดงข้อมูลประเภทรถที่เลือกอยู่ */}
+            {carData.car_type_id && !loadingCarTypes && (
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+                <span className="text-blue-700">
+                  ປະເພດທີ່ເລືອກ: <strong>{getCarTypeName(carData.car_type_id)}</strong>
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -540,7 +583,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
               <p><strong>ທະບຽນ:</strong> {carData.car_registration}</p>
               <p><strong>ຄວາມຈຸ:</strong> {carData.car_capacity} ທີ່ນັ່ງ</p>
               {carData.car_type_id && (
-                <p><strong>ປະເພດ:</strong> {carTypes.find(t => t._id === carData.car_type_id)?.carType_name || 'ບໍ່ລະບຸ'}</p>
+                <p><strong>ປະເພດ:</strong> {getCarTypeName(carData.car_type_id)}</p>
               )}
             </div>
           </div>
