@@ -120,41 +120,37 @@ const UserCard: React.FC<UserCardProps> = ({
   const { bg, text } = getRoleClasses();
 
   // Render car summary for drivers - Simplified version
-  const renderCarSummary = () => {
-    if (!isDriver) return null;
+const renderCarSummary = () => {
+  if (!isDriver) return null;
 
-    if (loadingCars) {
-      return (
-        <div className="mt-2 text-xs text-gray-500">
-          ກຳລັງໂຫລດຂໍ້ມູນລົດ...
-        </div>
-      );
-    }
-
-    if (assignedCars.length === 0) {
-      return (
-        <div className="mt-2 text-xs text-gray-500 italic">
-          ຍັງບໍ່ມີລົດມອບໝາຍ
-        </div>
-      );
-    }
-
+  if (loadingCars) {
     return (
-      <div className="mt-2 text-xs text-gray-600">
-        <FiTruck className="inline mr-1" size={12} />
-        <span className="font-medium">{assignedCars.length} ຄັນ: </span>
-        {assignedCars.slice(0, 2).map((car, index) => (
-          <span key={car._id}>
-            {car.car_registration}
-            {index < Math.min(assignedCars.length - 1, 1) && ', '}
-          </span>
-        ))}
-        {assignedCars.length > 2 && (
-          <span className="text-blue-600"> +{assignedCars.length - 2} ຄັນ</span>
-        )}
+      <div className="mt-2 text-xs text-gray-500">
+        ກຳລັງໂຫລດຂໍ້ມູນລົດ...
       </div>
     );
-  };
+  }
+
+  if (assignedCars.length === 0) {
+    return (
+      <div className="mt-2 text-xs text-gray-500 italic">
+        ຍັງບໍ່ມີລົດມອບໝາຍ
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 text-xs text-gray-600">
+      <FiTruck className="inline mr-1" size={12} />
+      {assignedCars.map((car, index) => (
+        <span key={car._id}>
+          {car.car_name} - {car.car_registration}
+          {index < assignedCars.length - 1 && ', '}
+        </span>
+      ))}
+    </div>
+  );
+};
   
   return (
     <>
