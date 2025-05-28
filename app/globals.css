@@ -79,7 +79,7 @@ input, button, textarea, select {
 @media print {
   /* กำหนดขนาดกระดาษสำหรับ Thermal Printer */
   @page {
-    size: 58mm auto; /* หรือ 80mm auto สำหรับกระดาษขนาดใหญ่ */
+    size: 80mm auto; /* หรือ 80mm auto สำหรับกระดาษขนาดใหญ่ */
     margin: 0;
     padding: 0;
   }
@@ -91,7 +91,7 @@ input, button, textarea, select {
   
   /* กำหนดสไตล์สำหรับ thermal printer */
   .thermal-print-content {
-    width: 58mm !important;
+    width: 80mm !important;
     margin: 0 !important;
     padding: 0 !important;
     font-family: 'Courier New', monospace !important; /* ใช้ฟอนต์ที่เครื่องพิมพ์รองรับ */
@@ -145,7 +145,7 @@ input, button, textarea, select {
 
 /* สำหรับการแสดงผลบนหน้าจอ (Preview) */
 .thermal-preview {
-  width: 58mm;
+  width: 80mm;
   min-height: auto;
   border: 1px solid #ddd;
   margin: 10px auto;

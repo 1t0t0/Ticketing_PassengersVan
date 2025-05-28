@@ -29,7 +29,7 @@ export default function useTicketSales() {
       const printWindow = window.open('', '_blank');
       if (!printWindow) return;
 
-      // สร้าง HTML สำหรับพิมพ์ทุกใบ (58mm Thermal Printer Layout)
+      // สร้าง HTML สำหรับพิมพ์ทุกใบ (80mm Thermal Printer Layout)
       const printContent = `
         <!DOCTYPE html>
         <html>
@@ -47,7 +47,7 @@ export default function useTicketSales() {
             }
             
             @page {
-              size: 58mm auto; /* กระดาษความกว้าง 58mm */
+              size: 80mm auto; /* กระดาษความกว้าง 80mm */
               margin: 0;
               padding: 0;
             }
@@ -56,13 +56,13 @@ export default function useTicketSales() {
               margin: 0;
               padding: 0;
               background: white;
-              width: 58mm;
+              width: 80mm;
               font-size: 11px;
               line-height: 1.2;
             }
             
             .ticket-container {
-              width: 58mm;
+              width: 80mm;
               min-height: auto;
               margin: 0;
               background: white;
@@ -86,21 +86,21 @@ export default function useTicketSales() {
             }
             
             .ticket-header h1 {
-              font-size: 12px;
+              font-size: 22px;
               font-weight: bold;
               margin-bottom: 2px;
               line-height: 1.1;
             }
             
             .ticket-header .subtitle {
-              font-size: 10px;
+              font-size: 20px;
               margin-bottom: 1px;
             }
             
             /* Details Section */
             .ticket-details {
               margin-bottom: 3mm;
-              font-size: 10px;
+              font-size: 15px;
             }
             
             .detail-row {
@@ -127,7 +127,7 @@ export default function useTicketSales() {
               border-bottom: 1px dashed black;
               padding: 2mm 0;
               margin: 3mm 0;
-              font-size: 10px;
+              font-size: 13px;
             }
             
             .route-text {
@@ -139,7 +139,7 @@ export default function useTicketSales() {
             .sold-by-section {
               text-align: center;
               margin: 3mm 0;
-              font-size: 10px;
+              font-size: 1px;
             }
             
             /* Footer */
@@ -148,7 +148,7 @@ export default function useTicketSales() {
               border-top: 1px dashed black;
               padding-top: 2mm;
               margin-top: 3mm;
-              font-size: 9px;
+              font-size: 13px;
               line-height: 1.1;
             }
             
@@ -175,11 +175,11 @@ export default function useTicketSales() {
             /* Print specific */
             @media print {
               body {
-                width: 58mm !important;
+                width: 80mm !important;
               }
               
               .ticket-container {
-                width: 58mm !important;
+                width: 80mm !important;
                 margin: 0 !important;
                 padding: 2mm !important;
               }
@@ -242,10 +242,8 @@ export default function useTicketSales() {
               <!-- Footer -->
               <div class="ticket-footer">
                 <div class="footer-line">*** ຂອບໃຈ THANK YOU ***</div>
-                <div class="footer-line">ກະລຸນາຮັກສາປີ້ນີ້ໄວ້</div>
-                <div class="footer-line">PLEASE KEEP THIS TICKET</div>
-                <div class="footer-line">ຂະນະເດີນທາງ</div>
-                <div class="footer-line">DURING YOUR JOURNEY</div>
+                
+                
               </div>
               
               <!-- Cut Line -->
@@ -398,12 +396,12 @@ export default function useTicketSales() {
             }
             
             @page {
-              size: 58mm auto;
+              size: 80mm auto;
               margin: 0;
             }
             
             body {
-              width: 58mm;
+              width: 80mm;
               margin: 0;
               padding: 0;
               background: white;
@@ -412,7 +410,7 @@ export default function useTicketSales() {
             }
             
             .thermal-ticket {
-              width: 58mm;
+              width: 80mm;
               margin: 0;
               padding: 2mm;
               background: white;
@@ -432,20 +430,20 @@ export default function useTicketSales() {
             }
             
             .ticket-header h1 {
-              font-size: 12px;
+              font-size: 22px;
               font-weight: bold;
               margin-bottom: 2px;
               line-height: 1.1;
             }
             
             .ticket-header .subtitle {
-              font-size: 10px;
+              font-size: 20px;
               margin-bottom: 1px;
             }
             
             .ticket-details {
               margin-bottom: 3mm;
-              font-size: 10px;
+              font-size: 15px;
             }
             
             .detail-row {
@@ -470,7 +468,7 @@ export default function useTicketSales() {
               border-bottom: 1px dashed black;
               padding: 2mm 0;
               margin: 3mm 0;
-              font-size: 10px;
+              font-size: 13px;
             }
             
             .route-text {
@@ -481,7 +479,7 @@ export default function useTicketSales() {
             .sold-by-section {
               text-align: center;
               margin: 3mm 0;
-              font-size: 10px;
+              font-size: 13px;
             }
             
             .ticket-footer {
@@ -554,18 +552,11 @@ export default function useTicketSales() {
                 <div style="font-weight: bold;">${ticket.soldBy}</div>
               </div>
               
-              ${ticket.paymentMethod === 'qr' ? `
-                <div class="qr-placeholder">
-                  [QR CODE VERIFICATION]
-                </div>
-              ` : ''}
+             
               
               <div class="ticket-footer">
                 <div class="footer-line">*** ຂອບໃຈ THANK YOU ***</div>
-                <div class="footer-line">ກະລຸນາຮັກສາປີ້ນີ້ໄວ້</div>
-                <div class="footer-line">PLEASE KEEP THIS TICKET</div>
-                <div class="footer-line">ຂະນະເດີນທາງ</div>
-                <div class="footer-line">DURING YOUR JOURNEY</div>
+                
               </div>
               
               ${index < tickets.length - 1 ? `
