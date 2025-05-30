@@ -12,18 +12,19 @@
     "seed:settings": "node scripts/seed-settings.js"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.1.8",
     "bcryptjs": "^3.0.2",
     "chart.js": "^4.4.9",
     "cloudinary": "^2.6.1",
     "framer-motion": "^12.9.4",
     "mongodb": "^6.16.0",
     "mongoose": "^8.14.1",
-    "next": "15.3.1",
+    "next": "^15.3.3",
     "next-auth": "^4.24.11",
-    "react": "^19.0.0",
+    "react": "^19.1.0",
     "react-chartjs-2": "^5.3.0",
     "react-datepicker": "^8.3.0",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",
     "react-to-print": "^3.1.0",
     "react-toastify": "^11.0.5",
@@ -31,16 +32,15 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20",
-    "@types/react": "^19",
+    "@types/node": "^20.17.54",
+    "@types/react": "^19.1.6",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^4.1.5",
-    "typescript": "^5"
+    "postcss": "^8.5.4",
+    "tailwindcss": "^4.1.8",
+    "typescript": "^5.8.3"
   }
 }
