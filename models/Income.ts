@@ -51,8 +51,8 @@ const incomeSchema = new Schema({
 // สัดส่วนการแบ่งรายได้
 const REVENUE_SHARE = {
   COMPANY: 0.10,    // 10%
-  STATION: 0.20,    // 20%
-  DRIVERS: 0.70     // 70%
+  STATION: 0.05,    // 5%
+  DRIVERS: 0.85     // 85%
 };
 
 // Static method: สร้าง Income records จาก Ticket

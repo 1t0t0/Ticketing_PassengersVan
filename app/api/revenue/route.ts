@@ -8,8 +8,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 // สัดส่วนการแบ่งรายได้
 const REVENUE_SHARE = {
   COMPANY: 0.10,    // 10%
-  STATION: 0.20,    // 20%
-  DRIVERS: 0.70     // 70%
+  STATION: 0.05,    // 5%
+  DRIVERS: 0.85     // 85%
 };
 
 export async function GET(request: Request) {
