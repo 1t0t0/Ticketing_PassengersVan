@@ -4,11 +4,11 @@
 import { useSession, signOut } from 'next-auth/react';
 import NotionSidebar from './Sidebar';
 import NotionButton from './ui/NotionButton';
-import { usePathname } from 'next/navigation'; // เพิ่มการ import usePathname
+import { usePathname } from 'next/navigation';
 
 export default function NotionDashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
-  const pathname = usePathname(); // ใช้ usePathname สำหรับดึง path ปัจจุบัน
+  const pathname = usePathname();
   
   // ฟังก์ชันสำหรับแปลง pathname เป็นชื่อหน้าที่แสดง
   const getPageTitle = () => {

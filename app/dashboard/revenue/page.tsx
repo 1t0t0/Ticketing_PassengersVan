@@ -1,342 +1,348 @@
+// app/dashboard/revenue/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
-import NeoButton from '@/components/ui/NotionButton';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { 
+  FiDollarSign, 
+  FiTrendingUp, 
+  FiCalendar,
+  FiPieChart,
+  FiRefreshCw,
+  FiBarChart
+} from 'react-icons/fi';
 
-interface RevenueRatio {
-  _id?: string;
-  company: number;
-  station: number;
-  drivers: number;
-  updatedAt?: Date;
-  lastUpdatedBy?: string;
+interface RevenueData {
+  summary: {
+    totalTickets: number;
+    totalRevenue: number;
+    averageTicketPrice: number;
+    revenueShare: {
+      company: number;
+      station: number;
+      drivers: number;
+    };
+    sharePercentages: {
+      company: number;
+      station: number;
+      drivers: number;
+    };
+  };
+  dailyData: Array<{
+    date: string;
+    totalRevenue: number;
+    totalTickets: number;
+    companyShare: number;
+    stationShare: number;
+    driversShare: number;
+  }>;
+  paymentMethodBreakdown: Record<string, { count: number; revenue: number }>;
 }
 
-export default function RevenueSettingsPage() {
+export default function RevenuePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
-  // สถานะสำหรับการแบ่งรายได้
-  const [revenueRatio, setRevenueRatio] = useState<RevenueRatio>({
-    company: 10,
-    station: 20,
-    drivers: 70
-  });
-  
-  // สถานะสำหรับฟอร์มแก้ไข
-  const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState<RevenueRatio>({
-    company: 10,
-    station: 20,
-    drivers: 70
-  });
-  
-  // สถานะการโหลด
+  const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  
-  // สีสำหรับกราฟวงกลม
-  const COLORS = ['#2383E2', '#ff9800', '#4caf50'];
-  
-  // ตรวจสอบการ authenticate
+  const [startDate, setStartDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+
+  // ตรวจสอบการเข้าสู่ระบบ
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
     }
   }, [status, router]);
-  
-  // ดึงข้อมูลสัดส่วนการแบ่งรายได้
-  useEffect(() => {
-    if (status === 'authenticated') {
-      fetchRevenueRatio();
-    }
-  }, [status]);
-  
-  // ฟังก์ชันดึงข้อมูลการแบ่งรายได้
-  const fetchRevenueRatio = async () => {
+
+  // ดึงข้อมูลรายได้
+  const fetchRevenueData = async () => {
     try {
       setLoading(true);
       
-      const response = await fetch('/api/settings/revenue-ratio');
+      const params = new URLSearchParams({
+        startDate,
+        endDate,
+        period: 'daily'
+      });
+      
+      const response = await fetch(`/api/revenue?${params}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch revenue ratio');
+        throw new Error('Failed to fetch revenue data');
       }
       
       const data = await response.json();
-      setRevenueRatio(data);
-      setFormData(data);
+      setRevenueData(data);
     } catch (error) {
-      console.error('Error fetching revenue ratio:', error);
-      // ใช้ค่าเริ่มต้นหากไม่สามารถดึงข้อมูลได้
+      console.error('Error fetching revenue data:', error);
     } finally {
       setLoading(false);
     }
   };
-  
-  // ฟังก์ชันบันทึกการแบ่งรายได้
-  const saveRevenueRatio = async () => {
-    // ตรวจสอบว่าผลรวมต้องเท่ากับ 100%
-    const total = formData.company + formData.station + formData.drivers;
-    if (total !== 100) {
-      alert('ผลรวมเปอร์เซ็นต์ต้องเท่ากับ 100%');
-      return;
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchRevenueData();
     }
-    
-    try {
-      setSaving(true);
-      
-      const response = await fetch('/api/settings/revenue-ratio', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update revenue ratio');
-      }
-      
-      const updatedData = await response.json();
-      setRevenueRatio(updatedData);
-      setEditMode(false);
-      alert('บันทึกการตั้งค่าเรียบร้อยแล้ว');
-    } catch (error) {
-      console.error('Error saving revenue ratio:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
-    } finally {
-      setSaving(false);
+  }, [status, startDate, endDate]);
+
+  // ข้อมูลสำหรับ Pie Chart
+  const pieChartData = revenueData ? [
+    { 
+      name: 'ບໍລິສັດແມ່', 
+      value: revenueData.summary.revenueShare.company,
+      percentage: revenueData.summary.sharePercentages.company,
+      color: '#3B82F6'
+    },
+    { 
+      name: 'ສະຖານີ', 
+      value: revenueData.summary.revenueShare.station,
+      percentage: revenueData.summary.sharePercentages.station,
+      color: '#F59E0B'
+    },
+    { 
+      name: 'ພະນັກງານຂັບລົດ', 
+      value: revenueData.summary.revenueShare.drivers,
+      percentage: revenueData.summary.sharePercentages.drivers,
+      color: '#10B981'
     }
+  ] : [];
+
+  // ข้อมูลสำหรับ Bar Chart รายวัน
+  const dailyChartData = revenueData?.dailyData.map(day => ({
+    date: new Date(day.date).toLocaleDateString('lo-LA', { day: '2-digit', month: '2-digit' }),
+    'ບໍລິສັດແມ່': day.companyShare,
+    'ສະຖານີ': day.stationShare,
+    'ພະນັກງານຂັບລົດ': day.driversShare,
+    'ລວມ': day.totalRevenue
+  })) || [];
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('lo-LA').format(amount);
   };
-  
-  // ฟังก์ชันจัดการการเปลี่ยนแปลงฟอร์ม
-  const handleInputChange = (field: keyof RevenueRatio, value: number) => {
-    setFormData({
-      ...formData,
-      [field]: value
-    });
-  };
-  
-  // แปลงข้อมูลสำหรับแสดงในกราฟวงกลม
-  const chartData = [
-    { name: 'บริษัท', value: revenueRatio.company },
-    { name: 'สถานี', value: revenueRatio.station },
-    { name: 'คนขับรถ', value: revenueRatio.drivers }
-  ];
-  
-  // ฟังก์ชันแสดงวันที่อัปเดต
-  const formatUpdateDate = (date?: Date) => {
-    if (!date) return 'ยังไม่เคยอัปเดต';
-    return new Date(date).toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-  
+
+  if (status === 'loading' || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p>ກຳລັງໂຫລດຂໍ້ມູນ...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!revenueData) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <p>ບໍ່ສາມາດໂຫລດຂໍ້ມູນລາຍຮັບໄດ້</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto p-6">
+    <div className="p-6">
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">ການແບ່ງລາຍໄດ້</h1>
-        {session?.user?.role === 'admin' && !editMode && (
-          <NeoButton onClick={() => setEditMode(true)}>
-            ແກ້ໄຂການຕັ້ງຄ່າ
-          </NeoButton>
-        )}
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* กราฟวงกลมแสดงสัดส่วน */}
-        <div className="lg:col-span-2">
-          <NeoCard className="p-6">
-            <h2 className="text-xl font-bold mb-4">ອັດຕາສ່ວນການແບ່ງລາຍໄດ້</h2>
-            
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={true}
-                    outerRadius={120}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}%`}
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            
-            <div className="mt-4 text-sm text-gray-500">
-              <p>ອັບເດດລ່າສຸດ: {formatUpdateDate(revenueRatio.updatedAt)}</p>
-              {revenueRatio.lastUpdatedBy && (
-                <p>ອັບເດດໂດຍ: {revenueRatio.lastUpdatedBy}</p>
-              )}
-            </div>
-          </NeoCard>
-        </div>
-        
-        {/* ข้อมูลหรือฟอร์มแก้ไข */}
         <div>
-          <NeoCard className="p-6">
-            <h2 className="text-xl font-bold mb-4">
-              {editMode ? 'ແກ້ໄຂອັດຕາສ່ວນ' : 'ລາຍລະອຽດ'}
-            </h2>
-            
-            {editMode ? (
-              // ฟอร์มแก้ไข (แสดงเฉพาะ admin)
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold mb-2">ບໍລິສັດ (%)</label>
-                  <input
-                    type="number"
-                    className="w-full border-2 border-gray-300 rounded p-2"
-                    value={formData.company}
-                    onChange={(e) => handleInputChange('company', parseInt(e.target.value) || 0)}
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-bold mb-2">ສະຖານີ (%)</label>
-                  <input
-                    type="number"
-                    className="w-full border-2 border-gray-300 rounded p-2"
-                    value={formData.station}
-                    onChange={(e) => handleInputChange('station', parseInt(e.target.value) || 0)}
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-bold mb-2">ຄົນຂັບລົດ (%)</label>
-                  <input
-                    type="number"
-                    className="w-full border-2 border-gray-300 rounded p-2"
-                    value={formData.drivers}
-                    onChange={(e) => handleInputChange('drivers', parseInt(e.target.value) || 0)}
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                
-                <div className="text-right pt-2">
-                  <span className={`font-bold text-sm ${
-                    formData.company + formData.station + formData.drivers === 100
-                      ? 'text-green-500'
-                      : 'text-red-500'
-                  }`}>
-                    ຜົນລວມ: {formData.company + formData.station + formData.drivers}%
-                    {formData.company + formData.station + formData.drivers !== 100 && (
-                      ' (ຕ້ອງເທົ່າກັບ 100%)'
-                    )}
-                  </span>
-                </div>
-                
-                <div className="flex justify-end space-x-2 pt-4">
-                  <NeoButton 
-                    variant="secondary"
-                    onClick={() => {
-                      setFormData(revenueRatio);
-                      setEditMode(false);
-                    }}
-                  >
-                    ຍົກເລີກ
-                  </NeoButton>
-                  <NeoButton 
-                    onClick={saveRevenueRatio}
-                    disabled={saving || formData.company + formData.station + formData.drivers !== 100}
-                  >
-                    {saving ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກ'}
-                  </NeoButton>
-                </div>
-              </div>
-            ) : (
-              // แสดงข้อมูลปัจจุบัน
-              <div className="space-y-4">
-                <div className="flex justify-between items-center border-b pb-2">
-                  <span className="font-medium">ບໍລິສັດ:</span>
-                  <span className="text-xl font-bold">{revenueRatio.company}%</span>
-                </div>
-                
-                <div className="flex justify-between items-center border-b pb-2">
-                  <span className="font-medium">ສະຖານີ:</span>
-                  <span className="text-xl font-bold">{revenueRatio.station}%</span>
-                </div>
-                
-                <div className="flex justify-between items-center border-b pb-2">
-                  <span className="font-medium">ຄົນຂັບລົດ:</span>
-                  <span className="text-xl font-bold">{revenueRatio.drivers}%</span>
-                </div>
-                
-                <div className="pt-4 text-sm text-gray-600">
-                  <p>
-                    ສ່ວນແບ່ງລາຍໄດ້ຈະຖືກນຳໄປໃຊ້ເມື່ອມີການຂາຍບີ້ລົດໂດຍສານ.
-                    ລາຍໄດ້ຈະຖືກແບ່ງຕາມເປີເຊັນໃຫ້ແຕ່ລະຝ່າຍອັດຕະໂນມັດ.
-                  </p>
-                </div>
-              </div>
-            )}
-          </NeoCard>
-          
-          {/* ตัวอย่างการแบ่งรายได้ */}
-          <NeoCard className="p-6 mt-6">
-            <h2 className="text-xl font-bold mb-4">ຕົວຢ່າງການແບ່ງລາຍໄດ້</h2>
-            
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-semibold mb-1">ສຳລັບບີ້ລາຄາ ₭45,000</h3>
-                <div className="space-y-2 text-sm pl-4">
-                  <p className="flex justify-between">
-                    <span>ບໍລິສັດ ({revenueRatio.company}%):</span>
-                    <span className="font-bold">₭{Math.round(45000 * revenueRatio.company / 100).toLocaleString()}</span>
-                  </p>
-                  <p className="flex justify-between">
-                    <span>ສະຖານີ ({revenueRatio.station}%):</span>
-                    <span className="font-bold">₭{Math.round(45000 * revenueRatio.station / 100).toLocaleString()}</span>
-                  </p>
-                  <p className="flex justify-between">
-                    <span>ຄົນຂັບລົດ ({revenueRatio.drivers}%):</span>
-                    <span className="font-bold">₭{Math.round(45000 * revenueRatio.drivers / 100).toLocaleString()}</span>
-                  </p>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="font-semibold mb-1">ສຳລັບການຂາຍ 100 ບີ້ ມູນຄ່າ ₭4,500,000</h3>
-                <div className="space-y-2 text-sm pl-4">
-                  <p className="flex justify-between">
-                    <span>ບໍລິສັດ ({revenueRatio.company}%):</span>
-                    <span className="font-bold">₭{Math.round(4500000 * revenueRatio.company / 100).toLocaleString()}</span>
-                  </p>
-                  <p className="flex justify-between">
-                    <span>ສະຖານີ ({revenueRatio.station}%):</span>
-                    <span className="font-bold">₭{Math.round(4500000 * revenueRatio.station / 100).toLocaleString()}</span>
-                  </p>
-                  <p className="flex justify-between">
-                    <span>ຄົນຂັບລົດ ({revenueRatio.drivers}%):</span>
-                    <span className="font-bold">₭{Math.round(4500000 * revenueRatio.drivers / 100).toLocaleString()}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </NeoCard>
+          <h1 className="text-2xl font-bold">ຂໍ້ມູນລາຍຮັບ</h1>
+          <p className="text-gray-600 mt-1">ສະຫຼຸບລາຍຮັບຈາກການຂາຍປີ້ລົດຕູ້ໂດຍສານ</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <FiCalendar className="text-gray-500" size={16} />
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="border border-gray-300 rounded-md p-2 text-sm"
+            />
+            <span>ຮອດ</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="border border-gray-300 rounded-md p-2 text-sm"
+            />
+          </div>
+          <button
+            onClick={fetchRevenueData}
+            className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+            disabled={loading}
+          >
+            <FiRefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} size={16} />
+            ອັບເດດ
+          </button>
         </div>
       </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <NeoCard className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-blue-100 rounded-lg mr-4">
+              <FiBarChart className="text-blue-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 uppercase font-medium">ຈຳນວນປີ້</p>
+              <p className="text-2xl font-bold">{revenueData.summary.totalTickets}</p>
+            </div>
+          </div>
+        </NeoCard>
+
+        <NeoCard className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-green-100 rounded-lg mr-4">
+              <FiDollarSign className="text-green-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 uppercase font-medium">ລາຍຮັບລວມ</p>
+              <p className="text-2xl font-bold">₭{formatCurrency(revenueData.summary.totalRevenue)}</p>
+            </div>
+          </div>
+        </NeoCard>
+
+        <NeoCard className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-purple-100 rounded-lg mr-4">
+              <FiTrendingUp className="text-purple-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 uppercase font-medium">ລາຄາເຄິ່ງປີ້</p>
+              <p className="text-2xl font-bold">₭{formatCurrency(revenueData.summary.averageTicketPrice)}</p>
+            </div>
+          </div>
+        </NeoCard>
+
+        <NeoCard className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-orange-100 rounded-lg mr-4">
+              <FiPieChart className="text-orange-600" size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 uppercase font-medium">ສ່ວນຄົນຂັບ</p>
+              <p className="text-2xl font-bold">₭{formatCurrency(revenueData.summary.revenueShare.drivers)}</p>
+            </div>
+          </div>
+        </NeoCard>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Pie Chart - การแบ่งรายได้ */}
+        <NeoCard className="p-6">
+          <h3 className="text-lg font-bold mb-4 flex items-center">
+            <FiPieChart className="mr-2 text-blue-600" />
+            ການແບ່ງລາຍຮັບ
+          </h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={80}
+                  paddingAngle={2}
+                  dataKey="value"
+                  label={({ name, percentage }) => `${name}: ${percentage}%`}
+                >
+                  {pieChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value: number) => [`₭${formatCurrency(value)}`, 'ຈຳນວນເງິນ']}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </NeoCard>
+
+        {/* Revenue Breakdown */}
+        <NeoCard className="p-6">
+          <h3 className="text-lg font-bold mb-4">ລາຍລະອຽດການແບ່ງລາຍຮັບ</h3>
+          <div className="space-y-4">
+            {pieChartData.map((item, index) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center">
+                  <div 
+                    className="w-4 h-4 rounded-full mr-3"
+                    style={{ backgroundColor: item.color }}
+                  ></div>
+                  <div>
+                    <p className="font-medium">{item.name}</p>
+                    <p className="text-sm text-gray-600">{item.percentage}%</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold">₭{formatCurrency(item.value)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </NeoCard>
+      </div>
+
+      {/* Daily Revenue Chart */}
+      {dailyChartData.length > 0 && (
+        <NeoCard className="p-6">
+          <h3 className="text-lg font-bold mb-4 flex items-center">
+            <FiBarChart className="mr-2 text-green-600" />
+            ລາຍຮັບແຍກຕາມວັນ
+          </h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dailyChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis tickFormatter={(value) => `₭${formatCurrency(value)}`} />
+                <Tooltip 
+                  formatter={(value: number, name: string) => [`₭${formatCurrency(value)}`, name]}
+                />
+                <Legend />
+                <Bar dataKey="ບໍລິສັດແມ່" fill="#3B82F6" />
+                <Bar dataKey="ສະຖານີ" fill="#F59E0B" />
+                <Bar dataKey="ພະນັກງານຂັບລົດ" fill="#10B981" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </NeoCard>
+      )}
+
+      {/* Payment Method Breakdown */}
+      <NeoCard className="p-6 mt-6">
+        <h3 className="text-lg font-bold mb-4">ແຍກຕາມວິທີການຊຳລະ</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Object.entries(revenueData.paymentMethodBreakdown).map(([method, data]) => (
+            <div key={method} className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-medium">
+                  {method === 'cash' ? 'ເງິນສົດ' : method === 'qr' ? 'ເງິນໂອນ' : method}
+                </span>
+                <span className="text-sm text-gray-600">{data.count} ໃບ</span>
+              </div>
+              <p className="text-xl font-bold">₭{formatCurrency(data.revenue)}</p>
+              <div className="mt-2 text-sm text-gray-600">
+                ເຄິ່ງປີ້: ₭{formatCurrency(Math.round(data.revenue / data.count))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </NeoCard>
     </div>
   );
 }

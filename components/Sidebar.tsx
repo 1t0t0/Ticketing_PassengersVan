@@ -6,18 +6,16 @@ import { useSession } from 'next-auth/react';
 import { TfiTicket } from "react-icons/tfi";
 import { FiCreditCard } from "react-icons/fi";
 
-
 import { 
   FiHome, 
-  FiDollarSign, 
   FiUsers, 
-  FiPieChart, 
   FiTruck, 
   FiFileText, 
-  FiDatabase
+  FiDatabase,
+  FiPieChart
 } from 'react-icons/fi';
 
-// Menu items สำหรับแต่ละบทบาท
+// Menu items สำหรับแต่ละบทบาท - เพิ่ม Revenue กลับมา
 const menuItems = {
   admin: [
     { name: 'Dashboard', href: '/dashboard', exact: true, icon: <FiHome size={18} /> },
@@ -29,12 +27,15 @@ const menuItems = {
   staff: [
     { name: 'ອອກປີ້', href: '/dashboard/tickets', exact: true, icon: <FiCreditCard  size={18} /> },
     { name: 'ຂໍ້ມູນປີ້', href: '/dashboard/tickets/history', exact: false, icon: <FiFileText size={18} /> },
-    { name: 'ຂໍ້ມູນຜູ້ໃຊ້', href: '/dashboard/users', exact: false, icon: <FiUsers size={18} /> }, // เพิ่มสิทธิ์ให้ Staff เข้าถึง User Management
+    { name: 'ຂໍ້ມູນຜູ້ໃຊ້', href: '/dashboard/users', exact: false, icon: <FiUsers size={18} /> },
+    { name: 'ຂໍ້ມູນລາຍຮັບ', href: '/dashboard/revenue', exact: false, icon: <FiPieChart size={18} /> },
   ],
   driver: [
-    { name: 'ຂໍ້ມູນລາຍຮັບ', href: '/driver-portal', exact: true, icon: <FiDollarSign size={18} /> },
+    // Driver ไม่มีเมนูอะไรเลย หรือจะให้เข้าไปดูข้อมูลส่วนตัวได้
   ],
   station: [
+    { name: 'Dashboard', href: '/dashboard', exact: true, icon: <FiHome size={18} /> },
+    { name: 'ຂໍ້ມູນປີ້', href: '/dashboard/tickets/history', exact: false, icon: <FiFileText size={18} /> },
     { name: 'ຂໍ້ມູນລາຍຮັບ', href: '/dashboard/revenue', exact: false, icon: <FiPieChart size={18} /> },
   ]
 };

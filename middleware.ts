@@ -20,10 +20,11 @@ export default withAuth(
     
     // ถ้าเป็น staff
     if (token.role === "staff") {
-      // Staff สามารถเข้าถึงได้เฉพาะหน้า tickets และ users (เพิ่มสิทธิ์ให้เข้าถึง users ได้)
+      // Staff สามารถเข้าถึงได้เฉพาะหน้า tickets, users และ revenue
       const allowedStaffPaths = [
         "/dashboard/tickets",
-        "/dashboard/users", // อนุญาตให้ Staff เข้าถึงหน้า User Management ได้
+        "/dashboard/users",
+        "/dashboard/revenue",
       ];
 
       // ถ้า path เริ่มต้นด้วย /dashboard แต่ไม่ได้อยู่ใน allowedStaffPaths
@@ -35,11 +36,11 @@ export default withAuth(
     
     // ถ้าเป็น station และพยายามเข้าหน้าที่ไม่ได้รับอนุญาต
     if (token.role === "station") {
-      // Station สามารถเข้าถึงได้เฉพาะหน้า revenue และ dashboard หลัก
+      // Station สามารถเข้าถึงได้เฉพาะหน้า dashboard, tickets history และ revenue
       const allowedStationPaths = [
         "/dashboard",
-        "/dashboard/revenue",
-        "/dashboard/tickets/history"
+        "/dashboard/tickets/history",
+        "/dashboard/revenue"
       ];
 
       // ถ้า path เริ่มต้นด้วย /dashboard แต่ไม่ได้อยู่ใน allowedStationPaths
