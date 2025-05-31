@@ -1,4 +1,4 @@
-// components/DashboardLayout.tsx - Enhanced with Driver Revenue Menu
+// components/DashboardLayout.tsx - ลบเมนูที่ไม่ใช้และแก้บัค
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,7 +14,6 @@ import {
   FiMenu, 
   FiX,
   FiDollarSign,
-  FiTruck,
   FiUser
 } from 'react-icons/fi';
 import { TbBus } from "react-icons/tb";
@@ -56,27 +55,7 @@ const menuItems: MenuItem[] = [
     roles: ['admin', 'staff'],
     description: 'ຄົນຂັບ, ພະນັກງານ, Admin'
   },
-  {
-    name: 'ຄົນຂັບລົດ',
-    href: '/dashboard/drivers',
-    icon: FiTruck,
-    roles: ['admin', 'staff'],
-    description: 'ຂໍ້ມູນຄົນຂັບແລະລົດ'
-  },
-  {
-    name: 'ລາຍຮັບຄົນຂັບ', // 🆕 เมนูใหม่!
-    href: '/dashboard/driver-revenue',
-    icon: FiDollarSign,
-    roles: ['admin', 'staff'],
-    description: 'ລາຍຮັບແລະການແບ່ງເງິນຄົນຂັບ'
-  },
-  {
-    name: 'ລາຍງານລາຍຮັບ',
-    href: '/dashboard/revenue',
-    icon: FiBarChart,
-    roles: ['admin', 'staff', 'station'],
-    description: 'ສະຫຼຸບລາຍຮັບທັງໝົດ'
-  }
+ 
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -191,7 +170,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   )}
                 </div>
                 
-                {/* 🆕 New Badge สำหรับเมนูใหม่ */}
+                {/* New Badge สำหรับเมนูใหม่ */}
                 {item.href === '/dashboard/driver-revenue' && (
                   <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
                     ໃໝ່
