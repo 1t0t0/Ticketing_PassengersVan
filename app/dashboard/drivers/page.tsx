@@ -11,13 +11,10 @@ import {
   FiLogIn, 
   FiLogOut, 
   FiSearch, 
-  FiFilter, 
   FiUser,
   FiTruck,
-  FiSettings,
-  FiCar,
-  FiTag
 } from 'react-icons/fi';
+import { TfiCar } from 'react-icons/tfi';
 
 // Define interfaces for our data types
 interface CarType {
@@ -342,7 +339,7 @@ const renderCarSummary = () => {
           <div className="mt-3 pt-3 border-t border-gray-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <FiCar className="text-gray-500 mr-2" size={14} />
+                <TfiCar className="text-gray-500 mr-2" size={14} />
                 <span className="text-sm text-gray-600">ລົດທີ່ຮັບຜິດຊອບ:</span>
               </div>
               {driver.assignedCars && driver.assignedCars.length > 0 && (

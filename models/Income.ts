@@ -1,13 +1,18 @@
-// models/Income.ts - Updated with revenue calculation methods
+// models/Income.ts - Enhanced with individual driver revenue tracking
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
 export interface IIncome extends Document {
   income_id: string;
   ticket_id: mongoose.Schema.Types.ObjectId | string;
   user_id: mongoose.Schema.Types.ObjectId | string;
+  driver_id?: mongoose.Schema.Types.ObjectId | string; // เพิ่มฟิลด์สำหรับระบุคนขับที่ควรได้รับส่วนแบ่ง
   income_amount: number;
   income_date: Date;
   revenue_share_type: 'company' | 'station' | 'driver';
+  distribution_date?: Date; // วันที่แบ่งรายได้จริง
+  is_distributed?: boolean; // สถานะการแบ่งรายได้แล้วหรือยัง
+  working_drivers_count?: number; // จำนวนคนขับที่เข้าทำงานในวันนั้น
+  individual_driver_share?: number; // ส่วนแบ่งที่คนขับแต่ละคนควรได้
   created_at: Date;
   updated_at: Date;
 }
@@ -28,6 +33,10 @@ const incomeSchema = new Schema({
     ref: 'User',
     required: true 
   },
+  driver_id: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User' // คนขับที่ควรได้รับส่วนแบ่งจากตั๋วใบนี้
+  },
   income_amount: { 
     type: Number, 
     required: true 
@@ -40,6 +49,19 @@ const incomeSchema = new Schema({
     type: String,
     enum: ['company', 'station', 'driver'],
     required: true
+  },
+  distribution_date: { 
+    type: Date 
+  },
+  is_distributed: { 
+    type: Boolean, 
+    default: false 
+  },
+  working_drivers_count: { 
+    type: Number 
+  },
+  individual_driver_share: { 
+    type: Number 
   }
 }, { 
   timestamps: { 
@@ -55,25 +77,53 @@ const REVENUE_SHARE = {
   DRIVERS: 0.85     // 85%
 };
 
-// Static method: สร้าง Income records จาก Ticket
-incomeSchema.statics.createFromTicket = async function(ticketId: string, ticketPrice: number, driverId: string, stationId?: string) {
+// Indexes for performance
+incomeSchema.index({ income_date: 1, revenue_share_type: 1 });
+incomeSchema.index({ driver_id: 1, income_date: 1 });
+incomeSchema.index({ user_id: 1, revenue_share_type: 1 });
+incomeSchema.index({ is_distributed: 1 });
+
+// Static method: สร้าง Income records จาก Ticket พร้อมเชื่อมโยงคนขับที่เข้าทำงาน
+incomeSchema.statics.createFromTicketWithWorkingDrivers = async function(
+  ticketId: string, 
+  ticketPrice: number, 
+  soldBy: string,
+  stationId?: string
+) {
   const incomes = [];
+  const timestamp = Date.now();
+  const today = new Date();
+  const dateString = today.toISOString().split('T')[0];
+  
+  // หาคนขับที่เข้าทำงานในวันนี้
+  const User = mongoose.model('User');
+  const workingDrivers = await User.find({
+    role: 'driver',
+    checkInStatus: 'checked-in'
+  });
+  
+  console.log(`Working drivers today: ${workingDrivers.length}`);
   
   // คำนวณส่วนแบ่งรายได้
   const companyShare = Math.round(ticketPrice * REVENUE_SHARE.COMPANY);
   const stationShare = Math.round(ticketPrice * REVENUE_SHARE.STATION);
   const driverShare = Math.round(ticketPrice * REVENUE_SHARE.DRIVERS);
   
-  const timestamp = Date.now();
+  // คำนวณส่วนแบ่งต่อคนขับ (85% หารด้วยจำนวนคนขับที่เข้าทำงาน)
+  const individualDriverShare = workingDrivers.length > 0 
+    ? Math.round(driverShare / workingDrivers.length) 
+    : 0;
   
   // สร้าง Income record สำหรับบริษัท
   incomes.push({
     income_id: `INC-COMPANY-${timestamp}-1`,
     ticket_id: ticketId,
-    user_id: null, // บริษัทไม่มี user_id เฉพาะ
+    user_id: null,
     income_amount: companyShare,
     revenue_share_type: 'company',
-    income_date: new Date()
+    income_date: today,
+    working_drivers_count: workingDrivers.length,
+    is_distributed: true
   });
   
   // สร้าง Income record สำหรับสถานี
@@ -84,62 +134,42 @@ incomeSchema.statics.createFromTicket = async function(ticketId: string, ticketP
       user_id: stationId,
       income_amount: stationShare,
       revenue_share_type: 'station',
-      income_date: new Date()
+      income_date: today,
+      working_drivers_count: workingDrivers.length,
+      is_distributed: true
     });
   }
   
-  // สร้าง Income record สำหรับคนขับ
-  incomes.push({
-    income_id: `INC-DRIVER-${timestamp}-3`,
-    ticket_id: ticketId,
-    user_id: driverId,
-    income_amount: driverShare,
-    revenue_share_type: 'driver',
-    income_date: new Date()
+  // สร้าง Income record สำหรับคนขับแต่ละคน
+  workingDrivers.forEach((driver, index) => {
+    incomes.push({
+      income_id: `INC-DRIVER-${timestamp}-${index + 3}`,
+      ticket_id: ticketId,
+      user_id: driver._id,
+      driver_id: driver._id,
+      income_amount: individualDriverShare,
+      revenue_share_type: 'driver',
+      income_date: today,
+      working_drivers_count: workingDrivers.length,
+      individual_driver_share: individualDriverShare,
+      is_distributed: false // จะต้องแบ่งจ่ายในภายหลัง
+    });
   });
   
   // บันทึกลงฐานข้อมูล
   return await this.insertMany(incomes);
 };
 
-// Static method: หารายได้ตาม ticket ID
-incomeSchema.statics.findByTicketId = function(ticketId: string) {
-  return this.find({ ticket_id: ticketId }).exec();
-};
-
-// Static method: หารายได้ของผู้ใช้ตาม user ID และประเภท
-incomeSchema.statics.findByUserIdAndType = function(userId: string, shareType: string) {
-  return this.find({ user_id: userId, revenue_share_type: shareType }).sort({ income_date: -1 }).exec();
-};
-
-// Static method: หารายได้ในช่วงวันที่
-incomeSchema.statics.findByDateRange = function(startDate: Date, endDate: Date, shareType?: string) {
-  const query: any = {
-    income_date: {
-      $gte: startDate,
-      $lte: endDate
-    }
-  };
-  
-  if (shareType) {
-    query.revenue_share_type = shareType;
-  }
-  
-  return this.find(query).sort({ income_date: -1 }).exec();
-};
-
-// Static method: สรุปรายได้รายวันตามประเภท
-incomeSchema.statics.getDailyIncomeByType = async function(date: Date, shareType: string) {
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
+// Static method: คำนวณรายได้รายวันของคนขับ
+incomeSchema.statics.getDriverDailyIncome = async function(driverId: string, date: string) {
+  const startOfDay = new Date(date + 'T00:00:00.000Z');
+  const endOfDay = new Date(date + 'T23:59:59.999Z');
   
   const result = await this.aggregate([
     {
       $match: {
-        revenue_share_type: shareType,
+        driver_id: new mongoose.Types.ObjectId(driverId),
+        revenue_share_type: 'driver',
         income_date: {
           $gte: startOfDay,
           $lte: endOfDay
@@ -149,24 +179,89 @@ incomeSchema.statics.getDailyIncomeByType = async function(date: Date, shareType
     {
       $group: {
         _id: null,
-        totalAmount: { $sum: "$income_amount" },
-        transactionCount: { $sum: 1 }
+        totalIncome: { $sum: '$income_amount' },
+        ticketCount: { $sum: 1 },
+        averageShare: { $avg: '$individual_driver_share' },
+        workingDriversCount: { $first: '$working_drivers_count' }
       }
     }
   ]);
   
-  return result.length > 0 ? result[0] : { totalAmount: 0, transactionCount: 0 };
+  return result.length > 0 ? result[0] : {
+    totalIncome: 0,
+    ticketCount: 0,
+    averageShare: 0,
+    workingDriversCount: 0
+  };
 };
 
-// Static method: สรุปรายได้รายเดือนของคนขับ
-incomeSchema.statics.getDriverMonthlyIncome = async function(userId: string, year: number, month: number) {
+// Static method: ดึงรายได้รายวันของคนขับทุกคน
+incomeSchema.statics.getAllDriversDailyIncome = async function(date: string) {
+  const startOfDay = new Date(date + 'T00:00:00.000Z');
+  const endOfDay = new Date(date + 'T23:59:59.999Z');
+  
+  const result = await this.aggregate([
+    {
+      $match: {
+        revenue_share_type: 'driver',
+        income_date: {
+          $gte: startOfDay,
+          $lte: endOfDay
+        }
+      }
+    },
+    {
+      $group: {
+        _id: '$driver_id',
+        totalIncome: { $sum: '$income_amount' },
+        ticketCount: { $sum: 1 },
+        averageShare: { $avg: '$individual_driver_share' },
+        workingDriversCount: { $first: '$working_drivers_count' }
+      }
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'driver'
+      }
+    },
+    {
+      $unwind: '$driver'
+    },
+    {
+      $project: {
+        driverId: '$_id',
+        driver: {
+          _id: '$driver._id',
+          name: '$driver.name',
+          employeeId: '$driver.employeeId',
+          checkInStatus: '$driver.checkInStatus'
+        },
+        totalIncome: 1,
+        ticketCount: 1,
+        averageShare: 1,
+        workingDriversCount: 1
+      }
+    },
+    {
+      $sort: { totalIncome: -1 }
+    }
+  ]);
+  
+  return result;
+};
+
+// Static method: คำนวณรายได้รายเดือนของคนขับ
+incomeSchema.statics.getDriverMonthlyIncome = async function(driverId: string, year: number, month: number) {
   const startOfMonth = new Date(year, month - 1, 1);
   const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
   
   const result = await this.aggregate([
     {
       $match: {
-        user_id: new mongoose.Types.ObjectId(userId),
+        driver_id: new mongoose.Types.ObjectId(driverId),
         revenue_share_type: 'driver',
         income_date: {
           $gte: startOfMonth,
@@ -176,43 +271,93 @@ incomeSchema.statics.getDriverMonthlyIncome = async function(userId: string, yea
     },
     {
       $group: {
-        _id: { $dayOfMonth: "$income_date" },
-        date: { $first: "$income_date" },
-        totalAmount: { $sum: "$income_amount" },
-        transactionCount: { $sum: 1 }
+        _id: { 
+          year: { $year: '$income_date' },
+          month: { $month: '$income_date' },
+          day: { $dayOfMonth: '$income_date' }
+        },
+        date: { $first: '$income_date' },
+        totalIncome: { $sum: '$income_amount' },
+        ticketCount: { $sum: 1 },
+        workingDriversCount: { $first: '$working_drivers_count' }
       }
     },
     {
-      $sort: { _id: 1 }
+      $sort: { '_id.day': 1 }
     }
   ]);
   
   return result;
 };
 
-// Static method: คำนวณรายได้ทั้งหมดตามประเภท
-incomeSchema.statics.getTotalIncomeByType = async function(shareType: string, startDate?: Date, endDate?: Date) {
-  const matchQuery: any = { revenue_share_type: shareType };
+// Static method: อัพเดทสถานะการแบ่งรายได้
+incomeSchema.statics.markAsDistributed = async function(incomeIds: string[]) {
+  return await this.updateMany(
+    { _id: { $in: incomeIds } },
+    { 
+      $set: { 
+        is_distributed: true,
+        distribution_date: new Date()
+      }
+    }
+  );
+};
+
+// Static method: ดึงรายได้ที่ยังไม่ได้แบ่งจ่าย
+incomeSchema.statics.getUndistributedIncome = async function(driverId?: string) {
+  const query: any = {
+    revenue_share_type: 'driver',
+    is_distributed: false
+  };
   
-  if (startDate && endDate) {
-    matchQuery.income_date = {
-      $gte: startDate,
-      $lte: endDate
-    };
+  if (driverId) {
+    query.driver_id = new mongoose.Types.ObjectId(driverId);
   }
   
+  return await this.find(query)
+    .populate('driver_id', 'name employeeId')
+    .populate('ticket_id', 'ticketNumber price')
+    .sort({ income_date: -1 });
+};
+
+// Static method: สรุปรายได้รายวันแบบรวม
+incomeSchema.statics.getDailyRevenueSummary = async function(date: string) {
+  const startOfDay = new Date(date + 'T00:00:00.000Z');
+  const endOfDay = new Date(date + 'T23:59:59.999Z');
+  
   const result = await this.aggregate([
-    { $match: matchQuery },
+    {
+      $match: {
+        income_date: {
+          $gte: startOfDay,
+          $lte: endOfDay
+        }
+      }
+    },
     {
       $group: {
-        _id: null,
-        totalAmount: { $sum: "$income_amount" },
+        _id: '$revenue_share_type',
+        totalAmount: { $sum: '$income_amount' },
         transactionCount: { $sum: 1 }
       }
     }
   ]);
   
-  return result.length > 0 ? result[0] : { totalAmount: 0, transactionCount: 0 };
+  // จัดรูปแบบผลลัพธ์
+  const summary = {
+    company: { totalAmount: 0, transactionCount: 0 },
+    station: { totalAmount: 0, transactionCount: 0 },
+    driver: { totalAmount: 0, transactionCount: 0 }
+  };
+  
+  result.forEach(item => {
+    summary[item._id as keyof typeof summary] = {
+      totalAmount: item.totalAmount,
+      transactionCount: item.transactionCount
+    };
+  });
+  
+  return summary;
 };
 
 // Handle the case where this model might be compiled multiple times
