@@ -1,5 +1,8 @@
-// app/dashboard/users/types/index.ts - Updated with Car and CarType support
+// app/dashboard/users/types/index.ts - Updated with WorkLog integration
 // Types for User Management
+
+// Re-export WorkLog types
+export * from './worklog';
 
 // User interface
 export interface User {

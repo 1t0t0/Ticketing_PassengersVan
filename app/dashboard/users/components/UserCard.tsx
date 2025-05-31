@@ -1,5 +1,4 @@
-// app/dashboard/users/components/UserCard.tsx - Updated with Car Information
-
+// app/dashboard/users/components/UserCard.tsx - Updated with WorkLog History Icon
 import React, { useState, useEffect } from 'react';
 import { 
   FiMail, 
@@ -14,7 +13,8 @@ import {
   FiEye,
   FiTruck,
   FiCar,
-  FiTag
+  FiTag,
+  FiClock // เพิ่ม icon นาฬิกา
 } from 'react-icons/fi';
 import NeoButton from '@/components/ui/NotionButton';
 
@@ -23,6 +23,7 @@ import useUserPermissions from '../hooks/useUserPermissions';
 import useCheckInOut from '../hooks/useCheckinOut';
 import EditUserModal from './EditUserModal';
 import ViewUserModal from './ViewUserModal';
+import WorkLogHistoryModal from './WorkLogHistoryModal'; // เพิ่ม import
 
 // Define Car and CarType interfaces
 interface CarType {
@@ -58,6 +59,7 @@ const UserCard: React.FC<UserCardProps> = ({
   const { checkingInOut, handleCheckInOut } = useCheckInOut(onRefresh);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showWorkLogModal, setShowWorkLogModal] = useState(false); // เพิ่ม state สำหรับ WorkLog modal
   const [imageError, setImageError] = useState(false);
   
   // Car data state
@@ -70,6 +72,9 @@ const UserCard: React.FC<UserCardProps> = ({
   const showCheckInOut = canShowCheckInOutButton(user);
   const showEditButton = canEditUser(user);
   const showDeleteButton = canDeleteUser(user) && !(user.role === 'admin' && admins.length <= 1);
+  
+  // เพิ่มการตรวจสอบว่าควรแสดงปุ่ม WorkLog History หรือไม่
+  const shouldShowWorkLogButton = isDriver || isStaffUser;
   
   // Fetch assigned cars for drivers
   useEffect(() => {
@@ -120,37 +125,37 @@ const UserCard: React.FC<UserCardProps> = ({
   const { bg, text } = getRoleClasses();
 
   // Render car summary for drivers - Simplified version
-const renderCarSummary = () => {
-  if (!isDriver) return null;
+  const renderCarSummary = () => {
+    if (!isDriver) return null;
 
-  if (loadingCars) {
+    if (loadingCars) {
+      return (
+        <div className="mt-2 text-xs text-gray-500">
+          ກຳລັງໂຫລດຂໍ້ມູນລົດ...
+        </div>
+      );
+    }
+
+    if (assignedCars.length === 0) {
+      return (
+        <div className="mt-2 text-xs text-gray-500 italic">
+          ຍັງບໍ່ມີລົດມອບໝາຍ
+        </div>
+      );
+    }
+
     return (
-      <div className="mt-2 text-xs text-gray-500">
-        ກຳລັງໂຫລດຂໍ້ມູນລົດ...
+      <div className="mt-2 text-xs text-gray-600">
+        <FiTruck className="inline mr-1" size={12} />
+        {assignedCars.map((car, index) => (
+          <span key={car._id}>
+            {car.car_name} - {car.car_registration}
+            {index < assignedCars.length - 1 && ', '}
+          </span>
+        ))}
       </div>
     );
-  }
-
-  if (assignedCars.length === 0) {
-    return (
-      <div className="mt-2 text-xs text-gray-500 italic">
-        ຍັງບໍ່ມີລົດມອບໝາຍ
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-2 text-xs text-gray-600">
-      <FiTruck className="inline mr-1" size={12} />
-      {assignedCars.map((car, index) => (
-        <span key={car._id}>
-          {car.car_name} - {car.car_registration}
-          {index < assignedCars.length - 1 && ', '}
-        </span>
-      ))}
-    </div>
-  );
-};
+  };
   
   return (
     <>
@@ -262,6 +267,19 @@ const renderCarSummary = () => {
               </div>
             )}
             
+            {/* WorkLog History button - เพิ่มปุ่มใหม่ */}
+            {shouldShowWorkLogButton && (
+              <div className="m-1">
+                <button 
+                  className="p-2 text-orange-500 hover:bg-orange-50 rounded-full transition-colors"
+                  onClick={() => setShowWorkLogModal(true)}
+                  title="ເບິ່ງປະຫວັດການເຂົ້າວຽກ"
+                >
+                  <FiClock size={18} />
+                </button>
+              </div>
+            )}
+            
             {/* View button */}
             <div className="m-1">
               <button 
@@ -314,6 +332,14 @@ const renderCarSummary = () => {
         <ViewUserModal
           user={user}
           onClose={() => setShowViewModal(false)}
+        />
+      )}
+
+      {/* WorkLog History Modal - เพิ่ม modal ใหม่ */}
+      {showWorkLogModal && (
+        <WorkLogHistoryModal
+          user={user}
+          onClose={() => setShowWorkLogModal(false)}
         />
       )}
     </>
