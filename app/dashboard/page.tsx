@@ -5,7 +5,6 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
 import { Line } from 'react-chartjs-2';
-import PaymentMethodsChart from '@/components/PaymentMethodsChart';
 import notificationService from '@/lib/notificationService';
 import {
   Chart as ChartJS,
@@ -16,6 +15,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  ArcElement,
 } from 'chart.js';
 
 ChartJS.register(
@@ -25,7 +25,8 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ArcElement
 );
 
 interface DashboardStats {
@@ -41,6 +42,45 @@ interface DashboardStats {
     qr: number;
   };
 }
+
+// Mini Donut Chart Component
+const MiniPaymentChart = ({ cashPercentage, qrPercentage }: { cashPercentage: number; qrPercentage: number }) => {
+  const data = {
+    datasets: [{
+      data: [cashPercentage, qrPercentage],
+      backgroundColor: ['#3B82F6', '#10B981'], // Blue for cash, Green for QR
+      borderWidth: 0,
+      cutout: '60%',
+    }]
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: false }
+    }
+  };
+
+  return (
+    <div className="relative w-16 h-16">
+      <div style={{ position: 'relative', height: '64px', width: '64px' }}>
+        {/* Using canvas directly since we can't import Doughnut */}
+        <canvas 
+          width="64" 
+          height="64"
+          style={{ 
+            background: `conic-gradient(#3B82F6 0deg ${cashPercentage * 3.6}deg, #10B981 ${cashPercentage * 3.6}deg 360deg)`,
+            borderRadius: '50%',
+            mask: 'radial-gradient(circle, transparent 60%, black 60%)',
+            WebkitMask: 'radial-gradient(circle, transparent 60%, black 60%)'
+          }}
+        />
+      </div>
+    </div>
+  );
+};
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -82,7 +122,6 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       
-      // Fetch stats from API
       const statsResponse = await fetch(`/api/dashboard/stats?startDate=${startDate}&endDate=${endDate}`);
       const statsData = await statsResponse.json();
       
@@ -154,21 +193,25 @@ export default function DashboardPage() {
 
         <NeoCard className="p-4">
           <h3 className="text-sm font-bold text-gray-500 uppercase">ປະເພດການຊຳລະ</h3>
-          <div className="flex justify-between mt-2">
+          <div className="flex items-center justify-between mt-2">
             <div className="text-center">
               <div className="text-sm text-gray-500">ເງິນສົດ</div>
-              <p className="font-bold">{stats.paymentMethodStats.cash}%</p>
+              <p className="font-bold text-blue-600">{stats.paymentMethodStats.cash}%</p>
             </div>
+            <MiniPaymentChart 
+              cashPercentage={stats.paymentMethodStats.cash} 
+              qrPercentage={stats.paymentMethodStats.qr} 
+            />
             <div className="text-center">
               <div className="text-sm text-gray-500">ເງິນໂອນ</div>
-              <p className="font-bold">{stats.paymentMethodStats.qr}%</p>
+              <p className="font-bold text-green-600">{stats.paymentMethodStats.qr}%</p>
             </div>
           </div>
         </NeoCard>
       </div>
 
       {/* Staff and Driver Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <NeoCard className="p-4">
           <h3 className="text-sm font-bold text-gray-500 uppercase">ຈຳນວນພະນັກງານຂັບລົດ</h3>
           <p className="text-2xl font-bold">{stats.totalDrivers}</p>
@@ -200,82 +243,43 @@ export default function DashboardPage() {
             ></div>
           </div>
         </NeoCard>
-        
-        <NeoCard className="p-4 lg:col-span-2">
-          <h3 className="text-sm font-bold text-gray-500 uppercase">ສະຖານະພະນັກງານທີ່ເຂົ້າວຽກ</h3>
-          <div className="flex flex-col md:flex-row justify-between mt-2 h-full">
-            <div className="text-center flex flex-col items-center justify-center flex-1">
-              <div className="text-blue-500 font-bold text-lg">{stats.checkedInDrivers}</div>
-              <div className="text-sm">ພະນັກງານຂັບລົດທີ່ເຂົ້າວຽກ</div>
-              <div className="text-xs text-gray-500">
-                {stats.totalDrivers > 0 
-                  ? Math.round((stats.checkedInDrivers / stats.totalDrivers) * 100) 
-                  : 0}% ຂອງທັງໝົດ
-              </div>
-            </div>
-            <div className="h-full w-px bg-gray-200 mx-2 hidden md:block"></div>
-            <div className="text-center flex flex-col items-center justify-center flex-1">
-              <div className="text-green-500 font-bold text-lg">{stats.checkedInStaff}</div>
-              <div className="text-sm">ຈຳນວນພະນັກງານຂາຍປີ້</div>
-              <div className="text-xs text-gray-500">
-                {stats.totalStaff > 0 
-                  ? Math.round((stats.checkedInStaff / stats.totalStaff) * 100) 
-                  : 0}% ຂອງທັງໝົດ
-              </div>
-            </div>
-          </div>
-        </NeoCard>
       </div>
 
-      {/* Charts and Recent Tickets */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Hourly Sales Chart - Takes 2 columns */}
-        <div className="lg:col-span-2">
-          <NeoCard className="p-4">
-            <h3 className="text-lg font-bold mb-2">ຊົວໂມງການຂາຍ</h3>
-            <p className="text-sm text-gray-500 mb-4">ຍອດການຂາຍປີ້ຕໍ່ຊົວໂມງ(ມື້ນີ້)</p>
-            <div className="h-80">
-              <Line data={hourlyData} options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'top',
-                    align: 'start',
-                  },
-                  tooltip: {
-                    mode: 'index',
-                    intersect: false,
+      {/* Hourly Sales Chart - Full Width */}
+      <div className="mb-6">
+        <NeoCard className="p-4">
+          <h3 className="text-lg font-bold mb-2">ຊົວໂມງການຂາຍ</h3>
+          <p className="text-sm text-gray-500 mb-4">ຍອດການຂາຍປີ້ຕໍ່ຊົວໂມງ(ມື້ນີ້)</p>
+          <div className="h-80">
+            <Line data={hourlyData} options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top',
+                  align: 'start',
+                },
+                tooltip: {
+                  mode: 'index',
+                  intersect: false,
+                },
+              },
+              scales: {
+                x: {
+                  grid: {
+                    display: false,
                   },
                 },
-                scales: {
-                  x: {
-                    grid: {
-                      display: false,
-                    },
+                y: {
+                  beginAtZero: true,
+                  grid: {
+                    color: '#f0f0f0',
                   },
-                  y: {
-                    beginAtZero: true,
-                    grid: {
-                      color: '#f0f0f0',
-                    },
-                  }
                 }
-              }} />
-            </div>
-          </NeoCard>
-        </div>
-
-        {/* Right Column - Payment Methods */}
-        <div className="space-y-6">
-          <NeoCard className="p-4">
-            <h3 className="text-lg font-bold mb-4">ປະເພດການຊຳລະ</h3>
-            <PaymentMethodsChart 
-              cashPercentage={stats.paymentMethodStats.cash} 
-              qrPercentage={stats.paymentMethodStats.qr} 
-            />
-          </NeoCard>
-        </div>
+              }
+            }} />
+          </div>
+        </NeoCard>
       </div>
     </div>
   );
