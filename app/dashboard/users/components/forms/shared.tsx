@@ -1,6 +1,10 @@
-// FormField.tsx - ปรับปรุงให้รองรับ select และ textarea
-import React from 'react';
+// app/dashboard/users/components/forms/shared.tsx
+import React, { useState } from 'react';
+import { FiRefreshCw, FiCamera, FiX } from 'react-icons/fi';
+import { resetUserPassword } from '../../api/user';
+import notificationService from '@/lib/notificationService';
 
+// Enhanced FormField Component
 interface FormFieldProps {
   label: string;
   type?: string;
@@ -17,7 +21,7 @@ interface FormFieldProps {
   className?: string;
 }
 
-const FormField: React.FC<FormFieldProps> = ({ 
+export const FormField: React.FC<FormFieldProps> = ({ 
   label, 
   type = 'text', 
   value, 
@@ -88,11 +92,7 @@ const FormField: React.FC<FormFieldProps> = ({
   );
 };
 
-// Shared Password Reset Hook
-import { useState } from 'react';
-import { resetUserPassword } from '../../api/user';
-import notificationService from '@/lib/notificationService';
-
+// Password Reset Hook
 export const usePasswordReset = (userId: string | undefined, updateUser: (field: string, value: string) => void) => {
   const [showTempPassword, setShowTempPassword] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
@@ -119,9 +119,7 @@ export const usePasswordReset = (userId: string | undefined, updateUser: (field:
   return { showTempPassword, tempPassword, loading, handleReset };
 };
 
-// Shared Password Field Component
-import { FiRefreshCw } from 'react-icons/fi';
-
+// Password Field Component
 interface PasswordFieldProps {
   value: string;
   onChange: (value: string) => void;
@@ -132,7 +130,7 @@ interface PasswordFieldProps {
   tempPassword?: string;
 }
 
-const PasswordField: React.FC<PasswordFieldProps> = ({
+export const PasswordField: React.FC<PasswordFieldProps> = ({
   value, onChange, isEditing, onReset, loading, showTempPassword, tempPassword
 }) => (
   <div>
@@ -167,8 +165,6 @@ const PasswordField: React.FC<PasswordFieldProps> = ({
 );
 
 // Image Upload Component
-import { FiCamera, FiX } from 'react-icons/fi';
-
 interface ImageUploadProps {
   label: string;
   file: File | null;
@@ -178,7 +174,7 @@ interface ImageUploadProps {
   id: string;
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({
+export const ImageUpload: React.FC<ImageUploadProps> = ({
   label, file, preview, onFileChange, onRemove, id
 }) => (
   <div>

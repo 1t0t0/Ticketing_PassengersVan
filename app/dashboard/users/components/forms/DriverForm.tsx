@@ -1,25 +1,14 @@
-// app/dashboard/users/components/forms/DriverForm.tsx - แก้ไขการจัดการประเภทรถ
+// DriverForm.tsx - Optimized version
 import React, { useState, useEffect } from 'react';
 import { 
-  FiUser, 
-  FiMail, 
-  FiPhone, 
-  FiCalendar, 
-  FiCreditCard,
-  FiCamera,
-  FiX,
-  FiRefreshCw,
-  FiTruck,
-  FiSettings,
-  FiPlus
+  FiUser, FiMail, FiPhone, FiCalendar, FiCreditCard, FiCamera,
+  FiTruck, FiSettings, FiPlus
 } from 'react-icons/fi';
 
-import FormField from './FormField';
+import { FormField, PasswordField, ImageUpload, usePasswordReset } from './shared';
 import { User } from '../../types';
-import { resetUserPassword } from '../../api/user';
 import notificationService from '@/lib/notificationService';
 
-// เพิ่ม interfaces สำหรับ Car และ CarType
 interface CarType {
   _id: string;
   carType_id: string;
@@ -45,112 +34,46 @@ interface DriverFormProps {
   userImagePreview?: string | null;
   isEditing?: boolean;
   handleFileChange?: (e: React.ChangeEvent<HTMLInputElement>, type: 'idCard' | 'user') => void;
-  // เพิ่ม props สำหรับข้อมูลรถ
   onCarDataChange?: (carData: CarData | null) => void;
   carData?: CarData | null;
 }
 
-const DriverForm: React.FC<DriverFormProps> = ({
-  user,
-  updateUser,
-  idCardImageFile,
-  userImageFile,
-  setIdCardImageFile,
-  setUserImageFile,
-  uploadProgress,
-  idCardImagePreview,
-  userImagePreview,
-  isEditing = false,
-  handleFileChange,
-  onCarDataChange,
-  carData: initialCarData
-}) => {
-  const [showTempPassword, setShowTempPassword] = useState(false);
-  const [tempPassword, setTempPassword] = useState('');
-  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
-  
-  // State สำหรับข้อมูลรถ
-  const [carData, setCarData] = useState<CarData>(initialCarData || {
-    car_name: '',
-    car_capacity: 10,
-    car_registration: '',
-    car_type_id: ''
-  });
-  
-  // State สำหรับประเภทรถ
+// Custom hook for car types management
+const useCarTypes = () => {
   const [carTypes, setCarTypes] = useState<CarType[]>([]);
-  const [loadingCarTypes, setLoadingCarTypes] = useState(false);
-  
-  // State สำหรับการเพิ่มประเภทรถใหม่
-  const [showAddCarType, setShowAddCarType] = useState(false);
-  const [newCarTypeName, setNewCarTypeName] = useState('');
-  const [addingCarType, setAddingCarType] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // อัพเดต carData เมื่อ initialCarData เปลี่ยน (สำหรับโหมดแก้ไข)
-  useEffect(() => {
-    if (initialCarData) {
-      console.log('Updating carData with initial data:', initialCarData);
-      setCarData(initialCarData);
-    }
-  }, [initialCarData]);
-
-  // โหลดประเภทรถเมื่อ component mount
-  useEffect(() => {
-    fetchCarTypes();
-  }, []);
-
-  // ฟังก์ชันดึงข้อมูลประเภทรถ
   const fetchCarTypes = async () => {
     try {
-      setLoadingCarTypes(true);
-      console.log('Fetching car types...');
-      
+      setLoading(true);
       const response = await fetch('/api/car-types');
       if (response.ok) {
         const data = await response.json();
-        console.log('Car types fetched:', data);
         setCarTypes(data);
       } else {
-        console.error('Failed to fetch car types:', response.status);
         notificationService.error('ບໍ່ສາມາດໂຫລດປະເພດລົດໄດ້');
       }
     } catch (error) {
       console.error('Error fetching car types:', error);
       notificationService.error('ບໍ່ສາມາດໂຫລດປະເພດລົດໄດ້');
     } finally {
-      setLoadingCarTypes(false);
+      setLoading(false);
     }
   };
 
-  // ฟังก์ชันเพิ่มประเภทรถใหม่
-  const handleAddCarType = async () => {
-    if (!newCarTypeName.trim()) {
-      notificationService.error('ກະລຸນາກຣອກຊື່ປະເພດລົດ');
-      return;
-    }
-
+  const addCarType = async (name: string): Promise<CarType | null> => {
     try {
-      setAddingCarType(true);
       const response = await fetch('/api/car-types', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ carType_name: newCarTypeName.trim() })
+        body: JSON.stringify({ carType_name: name.trim() })
       });
 
       if (response.ok) {
         const newCarType = await response.json();
         setCarTypes(prev => [...prev, newCarType]);
-        
-        // อัปเดต carData ให้เลือกประเภทใหม่ที่เพิ่งสร้าง
-        const updatedCarData = { ...carData, car_type_id: newCarType._id };
-        setCarData(updatedCarData);
-        if (onCarDataChange) {
-          onCarDataChange(updatedCarData);
-        }
-        
-        setNewCarTypeName('');
-        setShowAddCarType(false);
         notificationService.success('ເພີ່ມປະເພດລົດສຳເລັດ');
+        return newCarType;
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add car type');
@@ -158,300 +81,259 @@ const DriverForm: React.FC<DriverFormProps> = ({
     } catch (error: any) {
       console.error('Error adding car type:', error);
       notificationService.error(`ບໍ່ສາມາດເພີ່ມປະເພດລົດໄດ້: ${error.message}`);
-    } finally {
-      setAddingCarType(false);
+      return null;
     }
   };
 
-  // อัปเดตข้อมูลรถและแจ้งให้ parent component ทราบ
-  const updateCarData = (field: keyof CarData, value: string | number) => {
-    console.log(`Updating car data: ${field} = ${value}`);
-    const updatedCarData = { ...carData, [field]: value };
-    setCarData(updatedCarData);
-    if (onCarDataChange) {
-      onCarDataChange(updatedCarData);
+  return { carTypes, loading, fetchCarTypes, addCarType };
+};
+
+// Car type selector component
+const CarTypeSelector: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  carTypes: CarType[];
+  loading: boolean;
+  onAddNew: (name: string) => Promise<CarType | null>;
+}> = ({ value, onChange, carTypes, loading, onAddNew }) => {
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const handleAdd = async () => {
+    if (!newName.trim()) {
+      notificationService.error('ກະລຸນາກຣອກຊື່ປະເພດລົດ');
+      return;
     }
+
+    setAdding(true);
+    const newCarType = await onAddNew(newName);
+    setAdding(false);
+
+    if (newCarType) {
+      onChange(newCarType._id);
+      setNewName('');
+      setShowAdd(false);
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-bold mb-2">ປະເພດລົດ</label>
+      <div className="flex gap-2">
+        <select
+          className="flex-1 border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={loading}
+          required
+        >
+          <option value="">{loading ? 'ກຳລັງໂຫລດ...' : '-- ເລືອກປະເພດລົດ --'}</option>
+          {carTypes.map((type) => (
+            <option key={type._id} value={type._id}>{type.carType_name}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          onClick={() => setShowAdd(true)}
+        >
+          <FiPlus size={18} />
+        </button>
+      </div>
+      
+      {value && (
+        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+          <span className="text-blue-700">
+            ປະເພດທີ່ເລືອກ: <strong>{carTypes.find(t => t._id === value)?.carType_name}</strong>
+          </span>
+        </div>
+      )}
+
+      {showAdd && (
+        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <h5 className="font-semibold mb-2 text-blue-700">ເພີ່ມປະເພດລົດໃໝ່</h5>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="flex-1 border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none"
+              placeholder="ຊື່ປະເພດລົດ"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleAdd()}
+            />
+            <button
+              type="button"
+              className="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+              onClick={handleAdd}
+              disabled={adding || !newName.trim()}
+            >
+              {adding ? 'ກຳລັງເພີ່ມ...' : 'ເພີ່ມ'}
+            </button>
+            <button
+              type="button"
+              className="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+              onClick={() => { setShowAdd(false); setNewName(''); }}
+            >
+              ຍົກເລີກ
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const DriverForm: React.FC<DriverFormProps> = ({
+  user, updateUser, idCardImageFile, userImageFile, setIdCardImageFile, setUserImageFile,
+  uploadProgress, idCardImagePreview, userImagePreview, isEditing = false, 
+  handleFileChange, onCarDataChange, carData: initialCarData
+}) => {
+  const { showTempPassword, tempPassword, loading: resetLoading, handleReset } = usePasswordReset(user._id, updateUser);
+  const { carTypes, loading: carTypesLoading, fetchCarTypes, addCarType } = useCarTypes();
+  
+  const [carData, setCarData] = useState<CarData>(initialCarData || {
+    car_name: '', car_capacity: 10, car_registration: '', car_type_id: ''
+  });
+
+  useEffect(() => {
+    fetchCarTypes();
+  }, []);
+
+  useEffect(() => {
+    if (initialCarData) setCarData(initialCarData);
+  }, [initialCarData]);
+
+  const updateCarData = (field: keyof CarData, value: string | number) => {
+    const updated = { ...carData, [field]: value };
+    setCarData(updated);
+    onCarDataChange?.(updated);
   };
 
   const formatDateForInput = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
-    
-    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
-      return dateStr.substring(0, 10);
-    }
-    
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return dateStr.substring(0, 10);
     if (/^\d{2}\/\d{2}\/\d{4}/.test(dateStr)) {
       const parts = dateStr.split('/');
       return `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
-    
     try {
       const date = new Date(dateStr);
-      if (!isNaN(date.getTime())) {
-        return date.toISOString().substring(0, 10);
-      }
-    } catch (error) {
-      console.error('Error formatting date:', error);
-    }
-    
-    return '';
+      return !isNaN(date.getTime()) ? date.toISOString().substring(0, 10) : '';
+    } catch { return ''; }
   };
 
-  const handleResetPassword = async () => {
-    if (!user._id) return;
-    
-    try {
-      setResetPasswordLoading(true);
-      
-      const response = await resetUserPassword(user._id);
-      setTempPassword(response.temporaryPassword);
-      setShowTempPassword(true);
-      updateUser('password', response.temporaryPassword);
-      
-      notificationService.success('ລີເຊັດລະຫັດຜ່ານສຳເລັດ');
-    } catch (error: any) {
-      console.error('Error resetting password:', error);
-      notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
-    } finally {
-      setResetPasswordLoading(false);
-    }
-  };
-  
   const defaultHandleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'idCard' | 'user') => {
-    if (e.target.files && e.target.files[0]) {
+    if (e.target.files?.[0]) {
       const file = e.target.files[0];
-      
-      if (type === 'idCard') {
-        setIdCardImageFile(file);
-      } else {
-        setUserImageFile(file);
-      }
+      type === 'idCard' ? setIdCardImageFile(file) : setUserImageFile(file);
     }
   };
   
   const fileChangeHandler = handleFileChange || defaultHandleFileChange;
 
-  // ค้นหาชื่อประเภทรถตาม ID
-  const getCarTypeName = (carTypeId: string): string => {
-    const carType = carTypes.find(type => type._id === carTypeId);
-    return carType ? carType.carType_name : 'ບໍ່ລະບຸ';
-  };
-
   return (
-    <>
-      {/* ຂໍ້ມູນທົ່ວໄປ */}
-      <div className="mb-6">
+    <div className="space-y-6">
+      {/* ข้อมูลทั่วไป */}
+      <div>
         <h4 className="font-semibold text-lg mb-4 text-blue-600 border-b border-blue-200 pb-2">
-          <FiUser className="inline mr-2" />
-          ຂໍ້ມູນທົ່ວໄປ
+          <FiUser className="inline mr-2" />ຂໍ້ມູນທົ່ວໄປ
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField 
-            label="ຊື່ ແລະ ນາມສະກຸນ"
-            type="text"
-            icon={<FiUser />}
-            value={user.name || ''}
-            onChange={(e) => updateUser('name', e.target.value)}
-            required
+            label="ຊື່ ແລະ ນາມສະກຸນ" 
+            icon={<FiUser />} 
+            value={user.name || ''} 
+            onChange={(e) => updateUser('name', e.target.value)} 
+            required 
           />
-          
           <FormField 
-            label="ວັນເດືອນປີເກີດ"
-            type="date"
-            icon={<FiCalendar />}
-            value={formatDateForInput(user.birthDate)}
-            onChange={(e) => updateUser('birthDate', e.target.value)}
-            required
+            label="ວັນເດືອນປີເກີດ" 
+            type="date" 
+            icon={<FiCalendar />} 
+            value={formatDateForInput(user.birthDate)} 
+            onChange={(e) => updateUser('birthDate', e.target.value)} 
+            required 
           />
-          
           <FormField 
-            label="ອີເມວ"
-            type="email"
-            icon={<FiMail />}
-            value={user.email || ''}
-            onChange={(e) => updateUser('email', e.target.value)}
-            required
+            label="ອີເມວ" 
+            type="email" 
+            icon={<FiMail />} 
+            value={user.email || ''} 
+            onChange={(e) => updateUser('email', e.target.value)} 
+            required 
           />
-          
           <FormField 
-            label="ເບີໂທລະສັບ"
-            type="tel"
-            icon={<FiPhone />}
-            placeholder="0812345678"
-            value={user.phone || ''}
-            onChange={(e) => updateUser('phone', e.target.value)}
+            label="ເບີໂທລະສັບ" 
+            type="tel" 
+            icon={<FiPhone />} 
+            placeholder="0812345678" 
+            value={user.phone || ''} 
+            onChange={(e) => updateUser('phone', e.target.value)} 
           />
-          
-          {/* ລະຫັດຜ່ານ */}
-          <div>
-            <label className="block text-sm font-bold mb-2">ລະຫັດຜ່ານ</label>
-            <div className="relative">
-              <input
-                type="text"
-                className="w-full border-2 border-gray-300 rounded p-2 pr-10 focus:border-blue-500 focus:outline-none"
-                value={user.password || ''}
-                onChange={(e) => updateUser('password', e.target.value)}
-                placeholder={isEditing ? "ໃສ່ລະຫັດຜ່ານໃໝ່ ຫຼື ປ່ອຍວ່າງຄືເກົ່າ" : "ລະຫັດຜ່ານ"}
-              />
-              {isEditing && (
-                <button
-                  type="button"
-                  className="absolute right-2 top-2 text-blue-500 hover:text-blue-700 transition-colors"
-                  onClick={handleResetPassword}
-                  disabled={resetPasswordLoading}
-                >
-                  <FiRefreshCw size={18} className={resetPasswordLoading ? 'animate-spin' : ''} />
-                </button>
-              )}
-            </div>
-            {showTempPassword && (
-              <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded-md">
-                <p className="text-sm text-yellow-800">
-                  ລະຫັດຜ່ານຊົ່ວຄາວ: <strong>{tempPassword}</strong>
-                </p>
-              </div>
-            )}
-          </div>
-
+          <PasswordField 
+            value={user.password || ''} 
+            onChange={(value) => updateUser('password', value)}
+            isEditing={isEditing}
+            onReset={handleReset}
+            loading={resetLoading}
+            showTempPassword={showTempPassword}
+            tempPassword={tempPassword}
+          />
           <FormField 
-            label="ເລກບັດປະຈຳຕົວ"
-            type="text"
-            icon={<FiCreditCard />}
-            value={user.idCardNumber || ''}
-            onChange={(e) => updateUser('idCardNumber', e.target.value)}
-            required
+            label="ເລກບັດປະຈຳຕົວ" 
+            icon={<FiCreditCard />} 
+            value={user.idCardNumber || ''} 
+            onChange={(e) => updateUser('idCardNumber', e.target.value)} 
+            required 
           />
         </div>
       </div>
       
-      {/* ຮູບພາບ */}
-      <div className="mb-6 border-t border-gray-200 pt-6">
+      {/* รูปภาพ */}
+      <div>
         <h4 className="font-semibold text-lg mb-4 text-blue-600 border-b border-blue-200 pb-2">
-          <FiCamera className="inline mr-2" />
-          ຮູບພາບ
+          <FiCamera className="inline mr-2" />ຮູບພາບ
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* ຮູບບັດປະຈຳຕົວ */}
-          <div>
-            <label className="block text-sm font-bold mb-2">ຮູບບັດປະຈຳຕົວ</label>
-            <div className="flex items-center">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                id="idCardImage"
-                onChange={(e) => fileChangeHandler(e, 'idCard')}
-              />
-              <label
-                htmlFor="idCardImage"
-                className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors"
-              >
-                {idCardImageFile || idCardImagePreview ? (
-                  <div className="text-center relative w-full h-full">
-                    <img 
-                      src={idCardImageFile 
-                        ? URL.createObjectURL(idCardImageFile) 
-                        : idCardImagePreview || ''}
-                      alt="ID Card Preview" 
-                      className="w-full h-full object-contain p-2 rounded"
-                    />
-                    <button 
-                      type="button"
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIdCardImageFile(null);
-                        if (idCardImageFile && URL.createObjectURL) {
-                          URL.revokeObjectURL(URL.createObjectURL(idCardImageFile));
-                        }
-                      }}
-                    >
-                      <FiX size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <FiCamera className="mx-auto text-3xl text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600">ອັບໂຫລດຮູບບັດປະຈຳຕົວ</p>
-                    <p className="text-xs text-gray-400 mt-1">ກົດເພື່ອເລືອກໄຟລ໌</p>
-                  </div>
-                )}
-              </label>
-            </div>
-          </div>
-          
-          {/* ຮູບຖ່າຍ */}
-          <div>
-            <label className="block text-sm font-bold mb-2">ຮູບຖ່າຍ</label>
-            <div className="flex items-center">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                id="userImage"
-                onChange={(e) => fileChangeHandler(e, 'user')}
-              />
-              <label
-                htmlFor="userImage"
-                className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors"
-              >
-                {userImageFile || userImagePreview ? (
-                  <div className="text-center relative w-full h-full">
-                    <img 
-                      src={userImageFile 
-                        ? URL.createObjectURL(userImageFile) 
-                        : userImagePreview || ''}
-                      alt="User Photo Preview" 
-                      className="w-full h-full object-contain p-2 rounded"
-                    />
-                    <button 
-                      type="button"
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setUserImageFile(null);
-                        if (userImageFile && URL.createObjectURL) {
-                          URL.revokeObjectURL(URL.createObjectURL(userImageFile));
-                        }
-                      }}
-                    >
-                      <FiX size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <FiCamera className="mx-auto text-3xl text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600">ອັບໂຫລດຮູບຖ່າຍ</p>
-                    <p className="text-xs text-gray-400 mt-1">ກົດເພື່ອເລືອກໄຟລ໌</p>
-                  </div>
-                )}
-              </label>
-            </div>
-          </div>
+          <ImageUpload 
+            label="ຮູບບັດປະຈຳຕົວ"
+            file={idCardImageFile}
+            preview={idCardImagePreview}
+            onFileChange={(e) => fileChangeHandler(e, 'idCard')}
+            onRemove={() => setIdCardImageFile(null)}
+            id="idCardImage"
+          />
+          <ImageUpload 
+            label="ຮູບຖ່າຍ"
+            file={userImageFile}
+            preview={userImagePreview}
+            onFileChange={(e) => fileChangeHandler(e, 'user')}
+            onRemove={() => setUserImageFile(null)}
+            id="userImage"
+          />
         </div>
         
-        {/* Upload progress bar */}
         {uploadProgress > 0 && uploadProgress < 100 && (
           <div className="mt-4">
             <div className="w-full bg-gray-200 rounded-full h-2.5">
               <div 
                 className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
                 style={{ width: `${uploadProgress}%` }}
-              ></div>
+              />
             </div>
             <p className="text-xs text-gray-500 mt-1">ກຳລັງອັບໂຫລດ: {uploadProgress}%</p>
           </div>
         )}
       </div>
 
-      {/* ຂໍ້ມູນລົດ */}
-      <div className="mb-6 border-t border-gray-200 pt-6">
+      {/* ข้อมูลรถ */}
+      <div>
         <h4 className="font-semibold text-lg mb-4 text-green-600 border-b border-green-200 pb-2">
-          <FiTruck className="inline mr-2" />
-          ຂໍ້ມູນລົດ
+          <FiTruck className="inline mr-2" />ຂໍ້ມູນລົດ
         </h4>
         
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
           <p className="text-sm text-green-700">
             <FiSettings className="inline mr-1" />
             ກະລຸນາກຣອກຂໍ້ມູນລົດທີ່ຄົນຂັບຄົນນີ້ຈະຮັບຜິດຊອບ
@@ -461,14 +343,12 @@ const DriverForm: React.FC<DriverFormProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField 
             label="ຊື່ລົດ / ຮຸ່ນລົດ"
-            type="text"
             icon={<FiTruck />}
             value={carData.car_name}
             onChange={(e) => updateCarData('car_name', e.target.value)}
-            placeholder="Toyota Commuter, Isuzu D-Max, ແລະອື່ນໆ"
+            placeholder="Toyota Commuter, Isuzu D-Max"
             required
           />
-
           <FormField 
             label="ຄວາມຈຸລົດ (ຈຳນວນທີ່ນັ່ງ)"
             type="number"
@@ -478,103 +358,24 @@ const DriverForm: React.FC<DriverFormProps> = ({
             min="1"
             required
           />
-
           <FormField 
             label="ໝາຍເລກທະບຽນລົດ"
-            type="text"
             icon={<FiCreditCard />}
             value={carData.car_registration}
             onChange={(e) => updateCarData('car_registration', e.target.value.toUpperCase())}
             placeholder="ABC-1234"
             required
           />
-
-          {/* ປະເພດລົດ - แก้ไขให้แสดงข้อมูลถูกต้อง */}
-          <div>
-            <label className="block text-sm font-bold mb-2">ປະເພດລົດ</label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <select
-                  className="w-full border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none"
-                  value={carData.car_type_id}
-                  onChange={(e) => {
-                    console.log('Car type selected:', e.target.value);
-                    updateCarData('car_type_id', e.target.value);
-                  }}
-                  disabled={loadingCarTypes}
-                  required
-                >
-                  <option value="">
-                    {loadingCarTypes ? 'ກຳລັງໂຫລດ...' : '-- ເລືອກປະເພດລົດ --'}
-                  </option>
-                  {carTypes.map((type) => (
-                    <option key={type._id} value={type._id}>
-                      {type.carType_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                onClick={() => setShowAddCarType(true)}
-                title="ເພີ່ມປະເພດລົດໃໝ່"
-              >
-                <FiPlus size={18} />
-              </button>
-            </div>
-            
-            {/* แสดงข้อมูลประเภทรถที่เลือกอยู่ */}
-            {carData.car_type_id && !loadingCarTypes && (
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
-                <span className="text-blue-700">
-                  ປະເພດທີ່ເລືອກ: <strong>{getCarTypeName(carData.car_type_id)}</strong>
-                </span>
-              </div>
-            )}
-          </div>
+          <CarTypeSelector
+            value={carData.car_type_id}
+            onChange={(value) => updateCarData('car_type_id', value)}
+            carTypes={carTypes}
+            loading={carTypesLoading}
+            onAddNew={addCarType}
+          />
         </div>
 
-        {/* ສ່ວນເພີ່ມປະເພດລົດໃໝ່ */}
-        {showAddCarType && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h5 className="font-semibold mb-3 text-blue-700">ເພີ່ມປະເພດລົດໃໝ່</h5>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                className="flex-1 border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none"
-                placeholder="ຊື່ປະເພດລົດ ເຊັ່ນ ລົດຕູ້, ລົດບັດ, ລົດກະບະ"
-                value={newCarTypeName}
-                onChange={(e) => setNewCarTypeName(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddCarType();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
-                onClick={handleAddCarType}
-                disabled={addingCarType || !newCarTypeName.trim()}
-              >
-                {addingCarType ? 'ກຳລັງເພີ່ມ...' : 'ເພີ່ມ'}
-              </button>
-              <button
-                type="button"
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-                onClick={() => {
-                  setShowAddCarType(false);
-                  setNewCarTypeName('');
-                }}
-              >
-                ຍົກເລີກ
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ສະຫຼຸບຂໍ້ມູນລົດ */}
+        {/* สรุปข้อมูลรถ */}
         {carData.car_name && carData.car_registration && (
           <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
             <h5 className="font-semibold mb-2 text-gray-700">ສະຫຼຸບຂໍ້ມູນລົດ</h5>
@@ -583,13 +384,13 @@ const DriverForm: React.FC<DriverFormProps> = ({
               <p><strong>ທະບຽນ:</strong> {carData.car_registration}</p>
               <p><strong>ຄວາມຈຸ:</strong> {carData.car_capacity} ທີ່ນັ່ງ</p>
               {carData.car_type_id && (
-                <p><strong>ປະເພດ:</strong> {getCarTypeName(carData.car_type_id)}</p>
+                <p><strong>ປະເພດ:</strong> {carTypes.find(t => t._id === carData.car_type_id)?.carType_name}</p>
               )}
             </div>
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 };
 

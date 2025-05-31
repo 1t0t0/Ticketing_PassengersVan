@@ -1,4 +1,4 @@
-// app/dashboard/users/components/forms/StaffForm.tsx
+// app/dashboard/users/components/forms/StaffForm.tsx - Corrected
 import React from 'react';
 import { 
   FiUser, 
@@ -6,15 +6,11 @@ import {
   FiPhone, 
   FiCalendar, 
   FiCreditCard,
-  FiCamera,
-  FiX,
-  FiRefreshCw
+  FiCamera
 } from 'react-icons/fi';
 
-import FormField from './FormField';
+import { FormField, PasswordField, ImageUpload, usePasswordReset } from './shared';
 import { User } from '../../types';
-import { resetUserPassword } from '../../api/user';
-import notificationService from '@/lib/notificationService';
 
 interface StaffFormProps {
   user: Partial<User>;
@@ -43,56 +39,28 @@ const StaffForm: React.FC<StaffFormProps> = ({
   isEditing = false,
   handleFileChange
 }) => {
-  const [showTempPassword, setShowTempPassword] = React.useState(false);
-  const [tempPassword, setTempPassword] = React.useState('');
-  const [resetPasswordLoading, setResetPasswordLoading] = React.useState(false);
+  const { showTempPassword, tempPassword, loading, handleReset } = usePasswordReset(user._id, updateUser);
   
-  // ฟังก์ชั่นรีเซ็ตรหัสผ่าน
-  const handleResetPassword = async () => {
-    if (!user._id) return;
-    
-    try {
-      setResetPasswordLoading(true);
-      
-      const response = await resetUserPassword(user._id);
-      setTempPassword(response.temporaryPassword);
-      setShowTempPassword(true);
-      updateUser('password', response.temporaryPassword);
-      
-      notificationService.success('ລະຫັດຜ່ານໄດ້ຖືກລີເຊັດແລ້ວ');
-    } catch (error: any) {
-      console.error('Error resetting password:', error);
-      notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
-    } finally {
-      setResetPasswordLoading(false);
-    }
-  };
-  
-  // ฟังก์ชันจัดการการเลือกไฟล์ถ้าไม่ได้รับมาจากพร็อพ
   const defaultHandleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'idCard' | 'user') => {
-    if (e.target.files && e.target.files[0]) {
+    if (e.target.files?.[0]) {
       const file = e.target.files[0];
-      
-      if (type === 'idCard') {
-        setIdCardImageFile(file);
-      } else {
-        setUserImageFile(file);
-      }
+      type === 'idCard' ? setIdCardImageFile(file) : setUserImageFile(file);
     }
   };
   
-  // ใช้ handleFileChange ที่ส่งมาหรือใช้ค่าดีฟอลต์
   const fileChangeHandler = handleFileChange || defaultHandleFileChange;
 
   return (
-    <>
+    <div className="space-y-6">
       {/* ข้อมูลทั่วไป */}
-      <div className="mb-6">
-        <h4 className="font-semibold text-lg mb-4">ຂໍ້ມູນທົ່ວໄປ</h4>
+      <div>
+        <h4 className="font-semibold text-lg mb-4 text-blue-600 border-b border-blue-200 pb-2">
+          <FiUser className="inline mr-2" />
+          ຂໍ້ມູນທົ່ວໄປ
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField 
             label="ຊື່ ແລະ ນາມສະກຸນ"
-            type="text"
             icon={<FiUser />}
             value={user.name || ''}
             onChange={(e) => updateUser('name', e.target.value)}
@@ -126,40 +94,18 @@ const StaffForm: React.FC<StaffFormProps> = ({
             onChange={(e) => updateUser('phone', e.target.value)}
           />
           
-          {/* รหัสผ่าน */}
-          <div>
-            <label className="block text-sm font-bold mb-2">ລະຫັດຜ່ານ</label>
-            <div className="relative">
-              <input
-                type="text"
-                className="w-full border-2 border-gray-300 rounded p-2 pr-10"
-                value={user.password || ''}
-                onChange={(e) => updateUser('password', e.target.value)}
-                placeholder={isEditing ? "ໃສ່ລະຫັດຜ່ານໃໝ່ຫຼືປ່ອຍວ່າງຄືເກົ່າ" : "ລະຫັດຜ່ານ"}
-              />
-              {isEditing && (
-                <button
-                  type="button"
-                  className="absolute right-2 top-2 text-blue-500 hover:text-blue-700"
-                  onClick={handleResetPassword}
-                  disabled={resetPasswordLoading}
-                >
-                  <FiRefreshCw size={18} className={resetPasswordLoading ? 'animate-spin' : ''} />
-                </button>
-              )}
-            </div>
-            {showTempPassword && (
-              <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded-md">
-                <p className="text-sm text-yellow-800">
-                  รหัสผ่านชั่วคราว: <strong>{tempPassword}</strong>
-                </p>
-              </div>
-            )}
-          </div>
+          <PasswordField 
+            value={user.password || ''} 
+            onChange={(value) => updateUser('password', value)}
+            isEditing={isEditing}
+            onReset={handleReset}
+            loading={loading}
+            showTempPassword={showTempPassword}
+            tempPassword={tempPassword}
+          />
 
           <FormField 
             label="ເລກບັດປະຈຳຕົວ"
-            type="text"
             icon={<FiCreditCard />}
             value={user.idCardNumber || ''}
             onChange={(e) => updateUser('idCardNumber', e.target.value)}
@@ -169,106 +115,29 @@ const StaffForm: React.FC<StaffFormProps> = ({
       </div>
       
       {/* รูปภาพ */}
-      <div className="mb-6 border-t border-gray-200 pt-4">
-        <h4 className="font-semibold text-lg mb-4">ຮູບພາບ</h4>
+      <div>
+        <h4 className="font-semibold text-lg mb-4 text-blue-600 border-b border-blue-200 pb-2">
+          <FiCamera className="inline mr-2" />
+          ຮູບພາບ
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* รูปบัตรประจำตัว */}
-          <div>
-            <label className="block text-sm font-bold mb-2">ຮູບບັດປະຈຳຕົວ</label>
-            <div className="flex items-center">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                id="idCardImage"
-                onChange={(e) => fileChangeHandler(e, 'idCard')}
-              />
-              <label
-                htmlFor="idCardImage"
-                className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500"
-              >
-                {idCardImageFile || idCardImagePreview ? (
-                  <div className="text-center relative w-full h-full">
-                    {/* แสดงรูปพรีวิว */}
-                    <img 
-                      src={idCardImageFile 
-                        ? URL.createObjectURL(idCardImageFile) 
-                        : idCardImagePreview || ''}
-                      alt="ID Card Preview" 
-                      className="w-full h-full object-contain p-2"
-                    />
-                    <button 
-                      type="button"
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIdCardImageFile(null);
-                        if (idCardImageFile && URL.createObjectURL) {
-                          URL.revokeObjectURL(URL.createObjectURL(idCardImageFile));
-                        }
-                      }}
-                    >
-                      <FiX size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <FiCamera className="mx-auto text-2xl text-gray-400" />
-                    <p className="text-sm mt-1">ອັບໂຫລດຮູບບັດປະຈຳຕົວ</p>
-                  </div>
-                )}
-              </label>
-            </div>
-          </div>
+          <ImageUpload 
+            label="ຮູບບັດປະຈຳຕົວ"
+            file={idCardImageFile}
+            preview={idCardImagePreview}
+            onFileChange={(e) => fileChangeHandler(e, 'idCard')}
+            onRemove={() => setIdCardImageFile(null)}
+            id="idCardImage"
+          />
           
-          {/* รูปถ่าย */}
-          <div>
-            <label className="block text-sm font-bold mb-2">ຮູບຖ່າຍ</label>
-            <div className="flex items-center">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                id="userImage"
-                onChange={(e) => fileChangeHandler(e, 'user')}
-              />
-              <label
-                htmlFor="userImage"
-                className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500"
-              >
-                {userImageFile || userImagePreview ? (
-                  <div className="text-center relative w-full h-full">
-                    {/* แสดงรูปพรีวิว */}
-                    <img 
-                      src={userImageFile 
-                        ? URL.createObjectURL(userImageFile) 
-                        : userImagePreview || ''}
-                      alt="User Photo Preview" 
-                      className="w-full h-full object-contain p-2"
-                    />
-                    <button 
-                      type="button"
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setUserImageFile(null);
-                        if (userImageFile && URL.createObjectURL) {
-                          URL.revokeObjectURL(URL.createObjectURL(userImageFile));
-                        }
-                      }}
-                    >
-                      <FiX size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <FiCamera className="mx-auto text-2xl text-gray-400" />
-                    <p className="text-sm mt-1">ອັບໂຫລດຮູບຖ່າຍ</p>
-                  </div>
-                )}
-              </label>
-            </div>
-          </div>
+          <ImageUpload 
+            label="ຮູບຖ່າຍ"
+            file={userImageFile}
+            preview={userImagePreview}
+            onFileChange={(e) => fileChangeHandler(e, 'user')}
+            onRemove={() => setUserImageFile(null)}
+            id="userImage"
+          />
         </div>
         
         {/* Upload progress bar */}
@@ -276,15 +145,15 @@ const StaffForm: React.FC<StaffFormProps> = ({
           <div className="mt-4">
             <div className="w-full bg-gray-200 rounded-full h-2.5">
               <div 
-                className="bg-blue-600 h-2.5 rounded-full" 
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
                 style={{ width: `${uploadProgress}%` }}
-              ></div>
+              />
             </div>
-            <p className="text-xs text-gray-500 mt-1">ອັບໂຫລດ: {uploadProgress}%</p>
+            <p className="text-xs text-gray-500 mt-1">ກຳລັງອັບໂຫລດ: {uploadProgress}%</p>
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 };
 
