@@ -1,4 +1,4 @@
-// components/DashboardLayout.tsx - ลบเมนูที่ไม่ใช้และแก้บัค
+// components/DashboardLayout.tsx - แก้ไข URL ให้ถูกต้อง
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,7 +13,6 @@ import {
   FiLogOut, 
   FiMenu, 
   FiX,
-  FiDollarSign,
   FiUser
 } from 'react-icons/fi';
 import { TbBus } from "react-icons/tb";
@@ -55,7 +54,6 @@ const menuItems: MenuItem[] = [
     roles: ['admin', 'staff'],
     description: 'ຄົນຂັບ, ພະນັກງານ, Admin'
   },
- 
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -131,7 +129,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <p className="text-xs text-blue-600 capitalize">
                 {userRole === 'admin' ? 'ຜູ້ບໍລິຫານ' : 
                  userRole === 'staff' ? 'ພະນັກງານ' : 
-                 userRole === 'station' ? 'ສະຖານີ' : userRole}
+                 userRole === 'station' ? 'ສະຖານີ' : 
+                 userRole === 'driver' ? 'ຄົນຂັບລົດ' : userRole}
               </p>
             </div>
           </div>
@@ -140,8 +139,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Navigation */}
         <nav className="mt-4 px-2">
           {filteredMenuItems.map((item) => {
+            // แก้ไข logic การตรวจสอบ active state
             const isActive = pathname === item.href || 
-              (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              (item.href !== '/dashboard' && 
+               item.href !== '/dashboard/tickets' && // เพิ่ม exception สำหรับ tickets
+               pathname.startsWith(item.href));
             
             return (
               <Link
@@ -169,13 +171,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                   )}
                 </div>
-                
-                {/* New Badge สำหรับเมนูใหม่ */}
-                {item.href === '/dashboard/driver-revenue' && (
-                  <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                    ໃໝ່
-                  </span>
-                )}
               </Link>
             );
           })}
