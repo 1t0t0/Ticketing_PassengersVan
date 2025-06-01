@@ -1,4 +1,4 @@
-// app/dashboard/users/components/EnhancedPagination.tsx
+// app/dashboard/users/components/EnhancedPagination.tsx - Full Size Version
 import React from 'react';
 
 interface EnhancedPaginationProps {
@@ -9,89 +9,61 @@ interface EnhancedPaginationProps {
 }
 
 const EnhancedPagination: React.FC<EnhancedPaginationProps> = ({
-  currentPage,
-  totalPages,
-  onPageChange,
-  className = ''
+  currentPage, totalPages, onPageChange, className = ''
 }) => {
-  // ไม่แสดงถ้ามีเพียงหน้าเดียว
   if (totalPages <= 1) return null;
   
-  // จำนวนปุ่มที่จะแสดงข้างๆ หน้าปัจจุบัน
-  const siblingsCount = 1;
-  
-  // คำนวณว่าจะแสดงปุ่มหน้าไหนบ้าง
   const getPageNumbers = () => {
-    // คำนวณช่วงปุ่มหลัก
-    const leftSiblingIndex = Math.max(currentPage - siblingsCount, 1);
-    const rightSiblingIndex = Math.min(currentPage + siblingsCount, totalPages);
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
     
-    // ควรแสดงจุดไหม
-    const shouldShowLeftDots = leftSiblingIndex > 2;
-    const shouldShowRightDots = rightSiblingIndex < totalPages - 1;
-    
-    // กรณีไม่ต้องแสดงจุดทั้งซ้ายและขวา
-    if (!shouldShowLeftDots && !shouldShowRightDots) {
-      const range = Array.from({ length: totalPages }, (_, i) => i + 1);
-      return range;
+    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+      range.push(i);
     }
     
-    // กรณีมีจุดด้านขวาเท่านั้น
-    if (!shouldShowLeftDots && shouldShowRightDots) {
-      const leftItemCount = 3 + 2 * siblingsCount;
-      const leftRange = Array.from({ length: Math.min(leftItemCount, totalPages) }, (_, i) => i + 1);
-      return [...leftRange, '...', totalPages];
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...');
+    } else {
+      rangeWithDots.push(1);
     }
     
-    // กรณีมีจุดด้านซ้ายเท่านั้น
-    if (shouldShowLeftDots && !shouldShowRightDots) {
-      const rightItemCount = 3 + 2 * siblingsCount;
-      const rightRange = Array.from(
-        { length: Math.min(rightItemCount, totalPages) },
-        (_, i) => totalPages - rightItemCount + i + 1
-      );
-      return [1, '...', ...rightRange];
+    rangeWithDots.push(...range);
+    
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages);
+    } else {
+      rangeWithDots.push(totalPages);
     }
     
-    // กรณีมีจุดทั้งซ้ายและขวา
-    if (shouldShowLeftDots && shouldShowRightDots) {
-      const middleRange = Array.from(
-        { length: rightSiblingIndex - leftSiblingIndex + 1 },
-        (_, i) => leftSiblingIndex + i
-      );
-      return [1, '...', ...middleRange, '...', totalPages];
-    }
-    
-    return [];
+    return rangeWithDots;
   };
   
   const pageNumbers = getPageNumbers();
   
   return (
-    <div className={`flex items-center justify-center py-4 ${className}`}>
-      <div className="flex border border-gray-300 rounded-md overflow-hidden">
-        {/* ปุ่มก่อนหน้า */}
+    <div className={`flex items-center justify-center py-6 ${className}`}>
+      <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+        {/* Previous button */}
         <button
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className={`
-            px-3 py-2 border-r border-gray-300
-            ${currentPage === 1 
+          className={`px-4 py-2 border-r border-gray-300 ${
+            currentPage === 1 
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-              : 'bg-white text-gray-700 hover:bg-gray-50'}
-          `}
-          aria-label="Previous Page"
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
         >
-          «
+          ← ກ່ອນໜ້າ
         </button>
         
-        {/* ปุ่มหน้าต่างๆ */}
+        {/* Page numbers */}
         {pageNumbers.map((page, index) => {
           if (page === '...') {
             return (
               <span 
                 key={`ellipsis-${index}`} 
-                className="px-3 py-2 border-r border-gray-300 bg-white text-gray-500"
+                className="px-4 py-2 border-r border-gray-300 bg-white text-gray-500"
               >
                 ...
               </span>
@@ -102,31 +74,28 @@ const EnhancedPagination: React.FC<EnhancedPaginationProps> = ({
             <button
               key={`page-${page}`}
               onClick={() => onPageChange(Number(page))}
-              className={`
-                px-3 py-2 border-r border-gray-300
-                ${currentPage === page
+              className={`px-4 py-2 border-r border-gray-300 ${
+                currentPage === page
                   ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'}
-              `}
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
             >
               {page}
             </button>
           );
         })}
         
-        {/* ปุ่มถัดไป */}
+        {/* Next button */}
         <button
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className={`
-            px-3 py-2
-            ${currentPage === totalPages 
+          className={`px-4 py-2 ${
+            currentPage === totalPages 
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-              : 'bg-white text-gray-700 hover:bg-gray-50'}
-          `}
-          aria-label="Next Page"
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
         >
-          »
+          ຖັດໄປ →
         </button>
       </div>
     </div>

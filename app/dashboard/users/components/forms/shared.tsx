@@ -1,10 +1,9 @@
-// app/dashboard/users/components/forms/shared.tsx
+// app/dashboard/users/components/forms/shared.tsx - Optimized
 import React, { useState } from 'react';
 import { FiRefreshCw, FiCamera, FiX } from 'react-icons/fi';
 import { resetUserPassword } from '../../api/user';
 import notificationService from '@/lib/notificationService';
 
-// Enhanced FormField Component
 interface FormFieldProps {
   label: string;
   type?: string;
@@ -14,68 +13,14 @@ interface FormFieldProps {
   required?: boolean;
   min?: string;
   icon?: React.ReactNode;
-  options?: Array<{ value: string; label: string }>;
-  as?: 'input' | 'select' | 'textarea';
-  rows?: number;
   disabled?: boolean;
   className?: string;
 }
 
 export const FormField: React.FC<FormFieldProps> = ({ 
-  label, 
-  type = 'text', 
-  value, 
-  onChange, 
-  placeholder, 
-  required, 
-  min,
-  icon,
-  options,
-  as = 'input',
-  rows = 3,
-  disabled,
-  className = ''
+  label, type = 'text', value, onChange, placeholder, required, min, icon, disabled, className = ''
 }) => {
   const baseClasses = `w-full border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none ${icon ? 'pl-10' : ''} ${className}`;
-
-  const renderInput = () => {
-    if (as === 'select') {
-      return (
-        <select className={baseClasses} value={value} onChange={onChange} required={required} disabled={disabled}>
-          {options?.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-      );
-    }
-    
-    if (as === 'textarea') {
-      return (
-        <textarea 
-          className={baseClasses} 
-          placeholder={placeholder}
-          value={value} 
-          onChange={onChange} 
-          required={required}
-          rows={rows}
-          disabled={disabled}
-        />
-      );
-    }
-
-    return (
-      <input
-        type={type}
-        className={baseClasses}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        required={required}
-        min={min}
-        disabled={disabled}
-      />
-    );
-  };
 
   return (
     <div>
@@ -86,13 +31,21 @@ export const FormField: React.FC<FormFieldProps> = ({
             {icon}
           </div>
         )}
-        {renderInput()}
+        <input
+          type={type}
+          className={baseClasses}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          required={required}
+          min={min}
+          disabled={disabled}
+        />
       </div>
     </div>
   );
 };
 
-// Password Reset Hook
 export const usePasswordReset = (userId: string | undefined, updateUser: (field: string, value: string) => void) => {
   const [showTempPassword, setShowTempPassword] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
@@ -100,7 +53,6 @@ export const usePasswordReset = (userId: string | undefined, updateUser: (field:
 
   const handleReset = async () => {
     if (!userId) return;
-    
     try {
       setLoading(true);
       const response = await resetUserPassword(userId);
@@ -109,7 +61,6 @@ export const usePasswordReset = (userId: string | undefined, updateUser: (field:
       updateUser('password', response.temporaryPassword);
       notificationService.success('ລີເຊັດລະຫັດຜ່ານສຳເລັດ');
     } catch (error: any) {
-      console.error('Error resetting password:', error);
       notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
     } finally {
       setLoading(false);
@@ -119,7 +70,6 @@ export const usePasswordReset = (userId: string | undefined, updateUser: (field:
   return { showTempPassword, tempPassword, loading, handleReset };
 };
 
-// Password Field Component
 interface PasswordFieldProps {
   value: string;
   onChange: (value: string) => void;
@@ -164,7 +114,6 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
   </div>
 );
 
-// Image Upload Component
 interface ImageUploadProps {
   label: string;
   file: File | null;

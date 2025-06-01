@@ -1,4 +1,4 @@
-// app/dashboard/reports/page.tsx - เปลี่ยนเป็นภาษาลาว
+// app/dashboard/reports/page.tsx - Optimized
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,18 +12,16 @@ import {
   FiDollarSign,
   FiFilter,
   FiRefreshCw,
-  FiTrendingUp,
   FiCreditCard,
   FiBarChart,
 } from 'react-icons/fi';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
   Title,
   Tooltip,
   Legend,
@@ -35,7 +33,6 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
   Title,
   Tooltip,
   Legend,
@@ -55,54 +52,24 @@ export default function ReportsPage() {
   
   const [selectedReport, setSelectedReport] = useState('summary');
   const [selectedPeriod, setSelectedPeriod] = useState('today');
-  const [startDate, setStartDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
+    if (status === 'unauthenticated') router.push('/login');
   }, [status, router]);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      fetchReport();
-    }
+    if (status === 'authenticated') fetchReport();
   }, [status, selectedReport, selectedPeriod, startDate, endDate]);
 
   const reportTypes = [
-    {
-      id: 'summary',
-      title: 'ສະຫຼຸບລວມ',
-      icon: <FiBarChart />,
-      description: 'ພາບລວມສະຖິຕິທັງໝົດ'
-    },
-    {
-      id: 'sales',
-      title: 'ບົດລາຍງານຍອດຂາຍ',
-      icon: <FiCreditCard />,
-      description: 'ສະຫຼຸບຍອດຂາຍແລະລາຍຮັບ'
-    },
-    {
-      id: 'drivers',
-      title: 'ບົດລາຍງານຄົນຂັບ',
-      icon: <FiUsers />,
-      description: 'ສະຖິຕິແລະປະສິດທິພາບຄົນຂັບ'
-    },
-    {
-      id: 'financial',
-      title: 'ບົດລາຍງານການເງິນ',
-      icon: <FiDollarSign />,
-      description: 'ການແບ່ງລາຍຮັບແລະຜົນກຳໄລ'
-    }
+    { id: 'summary', title: 'ສະຫຼຸບລວມ', icon: <FiBarChart />, description: 'ພາບລວມສະຖິຕິ' },
+    { id: 'sales', title: 'ຍອດຂາຍ', icon: <FiCreditCard />, description: 'ສະຫຼຸບຍອດຂາຍ' },
+    { id: 'drivers', title: 'ຄົນຂັບ', icon: <FiUsers />, description: 'ສະຖິຕິຄົນຂັບ' },
+    { id: 'financial', title: 'ການເງິນ', icon: <FiDollarSign />, description: 'ແບ່ງລາຍຮັບ' }
   ];
 
   const timeRanges = [
@@ -119,19 +86,16 @@ export default function ReportsPage() {
       let actualStartDate = startDate;
       let actualEndDate = endDate;
 
-      // Calculate dates based on selected period
       if (selectedPeriod !== 'custom') {
         const today = new Date();
         switch (selectedPeriod) {
           case 'today':
-            actualStartDate = today.toISOString().split('T')[0];
-            actualEndDate = today.toISOString().split('T')[0];
+            actualStartDate = actualEndDate = today.toISOString().split('T')[0];
             break;
           case 'yesterday':
             const yesterday = new Date(today);
             yesterday.setDate(yesterday.getDate() - 1);
-            actualStartDate = yesterday.toISOString().split('T')[0];
-            actualEndDate = yesterday.toISOString().split('T')[0];
+            actualStartDate = actualEndDate = yesterday.toISOString().split('T')[0];
             break;
           case 'thisWeek':
             const weekStart = new Date(today);
@@ -154,8 +118,6 @@ export default function ReportsPage() {
       if (response.ok) {
         const data = await response.json();
         setReportData(data);
-      } else {
-        console.error('Failed to fetch report');
       }
     } catch (error) {
       console.error('Error fetching report:', error);
@@ -165,72 +127,64 @@ export default function ReportsPage() {
   };
 
   const exportReport = (format: string) => {
-    // Implementation for exporting reports
     console.log(`Exporting report as ${format}`);
-    // You can implement PDF, Excel, CSV export here
   };
 
   const renderSummaryReport = () => {
     if (!reportData?.quickStats) return null;
-
     const stats = reportData.quickStats;
     
     return (
-      <div className="space-y-6">
-        {/* Quick Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center">
-              <FiCreditCard className="h-8 w-8 text-blue-600 mr-3" />
+              <FiCreditCard className="h-6 w-6 text-blue-600 mr-2" />
               <div>
-                <p className="text-sm text-blue-600 font-medium">ປີ້ທີ່ຂາຍ</p>
-                <p className="text-2xl font-bold text-blue-900">{stats.totalTickets}</p>
+                <p className="text-sm text-blue-600">ປີ້ທີ່ຂາຍ</p>
+                <p className="text-xl font-bold text-blue-900">{stats.totalTickets}</p>
               </div>
             </div>
           </div>
           
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-center">
-              <FiDollarSign className="h-8 w-8 text-green-600 mr-3" />
+              <FiDollarSign className="h-6 w-6 text-green-600 mr-2" />
               <div>
-                <p className="text-sm text-green-600 font-medium">ລາຍຮັບລວມ</p>
-                <p className="text-2xl font-bold text-green-900">₭{stats.totalRevenue?.toLocaleString()}</p>
+                <p className="text-sm text-green-600">ລາຍຮັບລວມ</p>
+                <p className="text-xl font-bold text-green-900">₭{stats.totalRevenue?.toLocaleString()}</p>
               </div>
             </div>
           </div>
           
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
             <div className="flex items-center">
-              <FiUsers className="h-8 w-8 text-purple-600 mr-3" />
+              <FiUsers className="h-6 w-6 text-purple-600 mr-2" />
               <div>
-                <p className="text-sm text-purple-600 font-medium">ຄົນຂັບເຂົ້າວຽກ</p>
-                <p className="text-2xl font-bold text-purple-900">{stats.activeDrivers}</p>
+                <p className="text-sm text-purple-600">ຄົນຂັບເຂົ້າວຽກ</p>
+                <p className="text-xl font-bold text-purple-900">{stats.activeDrivers}</p>
               </div>
             </div>
           </div>
           
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
             <div className="flex items-center">
-              <FiTrendingUp className="h-8 w-8 text-orange-600 mr-3" />
+              <div className="h-6 w-6 text-orange-600 mr-2">📊</div>
               <div>
-                <p className="text-sm text-orange-600 font-medium">ລາຄາເຊລີ່ຍ</p>
-                <p className="text-2xl font-bold text-orange-900">₭{stats.avgTicketPrice?.toLocaleString()}</p>
+                <p className="text-sm text-orange-600">ລາຄາເຊລີ່ຍ</p>
+                <p className="text-xl font-bold text-orange-900">₭{stats.avgTicketPrice?.toLocaleString()}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <FiBarChart className="mr-2" />
-              ຍອດຂາຍ
-            </h3>
-            <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <NeoCard className="p-4">
+            <h3 className="text-lg font-semibold mb-3">ຍອດຂາຍ</h3>
+            <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>ປີ້ທັງໝົດ:</span>
-                <span className="font-semibold">{reportData.sales?.totalTickets || 0} ໃບ</span>
+                <span className="font-semibold">{reportData.sales?.totalTickets || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span>ລາຍຮັບ:</span>
@@ -239,29 +193,23 @@ export default function ReportsPage() {
             </div>
           </NeoCard>
 
-          <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <FiUsers className="mr-2" />
-              ຄົນຂັບ
-            </h3>
-            <div className="space-y-2">
+          <NeoCard className="p-4">
+            <h3 className="text-lg font-semibold mb-3">ຄົນຂັບ</h3>
+            <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span>ຄົນຂັບທັງໝົດ:</span>
-                <span className="font-semibold">{reportData.drivers?.totalDrivers || 0} ຄົນ</span>
+                <span>ທັງໝົດ:</span>
+                <span className="font-semibold">{reportData.drivers?.totalDrivers || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span>ເຂົ້າວຽກມື້ນີ້:</span>
-                <span className="font-semibold">{reportData.drivers?.activeDrivers || 0} ຄົນ</span>
+                <span>ເຂົ້າວຽກ:</span>
+                <span className="font-semibold">{reportData.drivers?.activeDrivers || 0}</span>
               </div>
             </div>
           </NeoCard>
 
-          <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <FiDollarSign className="mr-2" />
-              ການເງິນ
-            </h3>
-            <div className="space-y-2">
+          <NeoCard className="p-4">
+            <h3 className="text-lg font-semibold mb-3">ການເງິນ</h3>
+            <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>ລາຍຮັບລວມ:</span>
                 <span className="font-semibold">₭{reportData.financial?.totalRevenue?.toLocaleString() || 0}</span>
@@ -280,7 +228,6 @@ export default function ReportsPage() {
   const renderSalesReport = () => {
     if (!reportData?.paymentMethods) return null;
 
-    // Prepare chart data
     const paymentData = {
       labels: reportData.paymentMethods.map((pm: any) => 
         pm._id === 'cash' ? 'ເງິນສົດ' : pm._id === 'qr' ? 'ເງິນໂອນ' : pm._id
@@ -288,7 +235,6 @@ export default function ReportsPage() {
       datasets: [{
         data: reportData.paymentMethods.map((pm: any) => pm.count),
         backgroundColor: ['#3B82F6', '#10B981', '#F59E0B'],
-        borderWidth: 2
       }]
     };
 
@@ -302,41 +248,40 @@ export default function ReportsPage() {
         }),
         borderColor: '#3B82F6',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        tension: 0.4
       }]
     };
 
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4">ການຊຳລະເງິນ</h3>
-            <div className="h-64">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <NeoCard className="p-4">
+            <h3 className="text-lg font-semibold mb-3">ການຊຳລະເງິນ</h3>
+            <div className="h-48">
               <Doughnut data={paymentData} options={{ maintainAspectRatio: false }} />
             </div>
           </NeoCard>
 
-          <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4">ຍອດຂາຍລາຍຊົ່ວໂມງ</h3>
-            <div className="h-64">
+          <NeoCard className="p-4">
+            <h3 className="text-lg font-semibold mb-3">ຍອດຂາຍລາຍຊົ່ວໂມງ</h3>
+            <div className="h-48">
               <Line data={hourlyData} options={{ maintainAspectRatio: false }} />
             </div>
           </NeoCard>
         </div>
 
-        <NeoCard className="p-6">
-          <h3 className="text-lg font-semibold mb-4">ສະຫຼຸບຍອດຂາຍ</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">{reportData.summary?.totalTickets || 0}</p>
+        <NeoCard className="p-4">
+          <h3 className="text-lg font-semibold mb-3">ສະຫຼຸບຍອດຂາຍ</h3>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-xl font-bold text-blue-600">{reportData.summary?.totalTickets || 0}</p>
               <p className="text-sm text-gray-600">ປີ້ທີ່ຂາຍ</p>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">₭{reportData.summary?.totalRevenue?.toLocaleString() || 0}</p>
+            <div>
+              <p className="text-xl font-bold text-green-600">₭{reportData.summary?.totalRevenue?.toLocaleString() || 0}</p>
               <p className="text-sm text-gray-600">ລາຍຮັບລວມ</p>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">₭{reportData.summary?.averagePrice?.toLocaleString() || 0}</p>
+            <div>
+              <p className="text-xl font-bold text-purple-600">₭{reportData.summary?.averagePrice?.toLocaleString() || 0}</p>
               <p className="text-sm text-gray-600">ລາຄາເຊລີ່ຍ</p>
             </div>
           </div>
@@ -349,41 +294,41 @@ export default function ReportsPage() {
     if (!reportData?.drivers) return null;
 
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-blue-600">{reportData.summary?.totalDrivers || 0}</p>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+            <p className="text-xl font-bold text-blue-600">{reportData.summary?.totalDrivers || 0}</p>
             <p className="text-sm text-blue-600">ຄົນຂັບທັງໝົດ</p>
           </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{reportData.summary?.activeDrivers || 0}</p>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+            <p className="text-xl font-bold text-green-600">{reportData.summary?.activeDrivers || 0}</p>
             <p className="text-sm text-green-600">ເຂົ້າວຽກມື້ນີ້</p>
           </div>
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-purple-600">{reportData.summary?.totalWorkDays || 0}</p>
-            <p className="text-sm text-purple-600">ວັນທຳວຽກລວມ</p>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+            <p className="text-xl font-bold text-purple-600">{reportData.summary?.totalWorkDays || 0}</p>
+            <p className="text-sm text-purple-600">ວັນທຳວຽກ</p>
           </div>
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-orange-600">₭{reportData.summary?.totalIncome?.toLocaleString() || 0}</p>
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
+            <p className="text-xl font-bold text-orange-600">₭{reportData.summary?.totalIncome?.toLocaleString() || 0}</p>
             <p className="text-sm text-orange-600">ລາຍຮັບລວມ</p>
           </div>
         </div>
 
-        <NeoCard className="p-6">
-          <h3 className="text-lg font-semibold mb-4">ລາຍລະອຽດຄົນຂັບ</h3>
+        <NeoCard className="p-4">
+          <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດຄົນຂັບ</h3>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
                   <th className="text-left p-2">ຊື່</th>
-                  <th className="text-left p-2">ລະຫັດພະນັກງານ</th>
+                  <th className="text-left p-2">ID</th>
                   <th className="text-left p-2">ສະຖານະ</th>
                   <th className="text-right p-2">ລາຍຮັບ</th>
-                  <th className="text-right p-2">ຈຳນວນປີ້</th>
+                  <th className="text-right p-2">ປີ້</th>
                 </tr>
               </thead>
               <tbody>
-                {reportData.drivers?.map((driver: any, index: number) => (
+                {reportData.drivers?.slice(0, 10).map((driver: any, index: number) => (
                   <tr key={index} className="border-b">
                     <td className="p-2">{driver.name}</td>
                     <td className="p-2">{driver.employeeId}</td>
@@ -421,64 +366,63 @@ export default function ReportsPage() {
           breakdown.driver?.totalAmount || 0
         ],
         backgroundColor: ['#3B82F6', '#10B981', '#F59E0B'],
-        borderWidth: 2
       }]
     };
 
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-blue-600">₭{reportData.summary?.totalRevenue?.toLocaleString() || 0}</p>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+            <p className="text-xl font-bold text-blue-600">₭{reportData.summary?.totalRevenue?.toLocaleString() || 0}</p>
             <p className="text-sm text-blue-600">ລາຍຮັບລວມ</p>
           </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">₭{reportData.summary?.companyShare?.toLocaleString() || 0}</p>
-            <p className="text-sm text-green-600">ສ່ວນແບ່ງບໍລິສັດ</p>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+            <p className="text-xl font-bold text-green-600">₭{reportData.summary?.companyShare?.toLocaleString() || 0}</p>
+            <p className="text-sm text-green-600">ບໍລິສັດ</p>
           </div>
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-purple-600">₭{reportData.summary?.stationShare?.toLocaleString() || 0}</p>
-            <p className="text-sm text-purple-600">ສ່ວນແບ່ງສະຖານີ</p>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+            <p className="text-xl font-bold text-purple-600">₭{reportData.summary?.stationShare?.toLocaleString() || 0}</p>
+            <p className="text-sm text-purple-600">ສະຖານີ</p>
           </div>
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-orange-600">₭{reportData.summary?.driverShare?.toLocaleString() || 0}</p>
-            <p className="text-sm text-orange-600">ສ່ວນແບ່ງຄົນຂັບ</p>
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
+            <p className="text-xl font-bold text-orange-600">₭{reportData.summary?.driverShare?.toLocaleString() || 0}</p>
+            <p className="text-sm text-orange-600">ຄົນຂັບ</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4">ການແບ່ງລາຍຮັບ</h3>
-            <div className="h-64">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <NeoCard className="p-4">
+            <h3 className="text-lg font-semibold mb-3">ການແບ່ງລາຍຮັບ</h3>
+            <div className="h-48">
               <Doughnut data={chartData} options={{ maintainAspectRatio: false }} />
             </div>
           </NeoCard>
 
-          <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4">ລາຍລະອຽດການແບ່ງລາຍຮັບ</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+          <NeoCard className="p-4">
+            <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດ</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
                 <div>
                   <p className="font-medium text-blue-900">ບໍລິສັດ (10%)</p>
                   <p className="text-sm text-blue-600">{breakdown.company?.transactionCount || 0} ລາຍການ</p>
                 </div>
-                <p className="text-lg font-bold text-blue-600">₭{breakdown.company?.totalAmount?.toLocaleString() || 0}</p>
+                <p className="font-bold text-blue-600">₭{breakdown.company?.totalAmount?.toLocaleString() || 0}</p>
               </div>
               
-              <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+              <div className="flex justify-between items-center p-2 bg-green-50 rounded">
                 <div>
                   <p className="font-medium text-green-900">ສະຖານີ (5%)</p>
                   <p className="text-sm text-green-600">{breakdown.station?.transactionCount || 0} ລາຍການ</p>
                 </div>
-                <p className="text-lg font-bold text-green-600">₭{breakdown.station?.totalAmount?.toLocaleString() || 0}</p>
+                <p className="font-bold text-green-600">₭{breakdown.station?.totalAmount?.toLocaleString() || 0}</p>
               </div>
               
-              <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+              <div className="flex justify-between items-center p-2 bg-orange-50 rounded">
                 <div>
                   <p className="font-medium text-orange-900">ຄົນຂັບ (85%)</p>
                   <p className="text-sm text-orange-600">{breakdown.driver?.transactionCount || 0} ລາຍການ</p>
                 </div>
-                <p className="text-lg font-bold text-orange-600">₭{breakdown.driver?.totalAmount?.toLocaleString() || 0}</p>
+                <p className="font-bold text-orange-600">₭{breakdown.driver?.totalAmount?.toLocaleString() || 0}</p>
               </div>
             </div>
           </NeoCard>
@@ -490,8 +434,8 @@ export default function ReportsPage() {
   const renderReportContent = () => {
     if (loading) {
       return (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
       );
     }
@@ -505,68 +449,63 @@ export default function ReportsPage() {
     }
 
     switch (selectedReport) {
-      case 'summary':
-        return renderSummaryReport();
-      case 'sales':
-        return renderSalesReport();
-      case 'drivers':
-        return renderDriverReport();
-      case 'financial':
-        return renderFinancialReport();
-      default:
-        return <div>ປະເພດບົດລາຍງານບໍ່ຖືກຕ້ອງ</div>;
+      case 'summary': return renderSummaryReport();
+      case 'sales': return renderSalesReport();
+      case 'drivers': return renderDriverReport();
+      case 'financial': return renderFinancialReport();
+      default: return <div>ປະເພດບົດລາຍງານບໍ່ຖືກຕ້ອງ</div>;
     }
   };
 
   if (status === 'loading') {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">📊 ລະບົບບົດລາຍງານ</h1>
-        <p className="text-gray-600">ຈັດການແລະສ້າງບົດລາຍງານທຸກປະເພດສຳລັບທຸລະກິດຂາຍປີ້ລົດໂດຍສານ</p>
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">📊 ລະບົບບົດລາຍງານ</h1>
+        <p className="text-gray-600">ຈັດການແລະສ້າງບົດລາຍງານສຳລັບທຸລະກິດຂາຍປີ້ລົດໂດຍສານ</p>
       </div>
 
       {/* Report Type Selection */}
-      <NeoCard className="p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center">
+      <NeoCard className="p-4 mb-4">
+        <h2 className="text-lg font-semibold mb-3 flex items-center">
           <FiFilter className="mr-2" />
           ເລືອກປະເພດບົດລາຍງານ
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {reportTypes.map((report) => (
             <button
               key={report.id}
               onClick={() => setSelectedReport(report.id)}
-              className={`p-4 rounded-lg border-2 transition-all text-left ${
+              className={`p-3 rounded-lg border-2 transition-all text-left ${
                 selectedReport === report.id
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:border-blue-300'
               }`}
             >
               <div className="flex items-center mb-2">
-                <div className={`p-2 rounded-full mr-3 ${
+                <div className={`p-2 rounded-full mr-2 text-sm ${
                   selectedReport === report.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'
                 }`}>
                   {report.icon}
                 </div>
-                <h3 className="font-semibold">{report.title}</h3>
+                <h3 className="font-semibold text-sm">{report.title}</h3>
               </div>
-              <p className="text-sm text-gray-600">{report.description}</p>
+              <p className="text-xs text-gray-600">{report.description}</p>
             </button>
           ))}
         </div>
       </NeoCard>
 
       {/* Time Range Selection */}
-      <NeoCard className="p-6 mb-6">
-        <div className="flex justify-between items-center mb-4">
+      <NeoCard className="p-4 mb-4">
+        <div className="flex justify-between items-center mb-3">
           <h2 className="text-lg font-semibold flex items-center">
             <FiCalendar className="mr-2" />
             ເລືອກຊ່ວງເວລາ
@@ -574,35 +513,28 @@ export default function ReportsPage() {
           <div className="flex gap-2">
             <button
               onClick={fetchReport}
-              className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
               disabled={loading}
             >
-              <FiRefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <FiRefreshCw className={`mr-1 ${loading ? 'animate-spin' : ''}`} size={14} />
               ອັບເດດ
             </button>
             <button
               onClick={() => exportReport('PDF')}
-              className="flex items-center px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              className="flex items-center px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm"
             >
-              <FiDownload className="mr-2" />
-              ອອກ PDF
-            </button>
-            <button
-              onClick={() => exportReport('Excel')}
-              className="flex items-center px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              <FiDownload className="mr-2" />
-              ອອກ Excel
+              <FiDownload className="mr-1" size={14} />
+              PDF
             </button>
           </div>
         </div>
         
-        <div className="flex flex-wrap gap-3 mb-4">
+        <div className="flex flex-wrap gap-2 mb-3">
           {timeRanges.map((range) => (
             <button
               key={range.value}
               onClick={() => setSelectedPeriod(range.value)}
-              className={`px-4 py-2 rounded-lg border transition-all ${
+              className={`px-3 py-2 rounded-lg border text-sm ${
                 selectedPeriod === range.value
                   ? 'border-blue-500 bg-blue-500 text-white'
                   : 'border-gray-300 hover:border-blue-400'
@@ -614,23 +546,23 @@ export default function ReportsPage() {
         </div>
         
         {selectedPeriod === 'custom' && (
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-3 items-center">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ວັນທີ່ເລີ່ມຕົ້ນ</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ເລີ່ມ</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ວັນທີ່ສິ້ນສຸດ</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ສິ້ນສຸດ</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
             </div>
           </div>
@@ -638,14 +570,14 @@ export default function ReportsPage() {
       </NeoCard>
 
       {/* Report Content */}
-      <NeoCard className="p-6">
-        <div className="flex justify-between items-center mb-6">
+      <NeoCard className="p-4">
+        <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">
             {reportTypes.find(r => r.id === selectedReport)?.title || 'ບົດລາຍງານ'}
           </h2>
           {reportData && (
             <div className="text-sm text-gray-500">
-              ຂໍ້ມູນ: {new Date(reportData.period.startDate).toLocaleDateString('lo-LA')} - {new Date(reportData.period.endDate).toLocaleDateString('lo-LA')}
+              {new Date(reportData.period.startDate).toLocaleDateString('lo-LA')} - {new Date(reportData.period.endDate).toLocaleDateString('lo-LA')}
             </div>
           )}
         </div>

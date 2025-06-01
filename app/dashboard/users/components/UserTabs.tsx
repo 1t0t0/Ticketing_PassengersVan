@@ -1,5 +1,5 @@
+// app/dashboard/users/components/UserTabs.tsx - Low Quality Version (Lao)
 import React from 'react';
-import { TABS } from '../config/constants';
 
 interface UserTabsProps {
   activeTab: 'drivers' | 'staff' | 'admin' | 'station';
@@ -7,35 +7,35 @@ interface UserTabsProps {
   shouldShowTab: (tab: 'drivers' | 'staff' | 'admin' | 'station') => boolean;
 }
 
-// คอมโพเนนต์แท็บสำหรับเลือกประเภทผู้ใช้
-export default function UserTabs({
-  activeTab,
-  onTabChange,
-  shouldShowTab
-}: UserTabsProps) {
-  // แท็บทั้งหมด
-  const allTabs = Object.keys(TABS) as Array<'drivers' | 'staff' | 'admin' | 'station'>;
+const UserTabs: React.FC<UserTabsProps> = ({ activeTab, onTabChange, shouldShowTab }) => {
+  const tabs = [
+    { key: 'drivers', label: 'ຄົນຂັບລົດ' },
+    { key: 'staff', label: 'ພະນັກງານຂາຍປີ້' },
+    { key: 'admin', label: 'ແອດມິນ' },
+    { key: 'station', label: 'ສະຖານີ' }
+  ];
   
   return (
-    <div className="flex flex-wrap border-b border-gray-200 mb-6">
-      {allTabs.map(tab => {
-        // ข้ามแท็บที่ไม่ควรแสดง
-        if (!shouldShowTab(tab)) {
-          return null;
-        }
+    <div className="mb-4">
+      {tabs.map(tab => {
+        if (!shouldShowTab(tab.key as any)) return null;
         
         return (
           <button
-            key={tab}
-            className={`flex-1 py-2 text-center font-medium ${
-              activeTab === tab ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'
+            key={tab.key}
+            className={`mr-2 px-3 py-2 border rounded ${
+              activeTab === tab.key 
+                ? 'bg-blue-500 text-white border-blue-500' 
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
             }`}
-            onClick={() => onTabChange(tab)}
+            onClick={() => onTabChange(tab.key as any)}
           >
-            {TABS[tab]}
+            {tab.label}
           </button>
         );
       })}
     </div>
   );
-}
+};
+
+export default UserTabs;

@@ -1,9 +1,8 @@
-// app/dashboard/users/components/lists/DriverList.tsx
+// app/dashboard/users/components/lists/DriverList.tsx - Low Quality Version (Lao)
 import React, { useState } from 'react';
 import UserCard from '../UserCard';
 import { Driver, User } from '../../types';
 import { deleteUser } from '../../api/user';
-import notificationService from '@/lib/notificationService';
 
 interface DriverListProps {
   drivers: Driver[];
@@ -14,57 +13,46 @@ interface DriverListProps {
 const DriverList: React.FC<DriverListProps> = ({ drivers, showConfirmation, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   
-  // ฟังก์ชันลบคนขับ
   const handleDeleteDriver = async (userId: string, role: string, name: string) => {
-    showConfirmation(`ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບ ${name}?`, async () => {
+    showConfirmation(`ລຶບ ${name} ບໍ?`, async () => {
       try {
         setLoading(true);
-        
-        // ลบผู้ใช้ (ไม่ต้องลบรถที่เกี่ยวข้องอีกต่อไป)
         await deleteUser(userId);
-        
-        // เรียก onRefresh เพื่อโหลดข้อมูลใหม่
         onRefresh();
-        
-        // แสดงข้อความสำเร็จ
-        notificationService.success('ລຶບຜູ້ໃຊ້ສຳເລັດແລ້ວ');
+        alert('ລຶບຜູ້ໃຊ້ສຳເລັດແລ້ວ');
       } catch (error: any) {
-        console.error('Error deleting user:', error);
-        notificationService.error(`ເກີດຂໍ້ຜິດພາດໃນການລຶບຜູ້ໃຊ້: ${error.message}`);
+        alert(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
       } finally {
         setLoading(false);
       }
     });
   };
   
-  // แสดงแถบโหลดหรือข้อความว่าไม่มีข้อมูลถ้าจำเป็น
-  if (loading) {
-    return (
-      <div className="text-center py-8">
-        <p>ກຳລັງໂຫລດ...</p>
-      </div>
-    );
-  }
-  
-  if (drivers.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p>ບໍ່ມີຂໍ້ມູນຄົນຂັບລົດ</p>
-      </div>
-    );
-  }
+  if (loading) return <div>ກຳລັງໂຫລດ...</div>;
+  if (drivers.length === 0) return <div>ບໍ່ພົບຄົນຂັບລົດ</div>;
   
   return (
-    <div>
-      {drivers.map((driver) => (
-        <UserCard 
-          key={driver._id}
-          user={driver}
-          onDelete={handleDeleteDriver}
-          onRefresh={onRefresh}
-        />
-      ))}
-    </div>
+    <table className="w-full border-collapse border border-gray-300">
+      <thead>
+        <tr className="bg-gray-100">
+          <th className="border border-gray-300 p-2 text-left">ຊື່</th>
+          <th className="border border-gray-300 p-2 text-left">ຕຳແໜ່ງ</th>
+          <th className="border border-gray-300 p-2 text-left">ລະຫັດ</th>
+          <th className="border border-gray-300 p-2 text-left">ສະຖານະ</th>
+          <th className="border border-gray-300 p-2 text-left">ການດຳເນີນການ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {drivers.map((driver) => (
+          <UserCard 
+            key={driver._id}
+            user={driver}
+            onDelete={handleDeleteDriver}
+            onRefresh={onRefresh}
+          />
+        ))}
+      </tbody>
+    </table>
   );
 };
 

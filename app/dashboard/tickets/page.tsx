@@ -1,17 +1,15 @@
-// app/dashboard/tickets/page.tsx - ปรับ Layout ให้สมดุลระหว่าง 2 ส่วน
+// app/dashboard/tickets/page.tsx - Optimized
 'use client';
 
 import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
-// คอมโพเนนต์
 import NeoCard from '@/components/ui/NotionCard';
 import { StatsCards, TicketSalesForm, RecentTicketsList, PrintableTicket } from './components';
 import TicketConfirmationModal from './components/TicketConfirmationModal';
 import { FiRefreshCw } from 'react-icons/fi';
 
-// Hooks
 import useTicketSales from './hooks/useTicketSales';
 import useTicketStats from './hooks/useTicketStats';
 
@@ -19,7 +17,6 @@ export default function TicketSalesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
-  // นำเข้า custom hooks
   const { 
     ticketPrice, 
     paymentMethod, 
@@ -37,39 +34,25 @@ export default function TicketSalesPage() {
   
   const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
 
-  // ตรวจสอบการเข้าสู่ระบบ
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    }
+    if (status === 'unauthenticated') router.push('/login');
   }, [status, router]);
 
-  // ดึงข้อมูลเมื่อเข้าสู่ระบบสำเร็จ
   useEffect(() => {
-    if (status === 'authenticated') {
-      fetchData();
-    }
+    if (status === 'authenticated') fetchData();
   }, [status, fetchData]);
 
-  // Auto Refresh Stats หลังจากขายตั๋วสำเร็จ
   useEffect(() => {
     if (createdTickets.length > 0) {
-      const timer = setTimeout(() => {
-        console.log('Auto refreshing stats after ticket sale...');
-        fetchData();
-      }, 1000);
-      
+      const timer = setTimeout(() => fetchData(), 1000);
       return () => clearTimeout(timer);
     }
   }, [createdTickets, fetchData]);
 
-  // ปรับปรุง confirmSellTicket เพื่อให้รีเฟรชข้อมูลหลังขายตั๋ว
   const handleConfirmSellTicket = async () => {
     try {
       await confirmSellTicket();
-      setTimeout(() => {
-        fetchData();
-      }, 500);
+      setTimeout(() => fetchData(), 500);
     } catch (error) {
       console.error('Error in ticket sale process:', error);
     }
@@ -80,7 +63,6 @@ export default function TicketSalesPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">ຫນ້າການອອກປີ້</h1>
-        
         <button
           onClick={() => fetchData()}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
@@ -90,13 +72,12 @@ export default function TicketSalesPage() {
         </button>
       </div>
       
-      {/* Stats Cards */}
       <StatsCards stats={stats} loading={statsLoading} />
 
-      {/* Main Content - ปรับ Grid ให้สมดุล */}
+      {/* Main Content */}
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         
-        {/* ส่วนขายตั๋ว - ใช้ 2 columns */}
+        {/* Ticket Sales Section */}
         <div className="xl:col-span-2">
           <NeoCard className="h-full">
             <div className="p-6">
@@ -116,7 +97,7 @@ export default function TicketSalesPage() {
           </NeoCard>
         </div>
 
-        {/* ส่วนแสดงตั๋วล่าสุด - ใช้ 3 columns */}
+        {/* Recent Tickets Section */}
         <div className="xl:col-span-3">
           <NeoCard className="h-full">
             <div className="p-6">
@@ -142,7 +123,6 @@ export default function TicketSalesPage() {
                 </button>
               </div>
               
-              {/* Container สำหรับ Recent Tickets ที่แสดงเต็ม 5 ใบ */}
               <div>
                 <RecentTicketsList 
                   tickets={recentTickets} 
@@ -154,7 +134,7 @@ export default function TicketSalesPage() {
         </div>
       </div>
 
-      {/* Modal ยืนยันการขายตั๋ว */}
+      {/* Confirmation Modal */}
       <TicketConfirmationModal
         isOpen={showConfirmModal}
         ticketPrice={ticketPrice}
@@ -166,7 +146,7 @@ export default function TicketSalesPage() {
         loading={loading}
       />
 
-      {/* ส่วนซ่อนสำหรับการพิมพ์ตั๋ว */}
+      {/* Print Section */}
       <div ref={printRef} className="hidden">
         {createdTickets.length > 0 && createdTickets.map((ticket, index) => (
           <PrintableTicket

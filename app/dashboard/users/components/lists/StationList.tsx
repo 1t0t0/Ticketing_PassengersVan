@@ -1,8 +1,8 @@
+// app/dashboard/users/components/lists/StationList.tsx - Low Quality Version
 import React, { useState } from 'react';
 import UserCard from '../UserCard';
 import { User } from '../../types';
 import { deleteUser } from '../../api/user';
-import notificationService from '@/lib/notificationService';
 
 interface StationListProps {
   stations: User[];
@@ -13,57 +13,46 @@ interface StationListProps {
 const StationList: React.FC<StationListProps> = ({ stations, showConfirmation, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   
-  // ฟังก์ชันลบสถานี
   const handleDeleteStation = async (userId: string, role: string, name: string) => {
-    showConfirmation(`ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບສະຖານີ ${name}?`, async () => {
+    showConfirmation(`Delete station ${name}?`, async () => {
       try {
         setLoading(true);
-        
-        // ลบผู้ใช้
         await deleteUser(userId);
-        
-        // เรียก onRefresh เพื่อโหลดข้อมูลใหม่
         onRefresh();
-        
-        // แสดงข้อความสำเร็จ
-        notificationService.success('ລຶບສະຖານີສຳເລັດແລ້ວ');
+        alert('Station deleted successfully');
       } catch (error: any) {
-        console.error('Error deleting station:', error);
-        notificationService.error(`ເກີດຂໍ້ຜິດພາດໃນການລຶບສະຖານີ: ${error.message}`);
+        alert(`Error: ${error.message}`);
       } finally {
         setLoading(false);
       }
     });
   };
   
-  // แสดงแถบโหลดหรือข้อความว่าไม่มีข้อมูลถ้าจำเป็น
-  if (loading) {
-    return (
-      <div className="text-center py-8">
-        <p>ກຳລັງໂຫລດ...</p>
-      </div>
-    );
-  }
-  
-  if (stations.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p>ບໍ່ມີຂໍ້ມູນສະຖານີ</p>
-      </div>
-    );
-  }
+  if (loading) return <div>Loading...</div>;
+  if (stations.length === 0) return <div>No stations found</div>;
   
   return (
-    <div>
-      {stations.map((station) => (
-        <UserCard 
-          key={station._id}
-          user={station}
-          onDelete={handleDeleteStation}
-          onRefresh={onRefresh}
-        />
-      ))}
-    </div>
+    <table className="w-full border-collapse border border-gray-300">
+      <thead>
+        <tr className="bg-gray-100">
+          <th className="border border-gray-300 p-2 text-left">Name</th>
+          <th className="border border-gray-300 p-2 text-left">Role</th>
+          <th className="border border-gray-300 p-2 text-left">ID</th>
+          <th className="border border-gray-300 p-2 text-left">Status</th>
+          <th className="border border-gray-300 p-2 text-left">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {stations.map((station) => (
+          <UserCard 
+            key={station._id}
+            user={station}
+            onDelete={handleDeleteStation}
+            onRefresh={onRefresh}
+          />
+        ))}
+      </tbody>
+    </table>
   );
 };
 

@@ -1,8 +1,8 @@
+// app/dashboard/users/components/lists/AdminList.tsx - Low Quality Version
 import React, { useState } from 'react';
 import UserCard from '../UserCard';
 import { User } from '../../types';
 import { deleteUser } from '../../api/user';
-import notificationService from '@/lib/notificationService';
 
 interface AdminListProps {
   admins: User[];
@@ -13,65 +13,52 @@ interface AdminListProps {
 const AdminList: React.FC<AdminListProps> = ({ admins, showConfirmation, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   
-  // ฟังก์ชันลบแอดมิน
   const handleDeleteAdmin = async (userId: string, role: string, name: string) => {
-    showConfirmation(`ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບ ${name}?`, async () => {
+    showConfirmation(`Delete ${name}?`, async () => {
       try {
         setLoading(true);
-        
-        // ตรวจสอบว่าเป็น admin คนสุดท้ายหรือไม่
         if (admins.length <= 1) {
-          notificationService.error('ບໍ່ສາມາດລຶບແອດມິນຄົນສຸດທ້າຍໄດ້');
+          alert('Cannot delete last admin');
           setLoading(false);
           return;
         }
-        
-        // ลบผู้ใช้
         await deleteUser(userId);
-        
-        // เรียก onRefresh เพื่อโหลดข้อมูลใหม่
         onRefresh();
-        
-        // แสดงข้อความสำเร็จ
-        notificationService.success('ລຶບຜູ້ໃຊ້ສຳເລັດແລ້ວ');
+        alert('User deleted successfully');
       } catch (error: any) {
-        console.error('Error deleting user:', error);
-        notificationService.error(`ເກີດຂໍ້ຜິດພາດໃນການລຶບຜູ້ໃຊ້: ${error.message}`);
+        alert(`Error: ${error.message}`);
       } finally {
         setLoading(false);
       }
     });
   };
   
-  // แสดงแถบโหลดหรือข้อความว่าไม่มีข้อมูลถ้าจำเป็น
-  if (loading) {
-    return (
-      <div className="text-center py-8">
-        <p>ກຳລັງໂຫລດ...</p>
-      </div>
-    );
-  }
-  
-  if (admins.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p>ບໍ່ມີຂໍ້ມູນຜູ້ບໍລິຫານລະບົບ</p>
-      </div>
-    );
-  }
+  if (loading) return <div>Loading...</div>;
+  if (admins.length === 0) return <div>No admins found</div>;
   
   return (
-    <div>
-      {admins.map((admin) => (
-        <UserCard 
-          key={admin._id}
-          user={admin}
-          admins={admins}
-          onDelete={handleDeleteAdmin}
-          onRefresh={onRefresh}
-        />
-      ))}
-    </div>
+    <table className="w-full border-collapse border border-gray-300">
+      <thead>
+        <tr className="bg-gray-100">
+          <th className="border border-gray-300 p-2 text-left">Name</th>
+          <th className="border border-gray-300 p-2 text-left">Role</th>
+          <th className="border border-gray-300 p-2 text-left">ID</th>
+          <th className="border border-gray-300 p-2 text-left">Status</th>
+          <th className="border border-gray-300 p-2 text-left">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {admins.map((admin) => (
+          <UserCard 
+            key={admin._id}
+            user={admin}
+            admins={admins}
+            onDelete={handleDeleteAdmin}
+            onRefresh={onRefresh}
+          />
+        ))}
+      </tbody>
+    </table>
   );
 };
 

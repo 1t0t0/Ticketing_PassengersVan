@@ -1,19 +1,13 @@
+// app/dashboard/users/page.tsx - Low Quality Main Page
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import NeoCard from '@/components/ui/NotionCard';
-import NeoButton from '@/components/ui/NotionButton';
-import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
-import useConfirmation from '@/hooks/useConfirmation';
 
 // Components
-import { 
-  UserTabs, 
-  UserSearchComponent, 
-  EnhancedPagination 
-} from './components';
+import UserTabs from './components/UserTabs';
+import UserSearchComponent from './components/UserSearchComponent';
 import { DriverList, StaffList, AdminList, StationList } from './components/lists';
 import AddUserModal from './components/AddUserModal';
 
@@ -23,20 +17,15 @@ import useUserPermissions from './hooks/useUserPermissions';
 import useUserSearch from './hooks/useUserSearch';
 
 export default function UserManagementPage() {
-  // Hooks
   const { data: session, status } = useSession();
   const router = useRouter();
-  const {
-    isConfirmDialogOpen,
-    confirmMessage,
-    showConfirmation,
-    handleConfirm,
-    handleCancel
-  } = useConfirmation();
 
-  // State - UI
+  // State
   const [activeTab, setActiveTab] = useState<'drivers' | 'staff' | 'admin' | 'station'>('drivers');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{show: boolean, message: string, onConfirm?: () => void}>({
+    show: false, message: '', onConfirm: undefined
+  });
 
   // Custom hooks
   const { loading: loadingUsers, drivers, ticketSellers, admins, stations, fetchUsers } = useUserData();
@@ -51,20 +40,16 @@ export default function UserManagementPage() {
     }
   }, [status, router, session]);
   
-  // Initial data fetch - fetch only once on component mount
   useEffect(() => {
     if (status === 'authenticated' && ['admin', 'staff'].includes(session?.user?.role || '')) {
       fetchUsers();
     }
-  }, [status, session]); // removed fetchUsers from dependencies to prevent multiple calls
+  }, [status, session]);
 
-  // ฟังก์ชันสำหรับรีโหลดข้อมูลหลังจากอัพเดท - ใช้เมื่อมีการแก้ไขข้อมูล
   const refreshData = useCallback(() => {
-    console.log('Refreshing user data...');
     fetchUsers();
   }, [fetchUsers]);
 
-  // ดึงข้อมูลผู้ใช้ตามประเภทที่เลือกด้วย useMemo เพื่อลดการคำนวณซ้ำ
   const activeUsers = useMemo(() => {
     switch(activeTab) {
       case 'drivers': return drivers;
@@ -75,142 +60,123 @@ export default function UserManagementPage() {
     }
   }, [activeTab, drivers, ticketSellers, admins, stations]);
 
-  // เรียกใช้ hook สำหรับค้นหาผู้ใช้
   const {
-    searchTerm,
-    setSearchTerm,
-    searchResults,
-    isSearching,
-    pagination,
-    handleSearch,
-    handleClearSearch,
-    handlePageChange
+    searchTerm, setSearchTerm, searchResults, isSearching,
+    handleSearch, handleClearSearch
   } = useUserSearch(activeUsers, fetchUsers);
 
-  // Tab change handler
   const handleTabChange = (tab: 'drivers' | 'staff' | 'admin' | 'station') => {
     setActiveTab(tab);
-    handleClearSearch(); // ล้างผลการค้นหาเมื่อเปลี่ยนแท็บ
+    handleClearSearch();
   };
 
-  // คำนวณรายการที่จะแสดงตาม pagination ด้วย useMemo
-  const paginatedItems = useMemo(() => {
-    const items = searchResults.length > 0 ? searchResults : activeUsers;
-    const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
-    const endIndex = startIndex + pagination.itemsPerPage;
-    
-    return items.slice(startIndex, endIndex);
-  }, [searchResults, activeUsers, pagination.currentPage, pagination.itemsPerPage]);
+  const showConfirmation = (message: string, onConfirm: () => void) => {
+    setConfirmDialog({ show: true, message, onConfirm });
+  };
 
-  // Render users based on active tab
+  const handleConfirm = () => {
+    if (confirmDialog.onConfirm) {
+      confirmDialog.onConfirm();
+    }
+    setConfirmDialog({ show: false, message: '', onConfirm: undefined });
+  };
+
+  const handleCancel = () => {
+    setConfirmDialog({ show: false, message: '', onConfirm: undefined });
+  };
+
+  const displayItems = searchResults.length > 0 ? searchResults : activeUsers;
+
   const renderUsersList = () => {
     if (loadingUsers || isSearching) {
-      return (
-        <div className="text-center py-8">
-          <p>ກຳລັງໂຫລດ...</p>
-        </div>
-      );
+      return <div className="text-center py-8">Loading...</div>;
     }
     
-    if (paginatedItems.length === 0) {
-      if (searchResults.length === 0 && searchTerm) {
-        return (
-          <div className="text-center py-8">
-            <p>ບໍ່ພົບຂໍ້ມູນຈາກການຄົ້ນຫາ</p>
-          </div>
-        );
-      }
-      
+    if (displayItems.length === 0) {
       return (
         <div className="text-center py-8">
-          <p>ບໍ່ມີຂໍ້ມູນ</p>
+          {searchResults.length === 0 && searchTerm ? 'No search results found' : 'No users found'}
         </div>
       );
     }
 
     switch(activeTab) {
-      case 'drivers':
-        return <DriverList drivers={paginatedItems} showConfirmation={showConfirmation} onRefresh={refreshData} />;
-      case 'staff':
-        return <StaffList staff={paginatedItems} showConfirmation={showConfirmation} onRefresh={refreshData} />;
-      case 'admin':
-        return <AdminList admins={paginatedItems} showConfirmation={showConfirmation} onRefresh={refreshData} />;
-      case 'station':
-        return <StationList stations={paginatedItems} showConfirmation={showConfirmation} onRefresh={refreshData} />;
-      default:
-        return null;
+      case 'drivers': return <DriverList drivers={displayItems} showConfirmation={showConfirmation} onRefresh={refreshData} />;
+      case 'staff': return <StaffList staff={displayItems} showConfirmation={showConfirmation} onRefresh={refreshData} />;
+      case 'admin': return <AdminList admins={displayItems} showConfirmation={showConfirmation} onRefresh={refreshData} />;
+      case 'station': return <StationList stations={displayItems} showConfirmation={showConfirmation} onRefresh={refreshData} />;
+      default: return null;
     }
   };
 
-  // ส่วนสถิติแสดงจำนวนรายการ - คำนวณด้วย useMemo
-  const statsInfo = useMemo(() => {
-    const totalItems = searchResults.length > 0 ? searchResults.length : activeUsers.length;
-    const startItem = pagination.currentPage === 1 ? 1 : (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
-    const endItem = Math.min(startItem + pagination.itemsPerPage - 1, totalItems);
-    
-    return {
-      startItem,
-      endItem,
-      totalItems
-    };
-  }, [searchResults, activeUsers, pagination.currentPage, pagination.itemsPerPage]);
-
-  // Main render
   if (status === 'unauthenticated' || (status === 'authenticated' && !['admin', 'staff'].includes(session?.user?.role || ''))) {
     return null;
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">ຈັດການຜູ້ໃຊ້ລະບົບ</h1>
-        <div className="flex gap-2">
-          {canAddUser() && (
-            <NeoButton onClick={() => setShowAddModal(true)}>
-              ເພີ່ມຜູ້ໃຊ້ລະບົບ
-            </NeoButton>
-          )}
-          <NeoButton variant="secondary" onClick={refreshData}>
-            ໂຫລດຂໍ້ມູນໃໝ່
-          </NeoButton>
+    <div className="p-4 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-2">User Management</h1>
+        <p className="text-gray-600">Manage all system users</p>
+      </div>
+
+      {/* Control Panel */}
+      <div className="bg-white border border-gray-300 rounded p-4 mb-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">User Management System</h2>
+          <div className="space-x-2">
+            {canAddUser() && (
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                + Add User
+              </button>
+            )}
+            <button 
+              onClick={refreshData}
+              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
       
-      <NeoCard className="overflow-hidden mb-6">
-        <div className="p-4">
-          <h2 className="text-xl font-bold mb-4">User Directory</h2>
-          
-          <UserTabs 
-            activeTab={activeTab} 
-            onTabChange={handleTabChange} 
-            shouldShowTab={shouldShowTab}
-          />
+      {/* Main Content */}
+      <div className="bg-white border border-gray-300 rounded p-4">
+        <h2 className="text-xl font-bold mb-4">User Directory</h2>
+        
+        {/* Tabs */}
+        <UserTabs 
+          activeTab={activeTab} 
+          onTabChange={handleTabChange} 
+          shouldShowTab={shouldShowTab}
+        />
 
-          {/* User Search Component - Auto Search */}
-          <UserSearchComponent
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            onSearch={handleSearch}
-            onClear={handleClearSearch}
-            loading={isSearching}
-          />
-          
-          {/* Stats Info */}
-          <div className="text-sm text-gray-500 mb-4">
-            ສະແດງລາຍການ {statsInfo.startItem}-{statsInfo.endItem} ຈາກທັງໝົດ {statsInfo.totalItems} ລາຍການ
-          </div>
-          
-          {/* Users List */}
-          <div>{renderUsersList()}</div>
-          
-          {/* Pagination Component */}
-          <EnhancedPagination
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            onPageChange={handlePageChange}
-          />
+        {/* Search */}
+        <UserSearchComponent
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          onSearch={handleSearch}
+          onClear={handleClearSearch}
+          loading={isSearching}
+        />
+        
+        {/* Stats */}
+        <div className="mb-4 p-3 bg-gray-100 rounded">
+          <p className="text-sm">
+            Showing {displayItems.length} {activeTab}
+            {searchTerm && <span> (filtered by: "{searchTerm}")</span>}
+          </p>
         </div>
-      </NeoCard>
+        
+        {/* Users List */}
+        <div>
+          {renderUsersList()}
+        </div>
+      </div>
       
       {/* Add User Modal */}
       {showAddModal && (
@@ -224,13 +190,28 @@ export default function UserManagementPage() {
         />
       )}
 
-      {/* Confirmation Dialog */}
-      <ConfirmationDialog 
-        isOpen={isConfirmDialogOpen}
-        message={confirmMessage}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-      />
+      {/* Simple Confirmation Dialog */}
+      {confirmDialog.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded border">
+            <p className="mb-4">{confirmDialog.message}</p>
+            <div className="flex space-x-2">
+              <button 
+                onClick={handleConfirm}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Confirm
+              </button>
+              <button 
+                onClick={handleCancel}
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
