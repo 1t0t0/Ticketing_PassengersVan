@@ -1,4 +1,4 @@
-// app/dashboard/reports/page.tsx
+// app/dashboard/reports/page.tsx - เปลี่ยนเป็นภาษาลาว
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -81,36 +81,36 @@ export default function ReportsPage() {
   const reportTypes = [
     {
       id: 'summary',
-      title: 'สรุปภาพรวม',
+      title: 'ສະຫຼຸບລວມ',
       icon: <FiBarChart />,
-      description: 'ภาพรวมสถิติทั้งหมด'
+      description: 'ພາບລວມສະຖິຕິທັງໝົດ'
     },
     {
       id: 'sales',
-      title: 'รายงานยอดขาย',
+      title: 'ບົດລາຍງານຍອດຂາຍ',
       icon: <FiCreditCard />,
-      description: 'สรุปยอดขายและรายได้'
+      description: 'ສະຫຼຸບຍອດຂາຍແລະລາຍຮັບ'
     },
     {
       id: 'drivers',
-      title: 'รายงานคนขับ',
+      title: 'ບົດລາຍງານຄົນຂັບ',
       icon: <FiUsers />,
-      description: 'สถิติและประสิทธิภาพคนขับ'
+      description: 'ສະຖິຕິແລະປະສິດທິພາບຄົນຂັບ'
     },
     {
       id: 'financial',
-      title: 'รายงานการเงิน',
+      title: 'ບົດລາຍງານການເງິນ',
       icon: <FiDollarSign />,
-      description: 'การแบ่งรายได้และผลกำไร'
+      description: 'ການແບ່ງລາຍຮັບແລະຜົນກຳໄລ'
     }
   ];
 
   const timeRanges = [
-    { value: 'today', label: 'วันนี้' },
-    { value: 'yesterday', label: 'เมื่อวาน' },
-    { value: 'thisWeek', label: 'สัปดาห์นี้' },
-    { value: 'thisMonth', label: 'เดือนนี้' },
-    { value: 'custom', label: 'กำหนดเอง' }
+    { value: 'today', label: 'ມື້ນີ້' },
+    { value: 'yesterday', label: 'ມື້ວານ' },
+    { value: 'thisWeek', label: 'ອາທິດນີ້' },
+    { value: 'thisMonth', label: 'ເດືອນນີ້' },
+    { value: 'custom', label: 'ກຳນົດເອງ' }
   ];
 
   const fetchReport = async () => {
@@ -183,7 +183,7 @@ export default function ReportsPage() {
             <div className="flex items-center">
               <FiCreditCard className="h-8 w-8 text-blue-600 mr-3" />
               <div>
-                <p className="text-sm text-blue-600 font-medium">ตั๋วที่ขาย</p>
+                <p className="text-sm text-blue-600 font-medium">ປີ້ທີ່ຂາຍ</p>
                 <p className="text-2xl font-bold text-blue-900">{stats.totalTickets}</p>
               </div>
             </div>
@@ -193,7 +193,7 @@ export default function ReportsPage() {
             <div className="flex items-center">
               <FiDollarSign className="h-8 w-8 text-green-600 mr-3" />
               <div>
-                <p className="text-sm text-green-600 font-medium">รายได้รวม</p>
+                <p className="text-sm text-green-600 font-medium">ລາຍຮັບລວມ</p>
                 <p className="text-2xl font-bold text-green-900">₭{stats.totalRevenue?.toLocaleString()}</p>
               </div>
             </div>
@@ -203,7 +203,7 @@ export default function ReportsPage() {
             <div className="flex items-center">
               <FiUsers className="h-8 w-8 text-purple-600 mr-3" />
               <div>
-                <p className="text-sm text-purple-600 font-medium">คนขับเข้างาน</p>
+                <p className="text-sm text-purple-600 font-medium">ຄົນຂັບເຂົ້າວຽກ</p>
                 <p className="text-2xl font-bold text-purple-900">{stats.activeDrivers}</p>
               </div>
             </div>
@@ -213,7 +213,7 @@ export default function ReportsPage() {
             <div className="flex items-center">
               <FiTrendingUp className="h-8 w-8 text-orange-600 mr-3" />
               <div>
-                <p className="text-sm text-orange-600 font-medium">ราคาเฉลี่ย</p>
+                <p className="text-sm text-orange-600 font-medium">ລາຄາເຊລີ່ຍ</p>
                 <p className="text-2xl font-bold text-orange-900">₭{stats.avgTicketPrice?.toLocaleString()}</p>
               </div>
             </div>
@@ -225,15 +225,15 @@ export default function ReportsPage() {
           <NeoCard className="p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center">
               <FiBarChart className="mr-2" />
-              ยอดขาย
+              ຍອດຂາຍ
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>ตั๋วทั้งหมด:</span>
-                <span className="font-semibold">{reportData.sales?.totalTickets || 0} ใบ</span>
+                <span>ປີ້ທັງໝົດ:</span>
+                <span className="font-semibold">{reportData.sales?.totalTickets || 0} ໃບ</span>
               </div>
               <div className="flex justify-between">
-                <span>รายได้:</span>
+                <span>ລາຍຮັບ:</span>
                 <span className="font-semibold">₭{reportData.sales?.totalRevenue?.toLocaleString() || 0}</span>
               </div>
             </div>
@@ -242,16 +242,16 @@ export default function ReportsPage() {
           <NeoCard className="p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center">
               <FiUsers className="mr-2" />
-              คนขับ
+              ຄົນຂັບ
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>คนขับทั้งหมด:</span>
-                <span className="font-semibold">{reportData.drivers?.totalDrivers || 0} คน</span>
+                <span>ຄົນຂັບທັງໝົດ:</span>
+                <span className="font-semibold">{reportData.drivers?.totalDrivers || 0} ຄົນ</span>
               </div>
               <div className="flex justify-between">
-                <span>เข้างานวันนี้:</span>
-                <span className="font-semibold">{reportData.drivers?.activeDrivers || 0} คน</span>
+                <span>ເຂົ້າວຽກມື້ນີ້:</span>
+                <span className="font-semibold">{reportData.drivers?.activeDrivers || 0} ຄົນ</span>
               </div>
             </div>
           </NeoCard>
@@ -259,15 +259,15 @@ export default function ReportsPage() {
           <NeoCard className="p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center">
               <FiDollarSign className="mr-2" />
-              การเงิน
+              ການເງິນ
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>รายได้รวม:</span>
+                <span>ລາຍຮັບລວມ:</span>
                 <span className="font-semibold">₭{reportData.financial?.totalRevenue?.toLocaleString() || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span>ส่วนแบ่งคนขับ:</span>
+                <span>ສ່ວນແບ່ງຄົນຂັບ:</span>
                 <span className="font-semibold">₭{reportData.financial?.driverShare?.toLocaleString() || 0}</span>
               </div>
             </div>
@@ -283,7 +283,7 @@ export default function ReportsPage() {
     // Prepare chart data
     const paymentData = {
       labels: reportData.paymentMethods.map((pm: any) => 
-        pm._id === 'cash' ? 'เงินสด' : pm._id === 'qr' ? 'เงินโอน' : pm._id
+        pm._id === 'cash' ? 'ເງິນສົດ' : pm._id === 'qr' ? 'ເງິນໂອນ' : pm._id
       ),
       datasets: [{
         data: reportData.paymentMethods.map((pm: any) => pm.count),
@@ -295,7 +295,7 @@ export default function ReportsPage() {
     const hourlyData = {
       labels: Array.from({length: 24}, (_, i) => `${i}:00`),
       datasets: [{
-        label: 'จำนวนตั๋ว',
+        label: 'ຈຳນວນປີ້',
         data: Array.from({length: 24}, (_, i) => {
           const hourData = reportData.hourlySales?.find((h: any) => h._id === i);
           return hourData ? hourData.count : 0;
@@ -310,14 +310,14 @@ export default function ReportsPage() {
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4">การชำระเงิน</h3>
+            <h3 className="text-lg font-semibold mb-4">ການຊຳລະເງິນ</h3>
             <div className="h-64">
               <Doughnut data={paymentData} options={{ maintainAspectRatio: false }} />
             </div>
           </NeoCard>
 
           <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4">ยอดขายรายชั่วโมง</h3>
+            <h3 className="text-lg font-semibold mb-4">ຍອດຂາຍລາຍຊົ່ວໂມງ</h3>
             <div className="h-64">
               <Line data={hourlyData} options={{ maintainAspectRatio: false }} />
             </div>
@@ -325,19 +325,19 @@ export default function ReportsPage() {
         </div>
 
         <NeoCard className="p-6">
-          <h3 className="text-lg font-semibold mb-4">สรุปยอดขาย</h3>
+          <h3 className="text-lg font-semibold mb-4">ສະຫຼຸບຍອດຂາຍ</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-blue-600">{reportData.summary?.totalTickets || 0}</p>
-              <p className="text-sm text-gray-600">ตั๋วที่ขาย</p>
+              <p className="text-sm text-gray-600">ປີ້ທີ່ຂາຍ</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-green-600">₭{reportData.summary?.totalRevenue?.toLocaleString() || 0}</p>
-              <p className="text-sm text-gray-600">รายได้รวม</p>
+              <p className="text-sm text-gray-600">ລາຍຮັບລວມ</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-purple-600">₭{reportData.summary?.averagePrice?.toLocaleString() || 0}</p>
-              <p className="text-sm text-gray-600">ราคาเฉลี่ย</p>
+              <p className="text-sm text-gray-600">ລາຄາເຊລີ່ຍ</p>
             </div>
           </div>
         </NeoCard>
@@ -353,33 +353,33 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-blue-600">{reportData.summary?.totalDrivers || 0}</p>
-            <p className="text-sm text-blue-600">คนขับทั้งหมด</p>
+            <p className="text-sm text-blue-600">ຄົນຂັບທັງໝົດ</p>
           </div>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-green-600">{reportData.summary?.activeDrivers || 0}</p>
-            <p className="text-sm text-green-600">เข้างานวันนี้</p>
+            <p className="text-sm text-green-600">ເຂົ້າວຽກມື້ນີ້</p>
           </div>
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-purple-600">{reportData.summary?.totalWorkDays || 0}</p>
-            <p className="text-sm text-purple-600">วันทำงานรวม</p>
+            <p className="text-sm text-purple-600">ວັນທຳວຽກລວມ</p>
           </div>
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-orange-600">₭{reportData.summary?.totalIncome?.toLocaleString() || 0}</p>
-            <p className="text-sm text-orange-600">รายได้รวม</p>
+            <p className="text-sm text-orange-600">ລາຍຮັບລວມ</p>
           </div>
         </div>
 
         <NeoCard className="p-6">
-          <h3 className="text-lg font-semibold mb-4">รายละเอียดคนขับ</h3>
+          <h3 className="text-lg font-semibold mb-4">ລາຍລະອຽດຄົນຂັບ</h3>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left p-2">ชื่อ</th>
-                  <th className="text-left p-2">รหัสพนักงาน</th>
-                  <th className="text-left p-2">สถานะ</th>
-                  <th className="text-right p-2">รายได้</th>
-                  <th className="text-right p-2">จำนวนตั๋ว</th>
+                  <th className="text-left p-2">ຊື່</th>
+                  <th className="text-left p-2">ລະຫັດພະນັກງານ</th>
+                  <th className="text-left p-2">ສະຖານະ</th>
+                  <th className="text-right p-2">ລາຍຮັບ</th>
+                  <th className="text-right p-2">ຈຳນວນປີ້</th>
                 </tr>
               </thead>
               <tbody>
@@ -393,7 +393,7 @@ export default function ReportsPage() {
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {driver.checkInStatus === 'checked-in' ? 'เข้างาน' : 'ออกงาน'}
+                        {driver.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
                       </span>
                     </td>
                     <td className="p-2 text-right">₭{driver.totalIncome?.toLocaleString() || 0}</td>
@@ -413,7 +413,7 @@ export default function ReportsPage() {
 
     const breakdown = reportData.breakdown;
     const chartData = {
-      labels: ['บริษัท (10%)', 'สถานี (5%)', 'คนขับ (85%)'],
+      labels: ['ບໍລິສັດ (10%)', 'ສະຖານີ (5%)', 'ຄົນຂັບ (85%)'],
       datasets: [{
         data: [
           breakdown.company?.totalAmount || 0,
@@ -430,53 +430,53 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-blue-600">₭{reportData.summary?.totalRevenue?.toLocaleString() || 0}</p>
-            <p className="text-sm text-blue-600">รายได้รวม</p>
+            <p className="text-sm text-blue-600">ລາຍຮັບລວມ</p>
           </div>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-green-600">₭{reportData.summary?.companyShare?.toLocaleString() || 0}</p>
-            <p className="text-sm text-green-600">ส่วนแบ่งบริษัท</p>
+            <p className="text-sm text-green-600">ສ່ວນແບ່ງບໍລິສັດ</p>
           </div>
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-purple-600">₭{reportData.summary?.stationShare?.toLocaleString() || 0}</p>
-            <p className="text-sm text-purple-600">ส่วนแบ่งสถานี</p>
+            <p className="text-sm text-purple-600">ສ່ວນແບ່ງສະຖານີ</p>
           </div>
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-orange-600">₭{reportData.summary?.driverShare?.toLocaleString() || 0}</p>
-            <p className="text-sm text-orange-600">ส่วนแบ่งคนขับ</p>
+            <p className="text-sm text-orange-600">ສ່ວນແບ່ງຄົນຂັບ</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4">การแบ่งรายได้</h3>
+            <h3 className="text-lg font-semibold mb-4">ການແບ່ງລາຍຮັບ</h3>
             <div className="h-64">
               <Doughnut data={chartData} options={{ maintainAspectRatio: false }} />
             </div>
           </NeoCard>
 
           <NeoCard className="p-6">
-            <h3 className="text-lg font-semibold mb-4">รายละเอียดการแบ่งรายได้</h3>
+            <h3 className="text-lg font-semibold mb-4">ລາຍລະອຽດການແບ່ງລາຍຮັບ</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                 <div>
-                  <p className="font-medium text-blue-900">บริษัท (10%)</p>
-                  <p className="text-sm text-blue-600">{breakdown.company?.transactionCount || 0} รายการ</p>
+                  <p className="font-medium text-blue-900">ບໍລິສັດ (10%)</p>
+                  <p className="text-sm text-blue-600">{breakdown.company?.transactionCount || 0} ລາຍການ</p>
                 </div>
                 <p className="text-lg font-bold text-blue-600">₭{breakdown.company?.totalAmount?.toLocaleString() || 0}</p>
               </div>
               
               <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                 <div>
-                  <p className="font-medium text-green-900">สถานี (5%)</p>
-                  <p className="text-sm text-green-600">{breakdown.station?.transactionCount || 0} รายการ</p>
+                  <p className="font-medium text-green-900">ສະຖານີ (5%)</p>
+                  <p className="text-sm text-green-600">{breakdown.station?.transactionCount || 0} ລາຍການ</p>
                 </div>
                 <p className="text-lg font-bold text-green-600">₭{breakdown.station?.totalAmount?.toLocaleString() || 0}</p>
               </div>
               
               <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
                 <div>
-                  <p className="font-medium text-orange-900">คนขับ (85%)</p>
-                  <p className="text-sm text-orange-600">{breakdown.driver?.transactionCount || 0} รายการ</p>
+                  <p className="font-medium text-orange-900">ຄົນຂັບ (85%)</p>
+                  <p className="text-sm text-orange-600">{breakdown.driver?.transactionCount || 0} ລາຍການ</p>
                 </div>
                 <p className="text-lg font-bold text-orange-600">₭{breakdown.driver?.totalAmount?.toLocaleString() || 0}</p>
               </div>
@@ -499,7 +499,7 @@ export default function ReportsPage() {
     if (!reportData) {
       return (
         <div className="text-center py-8">
-          <p className="text-gray-500">ไม่มีข้อมูลรายงาน</p>
+          <p className="text-gray-500">ບໍ່ມີຂໍ້ມູນບົດລາຍງານ</p>
         </div>
       );
     }
@@ -514,7 +514,7 @@ export default function ReportsPage() {
       case 'financial':
         return renderFinancialReport();
       default:
-        return <div>ประเภทรายงานไม่ถูกต้อง</div>;
+        return <div>ປະເພດບົດລາຍງານບໍ່ຖືກຕ້ອງ</div>;
     }
   };
 
@@ -529,15 +529,15 @@ export default function ReportsPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">📊 ระบบรายงาน</h1>
-        <p className="text-gray-600">จัดการและสร้างรายงานทุกประเภทสำหรับธุรกิจขายตั๋วรถโดยสาร</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">📊 ລະບົບບົດລາຍງານ</h1>
+        <p className="text-gray-600">ຈັດການແລະສ້າງບົດລາຍງານທຸກປະເພດສຳລັບທຸລະກິດຂາຍປີ້ລົດໂດຍສານ</p>
       </div>
 
       {/* Report Type Selection */}
       <NeoCard className="p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center">
           <FiFilter className="mr-2" />
-          เลือกประเภทรายงาน
+          ເລືອກປະເພດບົດລາຍງານ
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {reportTypes.map((report) => (
@@ -569,7 +569,7 @@ export default function ReportsPage() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold flex items-center">
             <FiCalendar className="mr-2" />
-            เลือกช่วงเวลา
+            ເລືອກຊ່ວງເວລາ
           </h2>
           <div className="flex gap-2">
             <button
@@ -578,21 +578,21 @@ export default function ReportsPage() {
               disabled={loading}
             >
               <FiRefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
-              อัปเดต
+              ອັບເດດ
             </button>
             <button
               onClick={() => exportReport('PDF')}
               className="flex items-center px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
             >
               <FiDownload className="mr-2" />
-              Export PDF
+              ອອກ PDF
             </button>
             <button
               onClick={() => exportReport('Excel')}
               className="flex items-center px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
             >
               <FiDownload className="mr-2" />
-              Export Excel
+              ອອກ Excel
             </button>
           </div>
         </div>
@@ -616,7 +616,7 @@ export default function ReportsPage() {
         {selectedPeriod === 'custom' && (
           <div className="flex gap-4 items-center">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ວັນທີ່ເລີ່ມຕົ້ນ</label>
               <input
                 type="date"
                 value={startDate}
@@ -625,7 +625,7 @@ export default function ReportsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ວັນທີ່ສິ້ນສຸດ</label>
               <input
                 type="date"
                 value={endDate}
@@ -641,11 +641,11 @@ export default function ReportsPage() {
       <NeoCard className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">
-            {reportTypes.find(r => r.id === selectedReport)?.title || 'รายงาน'}
+            {reportTypes.find(r => r.id === selectedReport)?.title || 'ບົດລາຍງານ'}
           </h2>
           {reportData && (
             <div className="text-sm text-gray-500">
-              ข้อมูล: {new Date(reportData.period.startDate).toLocaleDateString('th-TH')} - {new Date(reportData.period.endDate).toLocaleDateString('th-TH')}
+              ຂໍ້ມູນ: {new Date(reportData.period.startDate).toLocaleDateString('lo-LA')} - {new Date(reportData.period.endDate).toLocaleDateString('lo-LA')}
             </div>
           )}
         </div>
