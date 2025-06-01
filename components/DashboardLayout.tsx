@@ -1,4 +1,4 @@
-// components/DashboardLayout.tsx - แก้ไข URL ให้ถูกต้อง
+// components/DashboardLayout.tsx - อัปเดตเพิ่มเมนู Reports
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,7 +13,9 @@ import {
   FiLogOut, 
   FiMenu, 
   FiX,
-  FiUser
+  FiUser,
+  FiFileText,
+  FiPieChart  // เพิ่ม icon สำหรับ Reports
 } from 'react-icons/fi';
 import { TbBus } from "react-icons/tb";
 
@@ -53,6 +55,14 @@ const menuItems: MenuItem[] = [
     icon: FiUsers,
     roles: ['admin', 'staff'],
     description: 'ຄົນຂັບ, ພະນັກງານ, Admin'
+  },
+  // เพิ่มเมนู Reports ใหม่
+  {
+    name: 'ລາຍງານ',
+    href: '/dashboard/reports',
+    icon: FiPieChart,
+    roles: ['admin', 'staff', 'station'],
+    description: 'ລາຍງານແລະສະຖິຕິ'
   },
 ];
 
@@ -142,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             // แก้ไข logic การตรวจสอบ active state
             const isActive = pathname === item.href || 
               (item.href !== '/dashboard' && 
-               item.href !== '/dashboard/tickets' && // เพิ่ม exception สำหรับ tickets
+               item.href !== '/dashboard/tickets' && 
                pathname.startsWith(item.href));
             
             return (
