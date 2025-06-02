@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
-import { FiCalendar, FiDownload, FiRefreshCw, FiPrinter } from 'react-icons/fi';
 
 // Import components
 import ReportTypeSelector from './components/ReportTypeSelector';
@@ -67,27 +66,42 @@ export default function ReportsPage() {
             break;
             
           case 'thisMonth':
-            // แก้ไขการคำนวณเดือนนี้ให้ถูกต้อง
-            const currentYear = today.getFullYear();
-            const currentMonth = today.getMonth(); // 0-11
-            
-            // วันที่ 1 ของเดือนปัจจุบัน
-            const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-            
-            // วันนี้ในเดือนปัจจุบัน
-            const todayInCurrentMonth = new Date(currentYear, currentMonth, today.getDate());
-            
-            actualStartDate = firstDayOfMonth.toISOString().split('T')[0];
-            actualEndDate = todayInCurrentMonth.toISOString().split('T')[0];
-            
-            // Debug log
-            console.log('ເດືອນນີ້ Calculation:', {
-              currentMonth: currentMonth + 1,
-              currentYear,
-              firstDay: actualStartDate,
-              lastDay: actualEndDate
-            });
-            break;
+  // แก้ไขให้ได้วันที่ 1 ของเดือนปัจจุบันจริงๆ
+  const today = new Date();
+  
+  // ใช้วิธีสร้างวันที่แบบชัดเจน
+  const year = today.getFullYear();
+  const month = today.getMonth(); // 0-11 (0=มกราคม, 5=มิถุนายน)
+  const todayDate = today.getDate();
+  
+  // สร้างวันที่ 1 ของเดือนปัจจุบัน (ใช้ UTC เพื่อหลีกเลี่ยงปัญหา timezone)
+  const startOfMonth = new Date(Date.UTC(year, month, 1));
+  
+  // สร้างวันที่ปัจจุบัน
+  const endOfPeriod = new Date(Date.UTC(year, month, todayDate));
+  
+  // แปลงเป็นรูปแบบ YYYY-MM-DD
+  actualStartDate = startOfMonth.getUTCFullYear() + '-' + 
+                   String(startOfMonth.getUTCMonth() + 1).padStart(2, '0') + '-' + 
+                   String(startOfMonth.getUTCDate()).padStart(2, '0');
+                   
+  actualEndDate = endOfPeriod.getUTCFullYear() + '-' + 
+                 String(endOfPeriod.getUTCMonth() + 1).padStart(2, '0') + '-' + 
+                 String(endOfPeriod.getUTCDate()).padStart(2, '0');
+  
+  // Debug log เพื่อตรวจสอบ
+  console.log('ເດືອນນີ້ Fixed Calculation:', {
+    today: today.toDateString(),
+    year: year,
+    month: month + 1, // แสดงเป็น 1-12
+    todayDate: todayDate,
+    calculatedStartDate: actualStartDate,
+    calculatedEndDate: actualEndDate,
+    startOfMonthUTC: startOfMonth.toISOString(),
+    endOfPeriodUTC: endOfPeriod.toISOString()
+  });
+  
+  break;
         }
       }
 
