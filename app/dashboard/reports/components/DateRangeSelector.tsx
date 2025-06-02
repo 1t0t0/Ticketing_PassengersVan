@@ -1,4 +1,4 @@
-// app/dashboard/reports/components/DateRangeSelector.tsx
+// app/dashboard/reports/components/DateRangeSelector.tsx - Updated with separate PDF and Print functions
 import React from 'react';
 import { FiCalendar, FiRefreshCw, FiDownload, FiPrinter } from 'react-icons/fi';
 
@@ -12,6 +12,7 @@ interface DateRangeSelectorProps {
   onRefresh: () => void;
   loading: boolean;
   onExportPDF: () => void;
+  onPrintReport: () => void;  // เพิ่ม prop ใหม่สำหรับ print
   reportData: any;
 }
 
@@ -25,6 +26,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
   onRefresh,
   loading,
   onExportPDF,
+  onPrintReport,  // รับ prop ใหม่
   reportData
 }) => {
   const timeRanges = [
@@ -45,24 +47,29 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
         <div className="flex gap-2">
           <button
             onClick={onRefresh}
-            className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+            className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm transition-colors"
             disabled={loading}
+            title="ອັບເດດຂໍ້ມູນ"
           >
             <FiRefreshCw className={`mr-1 ${loading ? 'animate-spin' : ''}`} size={14} />
             ອັບເດດ
           </button>
+          
           <button
             onClick={onExportPDF}
-            className="flex items-center px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm disabled:opacity-50"
+            className="flex items-center px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm disabled:opacity-50 transition-colors"
             disabled={!reportData || loading}
+            title="ດາວໂຫຼດເປັນໄຟລ໌ PDF"
           >
             <FiDownload className="mr-1" size={14} />
             PDF
           </button>
+          
           <button
-            onClick={() => window.print()}
-            className="flex items-center px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 text-sm disabled:opacity-50"
+            onClick={onPrintReport}
+            className="flex items-center px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 text-sm disabled:opacity-50 transition-colors"
             disabled={!reportData || loading}
+            title="ພິມບົດລາຍງານ"
           >
             <FiPrinter className="mr-1" size={14} />
             ພິມ
@@ -75,10 +82,10 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
           <button
             key={range.value}
             onClick={() => onPeriodChange(range.value)}
-            className={`px-3 py-2 rounded-lg border text-sm ${
+            className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
               selectedPeriod === range.value
                 ? 'border-blue-500 bg-blue-500 text-white'
-                : 'border-gray-300 hover:border-blue-400'
+                : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
             }`}
           >
             {range.label}
@@ -94,7 +101,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
               type="date"
               value={startDate}
               onChange={(e) => onStartDateChange(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <div>
@@ -103,7 +110,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
               type="date"
               value={endDate}
               onChange={(e) => onEndDateChange(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
         </div>

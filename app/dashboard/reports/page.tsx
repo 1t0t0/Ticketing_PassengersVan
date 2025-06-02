@@ -1,4 +1,4 @@
-// app/dashboard/reports/page.tsx - Main Reports Page (Fixed Date Calculation)
+// app/dashboard/reports/page.tsx - Updated with separate PDF and Print functions
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,7 +10,7 @@ import NeoCard from '@/components/ui/NotionCard';
 import ReportTypeSelector from './components/ReportTypeSelector';
 import DateRangeSelector from './components/DateRangeSelector';
 import ReportContent from './components/ReportContent';
-import { exportToPDF } from './utils/exportUtils';
+import { exportToPDF, printReport } from './utils/exportUtils';
 
 interface ReportData {
   type: string;
@@ -66,42 +66,30 @@ export default function ReportsPage() {
             break;
             
           case 'thisMonth':
-  // แก้ไขให้ได้วันที่ 1 ของเดือนปัจจุบันจริงๆ
-  const today = new Date();
-  
-  // ใช้วิธีสร้างวันที่แบบชัดเจน
-  const year = today.getFullYear();
-  const month = today.getMonth(); // 0-11 (0=มกราคม, 5=มิถุนายน)
-  const todayDate = today.getDate();
-  
-  // สร้างวันที่ 1 ของเดือนปัจจุบัน (ใช้ UTC เพื่อหลีกเลี่ยงปัญหา timezone)
-  const startOfMonth = new Date(Date.UTC(year, month, 1));
-  
-  // สร้างวันที่ปัจจุบัน
-  const endOfPeriod = new Date(Date.UTC(year, month, todayDate));
-  
-  // แปลงเป็นรูปแบบ YYYY-MM-DD
-  actualStartDate = startOfMonth.getUTCFullYear() + '-' + 
-                   String(startOfMonth.getUTCMonth() + 1).padStart(2, '0') + '-' + 
-                   String(startOfMonth.getUTCDate()).padStart(2, '0');
-                   
-  actualEndDate = endOfPeriod.getUTCFullYear() + '-' + 
-                 String(endOfPeriod.getUTCMonth() + 1).padStart(2, '0') + '-' + 
-                 String(endOfPeriod.getUTCDate()).padStart(2, '0');
-  
-  // Debug log เพื่อตรวจสอบ
-  console.log('ເດືອນນີ້ Fixed Calculation:', {
-    today: today.toDateString(),
-    year: year,
-    month: month + 1, // แสดงเป็น 1-12
-    todayDate: todayDate,
-    calculatedStartDate: actualStartDate,
-    calculatedEndDate: actualEndDate,
-    startOfMonthUTC: startOfMonth.toISOString(),
-    endOfPeriodUTC: endOfPeriod.toISOString()
-  });
-  
-  break;
+            // แก้ไขให้ได้วันที่ 1 ของเดือนปัจจุบันจริงๆ
+            const todayDate = new Date();
+            
+            // ใช้วิธีสร้างวันที่แบบชัดเจน
+            const year = todayDate.getFullYear();
+            const month = todayDate.getMonth(); // 0-11 (0=มกราคม, 5=มิถุนายน)
+            const todayDateNum = todayDate.getDate();
+            
+            // สร้างวันที่ 1 ของเดือนปัจจุบัน (ใช้ UTC เพื่อหลีกเลี่ยงปัญหา timezone)
+            const startOfMonth = new Date(Date.UTC(year, month, 1));
+            
+            // สร้างวันที่ปัจจุบัน
+            const endOfPeriod = new Date(Date.UTC(year, month, todayDateNum));
+            
+            // แปลงเป็นรูปแบบ YYYY-MM-DD
+            actualStartDate = startOfMonth.getUTCFullYear() + '-' + 
+                             String(startOfMonth.getUTCMonth() + 1).padStart(2, '0') + '-' + 
+                             String(startOfMonth.getUTCDate()).padStart(2, '0');
+                             
+            actualEndDate = endOfPeriod.getUTCFullYear() + '-' + 
+                           String(endOfPeriod.getUTCMonth() + 1).padStart(2, '0') + '-' + 
+                           String(endOfPeriod.getUTCDate()).padStart(2, '0');
+            
+            break;
         }
       }
 
@@ -123,11 +111,21 @@ export default function ReportsPage() {
     }
   };
 
+  // ฟังก์ชันสำหรับดาวน์โหลด PDF จริง
   const handleExportPDF = () => {
     if (reportData) {
       exportToPDF(reportData, selectedReport);
     } else {
-      alert('ບໍ່ມີຂໍ້ມູນບົດລາຍງານສຳລັບສົ່ງອອກ');
+      alert('ບໍ່ມີຂໍ້ມູນບົດລາຍງານສຳລັບສົ່ງອອກ PDF');
+    }
+  };
+
+  // ฟังก์ชันสำหรับเปิด Print Dialog แบบ ticket sales
+  const handlePrintReport = () => {
+    if (reportData) {
+      printReport(reportData, selectedReport);
+    } else {
+      alert('ບໍ່ມີຂໍ້ມູນບົດລາຍງານສຳລັບພິມ');
     }
   };
 
@@ -163,6 +161,7 @@ export default function ReportsPage() {
           onRefresh={fetchReport}
           loading={loading}
           onExportPDF={handleExportPDF}
+          onPrintReport={handlePrintReport}
           reportData={reportData}
         />
       </NeoCard>

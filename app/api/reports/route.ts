@@ -1,10 +1,9 @@
-// app/api/reports/route.ts - แก้ไขให้สมบูรณ์
+// app/api/reports/route.ts - แก้ไขการคำนวณรายได้ Driver ย้อนหลัง
 
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
 import User from '@/models/User';
-import Income from '@/models/Income';
 import WorkLog from '@/models/WorkLog';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
@@ -103,7 +102,7 @@ async function getSalesReport(startDate: Date, endDate: Date) {
   });
 }
 
-// Driver Report - ใหม่
+// แก้ไข Driver Report - คำนวณรายได้ตามจำนวน driver ที่เข้าทำงานในแต่ละวัน
 async function getDriverReport(startDate: Date, endDate: Date) {
   console.log('Driver Report - Date range:', startDate, 'to', endDate);
   
@@ -114,103 +113,161 @@ async function getDriverReport(startDate: Date, endDate: Date) {
     
     console.log('Total drivers found:', allDrivers.length);
     
-    // 2. คำนวณรายได้รวมจากตั๋วในช่วงวันที่
-    const ticketFilter = { soldAt: { $gte: startDate, $lte: endDate } };
-    const totalRevenueResult = await Ticket.aggregate([
-      { $match: ticketFilter },
-      { $group: { _id: null, total: { $sum: '$price' } } }
-    ]);
+    // 2. สร้าง array ของวันที่ในช่วงที่เลือก
+    const dateArray = [];
+    let currentDate = new Date(startDate);
+    const endDateOnly = new Date(endDate);
     
-    const totalRevenue = totalRevenueResult[0]?.total || 0;
-    const driverShareTotal = Math.round(totalRevenue * 0.85); // 85% สำหรับคนขับทั้งหมด
+    while (currentDate <= endDateOnly) {
+      dateArray.push(currentDate.toISOString().split('T')[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
     
-    console.log('Total revenue:', totalRevenue);
-    console.log('Driver share total (85%):', driverShareTotal);
+    console.log('Date range array:', dateArray);
     
-    // 3. หาคนขับที่เข้าทำงานในช่วงวันที่นี้
-    const dateString = startDate.toISOString().split('T')[0];
-    const endDateString = endDate.toISOString().split('T')[0];
+    // 3. คำนวณรายได้และรายได้ต่อคนสำหรับแต่ละวัน
+    const dailyRevenueAndDrivers = await Promise.all(
+      dateArray.map(async (dateString) => {
+        // ดึงรายได้ของวันนั้น
+        const dayStart = new Date(dateString + 'T00:00:00.000Z');
+        const dayEnd = new Date(dateString + 'T23:59:59.999Z');
+        
+        const ticketRevenueResult = await Ticket.aggregate([
+          {
+            $match: {
+              soldAt: { $gte: dayStart, $lte: dayEnd }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: '$price' },
+              ticketCount: { $sum: 1 }
+            }
+          }
+        ]);
+        
+        const dayRevenue = ticketRevenueResult[0]?.totalRevenue || 0;
+        const ticketCount = ticketRevenueResult[0]?.ticketCount || 0;
+        
+        // หาคนขับที่เข้าทำงานในวันนั้น (จาก WorkLog)
+        const workingDriversInDay = await WorkLog.aggregate([
+          {
+            $match: {
+              date: dateString,
+              action: 'check-in'
+            }
+          },
+          {
+            $group: {
+              _id: '$user_id'
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: '_id',
+              foreignField: '_id',
+              as: 'driver'
+            }
+          },
+          {
+            $unwind: '$driver'
+          },
+          {
+            $match: {
+              'driver.role': 'driver'
+            }
+          },
+          {
+            $project: {
+              driverId: '$_id',
+              name: '$driver.name',
+              employeeId: '$driver.employeeId'
+            }
+          }
+        ]);
+        
+        const workingDriversCount = workingDriversInDay.length;
+        const driverShareTotal = Math.round(dayRevenue * 0.85); // 85% สำหรับคนขับ
+        const revenuePerDriver = workingDriversCount > 0 
+          ? Math.round(driverShareTotal / workingDriversCount) 
+          : 0;
+        
+        console.log(`Date ${dateString}: Revenue=${dayRevenue}, Drivers=${workingDriversCount}, PerDriver=${revenuePerDriver}`);
+        
+        return {
+          date: dateString,
+          totalRevenue: dayRevenue,
+          ticketCount: ticketCount,
+          workingDrivers: workingDriversInDay,
+          workingDriversCount: workingDriversCount,
+          driverShareTotal: driverShareTotal,
+          revenuePerDriver: revenuePerDriver
+        };
+      })
+    );
     
-    // ดึงรายชื่อคนขับที่มี work log ในช่วงนี้
-    const workingDriversResult = await WorkLog.aggregate([
-      {
-        $match: {
-          date: { $gte: dateString, $lte: endDateString },
-          action: 'check-in' // เฉพาะการ check-in
-        }
-      },
-      {
-        $group: {
-          _id: '$user_id',
-          checkInDays: { $addToSet: '$date' }, // วันที่ check-in (unique)
-          totalCheckIns: { $sum: 1 }
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'driver'
-        }
-      },
-      {
-        $unwind: '$driver'
-      },
-      {
-        $match: {
-          'driver.role': 'driver' // ให้แน่ใจว่าเป็นคนขับ
-        }
-      }
-    ]);
+    // 4. รวมข้อมูลและคำนวณรายได้รวมต่อคนขับ
+    const driverIncomeMap = new Map();
+    let totalRevenue = 0;
+    let totalWorkDays = 0;
+    let totalWorkingDriversInPeriod = new Set();
     
-    const workingDriverIds = workingDriversResult.map(item => item._id.toString());
-    const workingDriversCount = workingDriversResult.length;
-    
-    console.log('Working drivers count:', workingDriversCount);
-    
-    // 4. คำนวณรายรับต่อคนขับ
-    const revenuePerDriver = workingDriversCount > 0 
-      ? Math.round(driverShareTotal / workingDriversCount) 
-      : 0;
-    
-    console.log('Revenue per driver:', revenuePerDriver);
-    
-    // 5. สร้างข้อมูลคนขับแต่ละคน
-    const driverStats = allDrivers.map(driver => {
-      const isWorking = workingDriverIds.includes(driver._id.toString());
-      const workData = workingDriversResult.find(
-        item => item._id.toString() === driver._id.toString()
-      );
-      
-      return {
+    // เริ่มต้นด้วยคนขับทั้งหมด
+    allDrivers.forEach(driver => {
+      driverIncomeMap.set(driver._id.toString(), {
         id: driver._id,
         name: driver.name,
         employeeId: driver.employeeId,
         checkInStatus: driver.checkInStatus,
-        workDays: workData ? workData.checkInDays.length : 0, // จำนวนวันที่ทำงาน
-        totalIncome: isWorking ? revenuePerDriver : 0, // รายรับเฉพาะคนที่ทำงาน
-        performance: isWorking ? 'Active' : 'Inactive'
-      };
+        workDays: 0,
+        totalIncome: 0,
+        performance: 'Inactive'
+      });
     });
     
-    // 6. เรียงลำดับตาม totalIncome สูงสุดก่อน
-    driverStats.sort((a, b) => b.totalIncome - a.totalIncome);
+    // คำนวณรายได้จากแต่ละวัน
+    dailyRevenueAndDrivers.forEach(dayData => {
+      totalRevenue += dayData.totalRevenue;
+      
+      if (dayData.workingDriversCount > 0) {
+        totalWorkDays += dayData.workingDriversCount; // นับจำนวนวัน-คน
+        
+        dayData.workingDrivers.forEach(driver => {
+          const driverId = driver.driverId.toString();
+          totalWorkingDriversInPeriod.add(driverId);
+          
+          if (driverIncomeMap.has(driverId)) {
+            const existing = driverIncomeMap.get(driverId);
+            existing.workDays += 1;
+            existing.totalIncome += dayData.revenuePerDriver;
+            existing.performance = 'Active';
+            driverIncomeMap.set(driverId, existing);
+          }
+        });
+      }
+    });
     
-    // 7. คำนวณสถิติรวม
-    const totalWorkDays = workingDriversResult.reduce(
-      (sum, item) => sum + item.checkInDays.length, 
-      0
-    );
+    // 5. แปลงเป็น array และเรียงลำดับ
+    const driverStats = Array.from(driverIncomeMap.values()).sort((a, b) => b.totalIncome - a.totalIncome);
+    
+    // 6. คำนวณสถิติรวม
+    const totalDrivenShareForPeriod = Math.round(totalRevenue * 0.85);
+    const averageRevenuePerDriver = totalWorkingDriversInPeriod.size > 0 
+      ? Math.round(totalDrivenShareForPeriod / totalWorkingDriversInPeriod.size)
+      : 0;
     
     const summary = {
       totalDrivers: allDrivers.length,
       activeDrivers: allDrivers.filter(d => d.checkInStatus === 'checked-in').length,
-      workingDriversInPeriod: workingDriversCount, // เพิ่มข้อมูลนี้
+      workingDriversInPeriod: totalWorkingDriversInPeriod.size,
       totalWorkDays: totalWorkDays,
-      totalIncome: driverShareTotal,
-      revenuePerDriver: revenuePerDriver
+      totalIncome: totalDrivenShareForPeriod,
+      revenuePerDriver: averageRevenuePerDriver
     };
+    
+    console.log('Final summary:', summary);
     
     return NextResponse.json({
       type: 'drivers',
@@ -220,8 +277,9 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       metadata: {
         totalRevenue: totalRevenue,
         driverSharePercentage: 85,
-        workingDriversCount: workingDriversCount,
-        revenuePerDriver: revenuePerDriver
+        workingDriversCount: totalWorkingDriversInPeriod.size,
+        revenuePerDriver: averageRevenuePerDriver,
+        dailyBreakdown: dailyRevenueAndDrivers // เพิ่มข้อมูลรายละเอียดรายวัน
       }
     });
     
@@ -460,4 +518,3 @@ async function getSummaryReport(startDate: Date, endDate: Date) {
     });
   }
 }
-
