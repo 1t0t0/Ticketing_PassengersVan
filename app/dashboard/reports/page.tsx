@@ -290,68 +290,132 @@ export default function ReportsPage() {
     );
   };
 
-  const renderDriverReport = () => {
-    if (!reportData?.drivers) return null;
+ // app/dashboard/reports/page.tsx - แก้ไขส่วน renderDriverReport เท่านั้น
+// แทนที่ฟังก์ชัน renderDriverReport ด้วยโค้ดนี้
 
+const renderDriverReport = () => {
+  // ตรวจสอบว่ามีข้อมูลและเป็น array หรือไม่
+  if (!reportData || !reportData.drivers || !Array.isArray(reportData.drivers)) {
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-            <p className="text-xl font-bold text-blue-600">{reportData.summary?.totalDrivers || 0}</p>
-            <p className="text-sm text-blue-600">ຄົນຂັບທັງໝົດ</p>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-            <p className="text-xl font-bold text-green-600">{reportData.summary?.activeDrivers || 0}</p>
-            <p className="text-sm text-green-600">ເຂົ້າວຽກມື້ນີ້</p>
-          </div>
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
-            <p className="text-xl font-bold text-purple-600">{reportData.summary?.totalWorkDays || 0}</p>
-            <p className="text-sm text-purple-600">ວັນທຳວຽກ</p>
-          </div>
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
-            <p className="text-xl font-bold text-orange-600">₭{reportData.summary?.totalIncome?.toLocaleString() || 0}</p>
-            <p className="text-sm text-orange-600">ລາຍຮັບລວມ</p>
-          </div>
-        </div>
-
-        <NeoCard className="p-4">
-          <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດຄົນຂັບ</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">ຊື່</th>
-                  <th className="text-left p-2">ID</th>
-                  <th className="text-left p-2">ສະຖານະ</th>
-                  <th className="text-right p-2">ລາຍຮັບ</th>
-                  <th className="text-right p-2">ປີ້</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.drivers?.slice(0, 10).map((driver: any, index: number) => (
-                  <tr key={index} className="border-b">
-                    <td className="p-2">{driver.name}</td>
-                    <td className="p-2">{driver.employeeId}</td>
-                    <td className="p-2">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        driver.checkInStatus === 'checked-in' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {driver.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
-                      </span>
-                    </td>
-                    <td className="p-2 text-right">₭{driver.totalIncome?.toLocaleString() || 0}</td>
-                    <td className="p-2 text-right">{driver.ticketCount || 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </NeoCard>
+      <div className="text-center py-8">
+        <p className="text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບ</p>
       </div>
     );
-  };
+  }
+
+  const summary = reportData.summary || {};
+  const metadata = reportData.metadata || {};
+  const drivers = reportData.drivers || [];
+
+  return (
+    <div className="space-y-4">
+      {/* สถิติภาพรวม */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+          <p className="text-xl font-bold text-blue-600">{summary.totalDrivers || 0}</p>
+          <p className="text-sm text-blue-600">ຄົນຂັບທັງໝົດ</p>
+        </div>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+          <p className="text-xl font-bold text-green-600">{summary.workingDriversInPeriod || 0}</p>
+          <p className="text-sm text-green-600">ຄົນຂັບທີ່ທຳງານ</p>
+        </div>
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+          <p className="text-xl font-bold text-purple-600">{summary.totalWorkDays || 0}</p>
+          <p className="text-sm text-purple-600">ວັນທຳວຽກລວມ</p>
+        </div>
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
+          <p className="text-xl font-bold text-orange-600">₭{metadata.revenuePerDriver?.toLocaleString() || 0}</p>
+          <p className="text-sm text-orange-600">ລາຍຮັບຕໍ່ຄົນ</p>
+        </div>
+      </div>
+
+      {/* ข้อมูลการคำนวณ */}
+      <NeoCard className="p-4">
+        <h3 className="text-lg font-semibold mb-3">ການຄິດໄລ່ລາຍຮັບ</h3>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="text-center">
+              <p className="font-bold text-blue-600">ລາຍຮັບລວມ</p>
+              <p className="text-xl font-bold">₭{metadata.totalRevenue?.toLocaleString() || 0}</p>
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-green-600">ສ່ວນແບ່ງຄົນຂັບ (85%)</p>
+              <p className="text-xl font-bold">₭{summary.totalIncome?.toLocaleString() || 0}</p>
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-orange-600">ຄົນຂັບທີ່ທຳງານ</p>
+              <p className="text-xl font-bold">{metadata.workingDriversCount || 0} ຄົນ</p>
+            </div>
+          </div>
+          <div className="mt-3 text-center text-sm text-gray-600">
+            <p>ລາຍຮັບຕໍ່ຄົນ = ສ່ວນແບ່ງຄົນຂັບ ÷ ຈຳນວນຄົນຂັບທີ່ທຳງານ</p>
+            <p className="font-bold text-lg text-purple-600">
+              ₭{metadata.revenuePerDriver?.toLocaleString() || 0} ຕໍ່ຄົນ
+            </p>
+          </div>
+        </div>
+      </NeoCard>
+
+      {/* ตารางรายละเอียดคนขับ - ลบคอลัมน์ปี้ */}
+      <NeoCard className="p-4">
+        <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດຄົນຂັບ</h3>
+        
+        {drivers.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບໃນຊ່ວງເວລານີ້</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">ຊື່</th>
+                    <th className="text-left p-2">ລະຫັດ</th>
+                    <th className="text-center p-2">ສະຖານະ</th>
+                    <th className="text-center p-2">ວັນທຳງານ</th>
+                    <th className="text-right p-2">ລາຍຮັບ (KIP)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drivers.slice(0, 20).map((driver: any, index: number) => (
+                    <tr key={driver.id || index} className="border-b">
+                      <td className="p-2 font-medium">{driver.name || 'N/A'}</td>
+                      <td className="p-2 text-gray-600">{driver.employeeId || 'N/A'}</td>
+                      <td className="p-2 text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          driver.performance === 'Active' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {driver.performance === 'Active' ? 'ເຂົ້າວຽກ' : 'ບໍ່ເຂົ້າວຽກ'}
+                        </span>
+                      </td>
+                      <td className="p-2 text-center">{driver.workDays || 0}</td>
+                      <td className="p-2 text-right">
+                        <span className={`font-bold ${
+                          (driver.totalIncome || 0) > 0 ? 'text-green-600' : 'text-gray-400'
+                        }`}>
+                          ₭{(driver.totalIncome || 0).toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {drivers.length > 20 && (
+              <div className="mt-3 text-center text-sm text-gray-500">
+                ແສດງ 20 ລາຍການແຮກ ຈາກທັງໝົດ {drivers.length} ຄົນ
+              </div>
+            )}
+          </>
+        )}
+      </NeoCard>
+    </div>
+  );
+};
 
   const renderFinancialReport = () => {
     if (!reportData?.breakdown) return null;
