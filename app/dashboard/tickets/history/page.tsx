@@ -1,4 +1,4 @@
-// app/dashboard/tickets/history/page.tsx - Optimized
+// page.tsx - Reduced
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -19,7 +19,7 @@ export default function TicketHistoryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const [editPaymentModal, setEditPaymentModal] = useState({
+  const [editModal, setEditModal] = useState({
     isOpen: false,
     ticketId: '',
     ticketNumber: '',
@@ -40,18 +40,18 @@ export default function TicketHistoryPage() {
   
   useEffect(() => {
     const page = searchParams.get('page');
-    const pmMethod = searchParams.get('paymentMethod');
+    const method = searchParams.get('paymentMethod');
     const date = searchParams.get('date');
     
     if (page) setFilters(prev => ({ ...prev, page: parseInt(page) }));
-    if (pmMethod && ['cash', 'qr'].includes(pmMethod)) {
-      setFilters(prev => ({ ...prev, paymentMethod: pmMethod as 'cash' | 'qr' }));
+    if (method && ['cash', 'qr'].includes(method)) {
+      setFilters(prev => ({ ...prev, paymentMethod: method as 'cash' | 'qr' }));
     }
     if (date) setFilters(prev => ({ ...prev, startDate: date }));
   }, [searchParams, setFilters]);
 
   const handleEditPaymentMethod = (ticketId: string, ticketNumber: string, currentMethod: string) => {
-    setEditPaymentModal({ isOpen: true, ticketId, ticketNumber, currentMethod });
+    setEditModal({ isOpen: true, ticketId, ticketNumber, currentMethod });
   };
   
   const handleSavePaymentMethod = async (ticketId: string, newMethod: string) => {
@@ -60,72 +60,55 @@ export default function TicketHistoryPage() {
       notificationService.success('ອັບເດດວິທີການຊຳລະເງິນສຳເລັດແລ້ວ');
       refreshTickets();
     } catch (error: any) {
-      console.error('Error updating payment method:', error);
-      notificationService.error(error.message || 'ເກີດຂໍ້ຜິດພາດໃນການອັບເດດວິທີການຊຳລະເງິນ');
+      notificationService.error(error.message || 'ເກີດຂໍ້ຜິດພາດ');
     }
   };
-  
-  const closeEditModal = () => {
-    setEditPaymentModal(prev => ({ ...prev, isOpen: false }));
-  };
 
-  const PaymentFilterButton = ({ method, label, colorClass, isActive }: {
-    method: string;
-    label: string;
-    colorClass: string;
-    isActive: boolean;
-  }) => (
-    <button 
-      className={`px-4 py-2 rounded-md transition-colors ${
-        isActive 
-          ? 'bg-blue-500 text-white' 
-          : `bg-${colorClass}-50 text-${colorClass}-700 border border-${colorClass}-300 hover:bg-${colorClass}-100`
-      }`}
-      onClick={() => handlePaymentMethodChange(method as any)}
-    >
-      {label}
-    </button>
-  );
+  const paymentButtons = [
+    { method: 'all', label: 'ທັງໝົດ', color: 'gray' },
+    { method: 'cash', label: 'ເງິນສົດ', color: 'blue' },
+    { method: 'qr', label: 'ເງິນໂອນ', color: 'green' }
+  ];
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">ລາຍການປີ້</h1>
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">🎫 ລາຍການປີ້</h1>
+        <p className="text-gray-600">ຈັດການແລະເບິ່ງປະຫວັດການຂາຍປີ້ລົດໂດຍສານ</p>
+      </div>
       
-      <TicketFilters 
-        filters={filters}
-        onSearch={handleSearch}
-        onClear={handleClear}
-        onFilterChange={setFilters}
-      />
+      <NeoCard className="p-4 mb-4">
+        <TicketFilters 
+          filters={filters}
+          onSearch={handleSearch}
+          onClear={handleClear}
+          onFilterChange={setFilters}
+        />
+      </NeoCard>
       
-      <NeoCard className="p-6 mt-6">
+      <NeoCard className="p-4">
         <div className="flex justify-between items-center mb-4">
-          <div className="font-medium text-gray-600">ຮູບແບບການຊຳລະ:</div>
+          <span className="font-medium text-gray-600">ຮູບແບບການຊຳລະ:</span>
           
-          <div className="flex items-center space-x-2">
-            <PaymentFilterButton
-              method="all"
-              label="ທັງໝົດ"
-              colorClass="gray"
-              isActive={filters.paymentMethod === 'all'}
-            />
-            <PaymentFilterButton
-              method="cash"
-              label="ເງິນສົດ"
-              colorClass="blue"
-              isActive={filters.paymentMethod === 'cash'}
-            />
-            <PaymentFilterButton
-              method="qr"
-              label="ເງິນໂອນ"
-              colorClass="green"
-              isActive={filters.paymentMethod === 'qr'}
-            />
+          <div className="flex gap-2">
+            {paymentButtons.map(({ method, label, color }) => (
+              <button 
+                key={method}
+                className={`px-4 py-2 rounded transition ${
+                  filters.paymentMethod === method 
+                    ? 'bg-blue-500 text-white' 
+                    : `bg-${color}-50 text-${color}-700 border hover:bg-${color}-100`
+                }`}
+                onClick={() => handlePaymentMethodChange(method as any)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
           
-          <div className='text-sm text-gray-500'>
+          <span className='text-sm text-gray-500'>
             ທັງໝົດ {pagination?.totalItems || 0} ລາຍການ
-          </div>
+          </span>
         </div>
         
         <TicketTable 
@@ -136,13 +119,11 @@ export default function TicketHistoryPage() {
         />
         
         {pagination && pagination.totalPages > 1 && (
-          <div className="mt-4 flex justify-center">
-            <Pagination 
-              currentPage={pagination.currentPage}
-              totalPages={pagination.totalPages}
-              onPageChange={handlePageChange}
-            />
-          </div>
+          <Pagination 
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+          />
         )}
       </NeoCard>
       
@@ -154,91 +135,59 @@ export default function TicketHistoryPage() {
       />
       
       <EditPaymentMethodModal 
-        isOpen={editPaymentModal.isOpen}
-        ticketId={editPaymentModal.ticketId}
-        ticketNumber={editPaymentModal.ticketNumber}
-        currentMethod={editPaymentModal.currentMethod}
-        onClose={closeEditModal}
+        isOpen={editModal.isOpen}
+        ticketId={editModal.ticketId}
+        ticketNumber={editModal.ticketNumber}
+        currentMethod={editModal.currentMethod}
+        onClose={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
         onSave={handleSavePaymentMethod}
       />
     </div>
   );
 }
 
-interface PaginationProps {
+// Simplified Pagination Component
+function Pagination({ currentPage, totalPages, onPageChange }: {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-}
+}) {
+  const pages = [];
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, currentPage + 2);
 
-function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
-  const renderPageNumbers = () => {
-    const buttonsToShow = 2;
-    const pageNumbers = [];
-    const startPage = Math.max(1, currentPage - buttonsToShow);
-    const endPage = Math.min(totalPages, currentPage + buttonsToShow);
-
-    if (startPage > 1) {
-      pageNumbers.push(
-        <button key={1} onClick={() => onPageChange(1)} className="px-1 py-1 text-sm rounded-md">
-          1
-        </button>
-      );
-      if (startPage > 2) {
-        pageNumbers.push(<span key="ellipsis1" className="px-1 py-1 text-sm">...</span>);
-      }
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pageNumbers.push(
-        <button
-          key={i}
-          onClick={() => onPageChange(i)}
-          className={`${
-            i === currentPage ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          } px-3 py-1 text-sm rounded-md`}
-        >
-          {i}
-        </button>
-      );
-    }
-
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        pageNumbers.push(<span key="ellipsis2" className="px-1 py-1 text-sm">...</span>);
-      }
-      pageNumbers.push(
-        <button key={totalPages} onClick={() => onPageChange(totalPages)} className="px-1 py-1 text-sm rounded-md">
-          {totalPages}
-        </button>
-      );
-    }
-
-    return pageNumbers;
-  };
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
 
   return (
-    <div className="flex items-center justify-center space-x-1">
+    <div className="flex items-center justify-center gap-1 mt-4">
       <button
-        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+        onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className={`${
-          currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-        } px-2 py-1 text-sm rounded-md`}
+        className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
       >
-        &laquo;
+        ‹
       </button>
       
-      {renderPageNumbers()}
+      {pages.map(page => (
+        <button
+          key={page}
+          onClick={() => onPageChange(page)}
+          className={`px-3 py-1 rounded ${
+            page === currentPage ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300'
+          }`}
+        >
+          {page}
+        </button>
+      ))}
       
       <button
-        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+        onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className={`${
-          currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-        } px-2 py-1 text-sm rounded-md`}
+        className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
       >
-        &raquo;
+        ›
       </button>
     </div>
   );

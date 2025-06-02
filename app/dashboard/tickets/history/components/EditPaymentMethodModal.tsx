@@ -1,4 +1,4 @@
-// app/dashboard/tickets/history/components/EditPaymentMethodModal.tsx - Optimized
+// EditPaymentMethodModal.tsx - Reduced
 import React, { useState } from 'react';
 import { FiCreditCard, FiCheckCircle, FiX } from 'react-icons/fi';
 import { RiMoneyDollarCircleLine, RiQrCodeLine } from 'react-icons/ri';
@@ -15,8 +15,8 @@ interface EditPaymentMethodModalProps {
 const EditPaymentMethodModal: React.FC<EditPaymentMethodModalProps> = ({
   isOpen, ticketId, ticketNumber, currentMethod, onClose, onSave
 }) => {
-  const [paymentMethod, setPaymentMethod] = useState<string>(currentMethod);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [paymentMethod, setPaymentMethod] = useState(currentMethod);
+  const [loading, setLoading] = useState(false);
   
   if (!isOpen) return null;
   
@@ -26,86 +26,64 @@ const EditPaymentMethodModal: React.FC<EditPaymentMethodModalProps> = ({
       await onSave(ticketId, paymentMethod);
       onClose();
     } catch (error) {
-      console.error('Error updating payment method:', error);
+      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
   };
   
-  const PaymentOption = ({ value, icon, label, description, colorClass }: {
-    value: string;
-    icon: React.ReactNode;
-    label: string;
-    description: string;
-    colorClass: string;
-  }) => (
-    <div 
-      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-        paymentMethod === value 
-          ? `border-${colorClass}-500 bg-${colorClass}-50 shadow-md` 
-          : `border-gray-200 hover:border-${colorClass}-200 hover:bg-${colorClass}-50`
-      }`}
-      onClick={() => setPaymentMethod(value)}
-    >
-      <div className="flex justify-between items-center mb-2">
-        <div className={paymentMethod === value ? `text-${colorClass}-500` : 'text-gray-400'}>
-          {icon}
-        </div>
-        {paymentMethod === value && <FiCheckCircle className={`text-${colorClass}-500`} />}
-      </div>
-      <p className={`font-medium ${paymentMethod === value ? `text-${colorClass}-700` : 'text-gray-700'}`}>
-        {label}
-      </p>
-      <p className="text-xs text-gray-500 mt-1">{description}</p>
-    </div>
-  );
+  const options = [
+    { value: 'cash', icon: <RiMoneyDollarCircleLine size={24} />, label: 'ເງິນສົດ' },
+    { value: 'qr', icon: <RiQrCodeLine size={24} />, label: 'ເງິນໂອນ' }
+  ];
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
-        <div className="bg-blue-500 text-white p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold flex items-center">
-              <FiCreditCard className="mr-2" />
-              ແກ້ໄຂວິທີການຊຳລະເງິນ
-            </h3>
-            <button onClick={onClose} className="p-1 hover:bg-blue-600 rounded-full">
-              <FiX size={20} />
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4">
+        <div className="bg-blue-500 text-white p-4 flex justify-between items-center">
+          <h3 className="font-bold flex items-center gap-2">
+            <FiCreditCard />
+            ແກ້ໄຂວິທີການຊຳລະເງິນ
+          </h3>
+          <button onClick={onClose} className="p-1 hover:bg-blue-600 rounded">
+            <FiX />
+          </button>
         </div>
         
-        <div className="p-6">
+        <div className="p-4">
           <div className="mb-4">
-            <p className="text-gray-600 mb-1 text-sm">ປີ້ເລກທີ</p>
-            <p className="text-lg font-medium">{ticketNumber}</p>
+            <p className="text-sm text-gray-600">ປີ້ເລກທີ</p>
+            <p className="font-medium">{ticketNumber}</p>
           </div>
           
-          <div className="mb-6">
-            <p className="text-gray-600 mb-3 font-medium">ເລືອກວິທີການຊຳລະ</p>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <PaymentOption
-                value="cash"
-                icon={<RiMoneyDollarCircleLine size={28} />}
-                label="ເງິນສົດ"
-                description="ຊຳລະດ້ວຍເງິນສົດ"
-                colorClass="blue"
-              />
-              
-              <PaymentOption
-                value="qr"
-                icon={<RiQrCodeLine size={28} />}
-                label="ເງິນໂອນ"
-                description="ຊຳລະຜ່ານອອນລາຍ"
-                colorClass="green"
-              />
+          <div className="mb-4">
+            <p className="text-sm font-medium mb-2">ເລືອກວິທີການຊຳລະ</p>
+            <div className="grid grid-cols-2 gap-2">
+              {options.map(({ value, icon, label }) => (
+                <div
+                  key={value}
+                  className={`border-2 rounded p-3 cursor-pointer transition ${
+                    paymentMethod === value 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-blue-200'
+                  }`}
+                  onClick={() => setPaymentMethod(value)}
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <div className={paymentMethod === value ? 'text-blue-500' : 'text-gray-400'}>
+                      {icon}
+                    </div>
+                    {paymentMethod === value && <FiCheckCircle className="text-blue-500" />}
+                  </div>
+                  <p className="text-sm font-medium">{label}</p>
+                </div>
+              ))}
             </div>
           </div>
           
-          <div className="flex justify-end space-x-3">
+          <div className="flex gap-2">
             <button
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+              className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-medium"
               onClick={onClose}
               disabled={loading}
             >
@@ -113,18 +91,13 @@ const EditPaymentMethodModal: React.FC<EditPaymentMethodModalProps> = ({
             </button>
             
             <button
-              className={`px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium ${
-                loading || paymentMethod === currentMethod ? 'opacity-50 cursor-not-allowed' : ''
+              className={`flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded font-medium ${
+                loading || paymentMethod === currentMethod ? 'opacity-50' : ''
               }`}
               onClick={handleSave}
               disabled={loading || paymentMethod === currentMethod}
             >
-              {loading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                  ກຳລັງບັນທຶກ...
-                </div>
-              ) : 'ບັນທຶກ'}
+              {loading ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກ'}
             </button>
           </div>
         </div>
