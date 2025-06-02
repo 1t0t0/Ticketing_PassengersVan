@@ -1,4 +1,4 @@
-// app/api/reports/route.ts
+// app/api/reports/route.ts - แก้ไขส่วน Financial Report
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
@@ -230,51 +230,211 @@ async function getRouteReport(startDate: Date, endDate: Date) {
   });
 }
 
-// Financial Report
+// Financial Report - ปรับปรุงใหม่
 async function getFinancialReport(startDate: Date, endDate: Date) {
-  const dateString = startDate.toISOString().split('T')[0];
+  console.log('Financial Report - Date range:', startDate, 'to', endDate);
   
-  // Get revenue summary from Income model
-  const revenueSummary = await Income.getDailyRevenueSummary(dateString);
-  
-  const totalRevenue = Object.values(revenueSummary).reduce((sum: number, item: any) => sum + item.totalAmount, 0);
-  
-  return NextResponse.json({
-    type: 'financial',
-    period: { startDate, endDate },
-    summary: {
-      totalRevenue,
-      companyShare: revenueSummary.company.totalAmount,
-      stationShare: revenueSummary.station.totalAmount,
-      driverShare: revenueSummary.driver.totalAmount
-    },
-    breakdown: revenueSummary
-  });
+  try {
+    // ดึงข้อมูลจาก Income model โดยตรง
+    const incomeFilter = {
+      income_date: { $gte: startDate, $lte: endDate }
+    };
+    
+    console.log('Income filter:', incomeFilter);
+    
+    // ดึงข้อมูลรายได้แยกตาม revenue_share_type
+    const revenueBreakdown = await Income.aggregate([
+      { $match: incomeFilter },
+      {
+        $group: {
+          _id: '$revenue_share_type',
+          totalAmount: { $sum: '$income_amount' },
+          transactionCount: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    console.log('Revenue breakdown result:', revenueBreakdown);
+    
+    // จัดรูปแบบข้อมูล
+    const breakdown = {
+      company: { totalAmount: 0, transactionCount: 0 },
+      station: { totalAmount: 0, transactionCount: 0 },
+      driver: { totalAmount: 0, transactionCount: 0 }
+    };
+    
+    // แปลงผลลัพธ์
+    revenueBreakdown.forEach(item => {
+      if (item._id && breakdown[item._id as keyof typeof breakdown]) {
+        breakdown[item._id as keyof typeof breakdown] = {
+          totalAmount: item.totalAmount || 0,
+          transactionCount: item.transactionCount || 0
+        };
+      }
+    });
+    
+    // คำนวณรายได้รวม
+    const totalRevenue = breakdown.company.totalAmount + breakdown.station.totalAmount + breakdown.driver.totalAmount;
+    
+    console.log('Final breakdown:', breakdown);
+    console.log('Total revenue:', totalRevenue);
+    
+    // ถ้าไม่มีข้อมูลจาก Income table ให้ใช้ข้อมูลจาก Tickets
+    if (totalRevenue === 0) {
+      console.log('No income data found, calculating from tickets...');
+      
+      const ticketFilter = { soldAt: { $gte: startDate, $lte: endDate } };
+      const ticketRevenue = await Ticket.aggregate([
+        { $match: ticketFilter },
+        { $group: { _id: null, total: { $sum: '$price' } } }
+      ]);
+      
+      const ticketTotal = ticketRevenue[0]?.total || 0;
+      console.log('Ticket total revenue:', ticketTotal);
+      
+      if (ticketTotal > 0) {
+        // คำนวณตามสัดส่วน 10%, 5%, 85%
+        breakdown.company.totalAmount = Math.round(ticketTotal * 0.10);
+        breakdown.station.totalAmount = Math.round(ticketTotal * 0.05);
+        breakdown.driver.totalAmount = Math.round(ticketTotal * 0.85);
+      }
+    }
+    
+    const finalTotalRevenue = breakdown.company.totalAmount + breakdown.station.totalAmount + breakdown.driver.totalAmount;
+    
+    return NextResponse.json({
+      type: 'financial',
+      period: { startDate, endDate },
+      summary: {
+        totalRevenue: finalTotalRevenue,
+        companyShare: breakdown.company.totalAmount,
+        stationShare: breakdown.station.totalAmount,
+        driverShare: breakdown.driver.totalAmount
+      },
+      breakdown: breakdown
+    });
+    
+  } catch (error) {
+    console.error('Financial Report Error:', error);
+    
+    // Fallback: ใช้ข้อมูลจาก Tickets
+    const dateFilter = { soldAt: { $gte: startDate, $lte: endDate } };
+    const revenueResult = await Ticket.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: null, total: { $sum: '$price' } } }
+    ]);
+    
+    const totalRevenue = revenueResult[0]?.total || 0;
+    
+    const breakdown = {
+      company: { 
+        totalAmount: Math.round(totalRevenue * 0.10), 
+        transactionCount: 0 
+      },
+      station: { 
+        totalAmount: Math.round(totalRevenue * 0.05), 
+        transactionCount: 0 
+      },
+      driver: { 
+        totalAmount: Math.round(totalRevenue * 0.85), 
+        transactionCount: 0 
+      }
+    };
+    
+    return NextResponse.json({
+      type: 'financial',
+      period: { startDate, endDate },
+      summary: {
+        totalRevenue,
+        companyShare: breakdown.company.totalAmount,
+        stationShare: breakdown.station.totalAmount,
+        driverShare: breakdown.driver.totalAmount
+      },
+      breakdown: breakdown
+    });
+  }
 }
 
-// Summary Report (Overview)
+// Summary Report (Overview) - ปรับปรุงใหม่
 async function getSummaryReport(startDate: Date, endDate: Date) {
-  const [salesData, driverData, financialData] = await Promise.all([
-    getSalesReport(startDate, endDate),
-    getDriverReport(startDate, endDate),
-    getFinancialReport(startDate, endDate)
-  ]);
-  
-  const salesJson = await salesData.json();
-  const driverJson = await driverData.json();
-  const financialJson = await financialData.json();
-  
-  return NextResponse.json({
-    type: 'summary',
-    period: { startDate, endDate },
-    sales: salesJson.summary,
-    drivers: driverJson.summary,
-    financial: financialJson.summary,
-    quickStats: {
-      totalTickets: salesJson.summary.totalTickets,
-      totalRevenue: salesJson.summary.totalRevenue,
-      activeDrivers: driverJson.summary.activeDrivers,
-      avgTicketPrice: salesJson.summary.averagePrice
-    }
-  });
+  try {
+    console.log('Summary Report - Date range:', startDate, 'to', endDate);
+    
+    // เรียก API แต่ละประเภทแบบ parallel
+    const [salesResponse, driverResponse, financialResponse] = await Promise.all([
+      getSalesReport(startDate, endDate),
+      getDriverReport(startDate, endDate),
+      getFinancialReport(startDate, endDate)
+    ]);
+    
+    // แปลง Response เป็น JSON
+    const salesData = await salesResponse.json();
+    const driverData = await driverResponse.json();
+    const financialData = await financialResponse.json();
+    
+    console.log('Summary - Sales data:', salesData.summary);
+    console.log('Summary - Driver data:', driverData.summary);
+    console.log('Summary - Financial data:', financialData.summary);
+    
+    return NextResponse.json({
+      type: 'summary',
+      period: { startDate, endDate },
+      sales: salesData.summary,
+      drivers: driverData.summary,
+      financial: financialData.summary,
+      quickStats: {
+        totalTickets: salesData.summary.totalTickets,
+        totalRevenue: salesData.summary.totalRevenue,
+        activeDrivers: driverData.summary.activeDrivers,
+        avgTicketPrice: salesData.summary.averagePrice
+      }
+    });
+    
+  } catch (error) {
+    console.error('Summary Report Error:', error);
+    
+    // Fallback - ดึงข้อมูลพื้นฐานเท่านั้น
+    const dateFilter = { soldAt: { $gte: startDate, $lte: endDate } };
+    
+    const basicStats = await Promise.all([
+      Ticket.countDocuments(dateFilter),
+      Ticket.aggregate([
+        { $match: dateFilter },
+        { $group: { _id: null, total: { $sum: '$price' } } }
+      ]),
+      User.countDocuments({ role: 'driver', checkInStatus: 'checked-in' })
+    ]);
+    
+    const totalTickets = basicStats[0];
+    const totalRevenue = basicStats[1][0]?.total || 0;
+    const activeDrivers = basicStats[2];
+    
+    return NextResponse.json({
+      type: 'summary',
+      period: { startDate, endDate },
+      sales: {
+        totalTickets,
+        totalRevenue,
+        averagePrice: totalTickets > 0 ? Math.round(totalRevenue / totalTickets) : 0
+      },
+      drivers: {
+        totalDrivers: await User.countDocuments({ role: 'driver' }),
+        activeDrivers,
+        totalWorkDays: 0,
+        totalIncome: Math.round(totalRevenue * 0.85)
+      },
+      financial: {
+        totalRevenue,
+        companyShare: Math.round(totalRevenue * 0.10),
+        stationShare: Math.round(totalRevenue * 0.05),
+        driverShare: Math.round(totalRevenue * 0.85)
+      },
+      quickStats: {
+        totalTickets,
+        totalRevenue,
+        activeDrivers,
+        avgTicketPrice: totalTickets > 0 ? Math.round(totalRevenue / totalTickets) : 0
+      }
+    });
+  }
 }
