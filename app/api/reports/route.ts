@@ -1,9 +1,11 @@
-// app/api/reports/route.ts - แก้ไขการคำนวณรายได้ Driver ย้อนหลัง
+// app/api/reports/route.ts - เพิ่มรายงานรถและพนักงาน
 
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
 import User from '@/models/User';
+import Car from '@/models/Car';
+import CarType from '@/models/CarType';
 import WorkLog from '@/models/WorkLog';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
@@ -40,6 +42,10 @@ export async function GET(request: Request) {
         return await getFinancialReport(defaultStart, defaultEnd);
       case 'summary':
         return await getSummaryReport(defaultStart, defaultEnd);
+      case 'vehicles':
+        return await getVehiclesReport(defaultStart, defaultEnd);
+      case 'staff':
+        return await getStaffReport(defaultStart, defaultEnd);
       default:
         return NextResponse.json({ error: 'Invalid report type' }, { status: 400 });
     }
@@ -52,11 +58,222 @@ export async function GET(request: Request) {
   }
 }
 
-// Sales Report
+// เพิ่มฟังก์ชันรายงานรถ
+async function getVehiclesReport(startDate: Date, endDate: Date) {
+  console.log('Vehicles Report - Date range:', startDate, 'to', endDate);
+  
+  try {
+    // ดึงข้อมูลรถทั้งหมด
+    const allCars = await Car.find()
+      .populate('user_id', 'name employeeId checkInStatus')
+      .populate('car_type_id', 'carType_name');
+
+    // ดึงข้อมูลประเภทรถทั้งหมด
+    const allCarTypes = await CarType.find();
+
+    // คำนวณสถิติ
+    const totalCars = allCars.length;
+    const activeCars = allCars.filter(car => 
+      car.user_id && car.user_id.checkInStatus === 'checked-in'
+    ).length;
+    const driversWithCars = allCars.filter(car => car.user_id).length;
+
+    // สรุปประเภทรถ
+    const carTypesStats = allCarTypes.map(type => {
+      const carsOfType = allCars.filter(car => 
+        car.car_type_id && car.car_type_id._id.toString() === type._id.toString()
+      );
+      const activeCarsOfType = carsOfType.filter(car => 
+        car.user_id && car.user_id.checkInStatus === 'checked-in'
+      );
+
+      return {
+        _id: type._id,
+        carType_name: type.carType_name,
+        count: carsOfType.length,
+        activeCars: activeCarsOfType.length
+      };
+    });
+
+    // เตรียมข้อมูลรถสำหรับตาราง (แปลง populate data)
+    const carsData = allCars.map(car => ({
+      _id: car._id,
+      car_id: car.car_id,
+      car_name: car.car_name,
+      car_registration: car.car_registration,
+      car_capacity: car.car_capacity,
+      carType: car.car_type_id ? {
+        carType_name: car.car_type_id.carType_name
+      } : null,
+      user_id: car.user_id ? {
+        name: car.user_id.name,
+        employeeId: car.user_id.employeeId,
+        checkInStatus: car.user_id.checkInStatus
+      } : null
+    }));
+
+    return NextResponse.json({
+      type: 'vehicles',
+      period: { startDate, endDate },
+      summary: {
+        totalCars,
+        activeCars,
+        totalCarTypes: allCarTypes.length,
+        driversWithCars
+      },
+      carTypes: carTypesStats,
+      cars: carsData
+    });
+
+  } catch (error) {
+    console.error('Vehicles Report Error:', error);
+    return NextResponse.json({
+      type: 'vehicles',
+      period: { startDate, endDate },
+      summary: {
+        totalCars: 0,
+        activeCars: 0,
+        totalCarTypes: 0,
+        driversWithCars: 0
+      },
+      carTypes: [],
+      cars: []
+    });
+  }
+}
+
+// เพิ่มฟังก์ชันรายงานพนักงาน
+async function getStaffReport(startDate: Date, endDate: Date) {
+  console.log('Staff Report - Date range:', startDate, 'to', endDate);
+  
+  try {
+    const dateFilter = { soldAt: { $gte: startDate, $lte: endDate } };
+    
+    // ดึงข้อมูลพนักงานทั้งหมด (staff + admin)
+    const allStaff = await User.find({ 
+      role: { $in: ['staff', 'admin'] } 
+    }).select('name employeeId checkInStatus lastCheckIn lastCheckOut');
+
+    // หาปี้ที่ขายโดยพนักงานแต่ละคน (ในช่วงเวลาที่เลือก)
+    const ticketsByStaff = await Ticket.aggregate([
+      {
+        $match: dateFilter
+      },
+      {
+        $group: {
+          _id: '$soldBy',
+          ticketsSold: { $sum: 1 },
+          totalRevenue: { $sum: '$price' }
+        }
+      }
+    ]);
+
+    // รวมข้อมูลพนักงานกับยอดขาย
+    const staffWithSales = allStaff.map(staff => {
+      const salesData = ticketsByStaff.find(ticket => 
+        ticket._id && ticket._id.toString() === staff._id.toString()
+      );
+
+      // คำนวณชั่วโมงทำงาน (ประมาณการจาก check-in/out)
+      let workHours = 0;
+      if (staff.lastCheckIn && staff.lastCheckOut) {
+        const checkIn = new Date(staff.lastCheckIn);
+        const checkOut = new Date(staff.lastCheckOut);
+        if (checkOut > checkIn) {
+          workHours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+        }
+      } else if (staff.checkInStatus === 'checked-in' && staff.lastCheckIn) {
+        // ยังไม่ check out - คำนวณจากเวลาปัจจุบัน
+        const checkIn = new Date(staff.lastCheckIn);
+        const now = new Date();
+        workHours = (now.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+      }
+
+      return {
+        id: staff._id,
+        name: staff.name,
+        employeeId: staff.employeeId,
+        checkInStatus: staff.checkInStatus,
+        lastCheckIn: staff.lastCheckIn,
+        lastCheckOut: staff.lastCheckOut,
+        ticketsSold: salesData?.ticketsSold || 0,
+        totalRevenue: salesData?.totalRevenue || 0,
+        workHours: Math.max(0, Math.round(workHours * 10) / 10) // ปัดเศษ 1 ตำแหน่ง
+      };
+    });
+
+    // เรียงลำดับตามยอดขาย
+    staffWithSales.sort((a, b) => b.ticketsSold - a.ticketsSold);
+
+    // คำนวณสถิติรวม
+    const totalStaff = allStaff.length;
+    const activeStaff = allStaff.filter(s => s.checkInStatus === 'checked-in').length;
+    const totalTicketsSold = ticketsByStaff.reduce((sum, t) => sum + t.ticketsSold, 0);
+    const totalWorkHours = staffWithSales.reduce((sum, s) => sum + s.workHours, 0);
+    const averageTicketsPerStaff = totalStaff > 0 ? Math.round(totalTicketsSold / totalStaff) : 0;
+    const topPerformerTickets = staffWithSales.length > 0 ? staffWithSales[0].ticketsSold : 0;
+    const averageWorkHours = totalStaff > 0 ? totalWorkHours / totalStaff : 0;
+
+    // สร้างข้อมูลการขายตามชั่วโมง
+    const hourlySales = await Ticket.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: { $hour: '$soldAt' },
+          ticketCount: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ]);
+
+    const workHoursData = Array.from({ length: 24 }, (_, hour) => {
+      const hourData = hourlySales.find(h => h._id === hour);
+      return {
+        hour,
+        ticketCount: hourData?.ticketCount || 0
+      };
+    });
+
+    return NextResponse.json({
+      type: 'staff',
+      period: { startDate, endDate },
+      summary: {
+        totalStaff,
+        activeStaff,
+        totalTicketsSold,
+        totalWorkHours: Math.round(totalWorkHours),
+        averageTicketsPerStaff,
+        topPerformerTickets,
+        averageWorkHours
+      },
+      staff: staffWithSales,
+      workHours: workHoursData
+    });
+
+  } catch (error) {
+    console.error('Staff Report Error:', error);
+    return NextResponse.json({
+      type: 'staff',
+      period: { startDate, endDate },
+      summary: {
+        totalStaff: 0,
+        activeStaff: 0,
+        totalTicketsSold: 0,
+        totalWorkHours: 0,
+        averageTicketsPerStaff: 0,
+        topPerformerTickets: 0,
+        averageWorkHours: 0
+      },
+      staff: [],
+      workHours: []
+    });
+  }
+}
+
+// Sales Report (เดิม)
 async function getSalesReport(startDate: Date, endDate: Date) {
   const dateFilter = { soldAt: { $gte: startDate, $lte: endDate } };
   
-  // Basic stats
   const totalTickets = await Ticket.countDocuments(dateFilter);
   const revenueResult = await Ticket.aggregate([
     { $match: dateFilter },
@@ -64,7 +281,6 @@ async function getSalesReport(startDate: Date, endDate: Date) {
   ]);
   const totalRevenue = revenueResult[0]?.total || 0;
   
-  // Payment method breakdown
   const paymentStats = await Ticket.aggregate([
     { $match: dateFilter },
     {
@@ -76,7 +292,6 @@ async function getSalesReport(startDate: Date, endDate: Date) {
     }
   ]);
   
-  // Hourly sales
   const hourlySales = await Ticket.aggregate([
     { $match: dateFilter },
     {
@@ -102,18 +317,14 @@ async function getSalesReport(startDate: Date, endDate: Date) {
   });
 }
 
-// แก้ไข Driver Report - คำนวณรายได้ตามจำนวน driver ที่เข้าทำงานในแต่ละวัน
+// Driver Report (เดิม - ตัดให้สั้นลง)
 async function getDriverReport(startDate: Date, endDate: Date) {
   console.log('Driver Report - Date range:', startDate, 'to', endDate);
   
   try {
-    // 1. ดึงข้อมูลคนขับทั้งหมด
     const allDrivers = await User.find({ role: 'driver' })
       .select('name employeeId checkInStatus');
     
-    console.log('Total drivers found:', allDrivers.length);
-    
-    // 2. สร้าง array ของวันที่ในช่วงที่เลือก
     const dateArray = [];
     let currentDate = new Date(startDate);
     const endDateOnly = new Date(endDate);
@@ -123,12 +334,8 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       currentDate.setDate(currentDate.getDate() + 1);
     }
     
-    console.log('Date range array:', dateArray);
-    
-    // 3. คำนวณรายได้และรายได้ต่อคนสำหรับแต่ละวัน
     const dailyRevenueAndDrivers = await Promise.all(
       dateArray.map(async (dateString) => {
-        // ดึงรายได้ของวันนั้น
         const dayStart = new Date(dateString + 'T00:00:00.000Z');
         const dayEnd = new Date(dateString + 'T23:59:59.999Z');
         
@@ -150,7 +357,6 @@ async function getDriverReport(startDate: Date, endDate: Date) {
         const dayRevenue = ticketRevenueResult[0]?.totalRevenue || 0;
         const ticketCount = ticketRevenueResult[0]?.ticketCount || 0;
         
-        // หาคนขับที่เข้าทำงานในวันนั้น (จาก WorkLog)
         const workingDriversInDay = await WorkLog.aggregate([
           {
             $match: {
@@ -189,12 +395,10 @@ async function getDriverReport(startDate: Date, endDate: Date) {
         ]);
         
         const workingDriversCount = workingDriversInDay.length;
-        const driverShareTotal = Math.round(dayRevenue * 0.85); // 85% สำหรับคนขับ
+        const driverShareTotal = Math.round(dayRevenue * 0.85);
         const revenuePerDriver = workingDriversCount > 0 
           ? Math.round(driverShareTotal / workingDriversCount) 
           : 0;
-        
-        console.log(`Date ${dateString}: Revenue=${dayRevenue}, Drivers=${workingDriversCount}, PerDriver=${revenuePerDriver}`);
         
         return {
           date: dateString,
@@ -208,13 +412,11 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       })
     );
     
-    // 4. รวมข้อมูลและคำนวณรายได้รวมต่อคนขับ
     const driverIncomeMap = new Map();
     let totalRevenue = 0;
     let totalWorkDays = 0;
     let totalWorkingDriversInPeriod = new Set();
     
-    // เริ่มต้นด้วยคนขับทั้งหมด
     allDrivers.forEach(driver => {
       driverIncomeMap.set(driver._id.toString(), {
         id: driver._id,
@@ -227,12 +429,11 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       });
     });
     
-    // คำนวณรายได้จากแต่ละวัน
     dailyRevenueAndDrivers.forEach(dayData => {
       totalRevenue += dayData.totalRevenue;
       
       if (dayData.workingDriversCount > 0) {
-        totalWorkDays += dayData.workingDriversCount; // นับจำนวนวัน-คน
+        totalWorkDays += dayData.workingDriversCount;
         
         dayData.workingDrivers.forEach(driver => {
           const driverId = driver.driverId.toString();
@@ -249,10 +450,8 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       }
     });
     
-    // 5. แปลงเป็น array และเรียงลำดับ
     const driverStats = Array.from(driverIncomeMap.values()).sort((a, b) => b.totalIncome - a.totalIncome);
     
-    // 6. คำนวณสถิติรวม
     const totalDrivenShareForPeriod = Math.round(totalRevenue * 0.85);
     const averageRevenuePerDriver = totalWorkingDriversInPeriod.size > 0 
       ? Math.round(totalDrivenShareForPeriod / totalWorkingDriversInPeriod.size)
@@ -267,8 +466,6 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       revenuePerDriver: averageRevenuePerDriver
     };
     
-    console.log('Final summary:', summary);
-    
     return NextResponse.json({
       type: 'drivers',
       period: { startDate, endDate },
@@ -279,14 +476,13 @@ async function getDriverReport(startDate: Date, endDate: Date) {
         driverSharePercentage: 85,
         workingDriversCount: totalWorkingDriversInPeriod.size,
         revenuePerDriver: averageRevenuePerDriver,
-        dailyBreakdown: dailyRevenueAndDrivers // เพิ่มข้อมูลรายละเอียดรายวัน
+        dailyBreakdown: dailyRevenueAndDrivers
       }
     });
     
   } catch (error) {
     console.error('Driver Report Error:', error);
     
-    // Fallback - ข้อมูลพื้นฐาน
     const allDrivers = await User.find({ role: 'driver' })
       .select('name employeeId checkInStatus');
     
@@ -322,7 +518,7 @@ async function getDriverReport(startDate: Date, endDate: Date) {
   }
 }
 
-// Route Report
+// Route Report (เดิม)
 async function getRouteReport(startDate: Date, endDate: Date) {
   const dateFilter = { soldAt: { $gte: startDate, $lte: endDate } };
   
@@ -332,8 +528,8 @@ async function getRouteReport(startDate: Date, endDate: Date) {
     type: 'routes',
     period: { startDate, endDate },
     summary: {
-      totalTrips: 24, // Simulated
-      averageOccupancy: '78%', // Simulated
+      totalTrips: 24,
+      averageOccupancy: '78%',
       mostPopularRoute: 'ສະຖານີລົດໄຟ - ຕົວເມືອງ',
       averageTripTime: '42 ນາທີ'
     },
@@ -349,12 +545,11 @@ async function getRouteReport(startDate: Date, endDate: Date) {
   });
 }
 
-// Financial Report
+// Financial Report (เดิม)
 async function getFinancialReport(startDate: Date, endDate: Date) {
   console.log('Financial Report - Date range:', startDate, 'to', endDate);
   
   try {
-    // ดึงข้อมูลจาก Tickets เป็นหลัก
     const dateFilter = { soldAt: { $gte: startDate, $lte: endDate } };
     const revenueResult = await Ticket.aggregate([
       { $match: dateFilter },
@@ -365,7 +560,6 @@ async function getFinancialReport(startDate: Date, endDate: Date) {
     
     console.log('Total revenue from tickets:', totalRevenue);
     
-    // คำนวณตามสัดส่วน
     const breakdown = {
       company: { 
         totalAmount: Math.round(totalRevenue * 0.10), 
@@ -416,12 +610,11 @@ async function getFinancialReport(startDate: Date, endDate: Date) {
   }
 }
 
-// Summary Report
+// Summary Report (เดิม)
 async function getSummaryReport(startDate: Date, endDate: Date) {
   try {
     console.log('Summary Report - Date range:', startDate, 'to', endDate);
     
-    // ดึงข้อมูลพื้นฐาน
     const dateFilter = { soldAt: { $gte: startDate, $lte: endDate } };
     
     const [totalTickets, revenueResult, activeDrivers, totalDrivers] = await Promise.all([
@@ -437,7 +630,6 @@ async function getSummaryReport(startDate: Date, endDate: Date) {
     const totalRevenue = revenueResult[0]?.total || 0;
     const avgTicketPrice = totalTickets > 0 ? Math.round(totalRevenue / totalTickets) : 0;
     
-    // คำนวณการแบ่งรายได้
     const companyShare = Math.round(totalRevenue * 0.10);
     const stationShare = Math.round(totalRevenue * 0.05);
     const driverShare = Math.round(totalRevenue * 0.85);
@@ -488,7 +680,6 @@ async function getSummaryReport(startDate: Date, endDate: Date) {
   } catch (error) {
     console.error('Summary Report Error:', error);
     
-    // Fallback ข้อมูลว่าง
     return NextResponse.json({
       type: 'summary',
       period: { startDate, endDate },

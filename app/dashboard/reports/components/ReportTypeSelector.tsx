@@ -1,6 +1,6 @@
 // app/dashboard/reports/components/ReportTypeSelector.tsx
 import React from 'react';
-import { FiBarChart, FiCreditCard, FiUsers, FiDollarSign, FiFilter } from 'react-icons/fi';
+import { FiBarChart, FiCreditCard, FiUsers, FiDollarSign, FiFilter, FiTruck, FiTag, FiUserCheck } from 'react-icons/fi';
 
 interface ReportType {
   id: string;
@@ -22,7 +22,9 @@ const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
     { id: 'summary', title: 'ສະຫຼຸບລວມ', icon: <FiBarChart />, description: 'ພາບລວມສະຖິຕິ' },
     { id: 'sales', title: 'ຍອດຂາຍ', icon: <FiCreditCard />, description: 'ສະຫຼຸບຍອດຂາຍ' },
     { id: 'drivers', title: 'ຄົນຂັບ', icon: <FiUsers />, description: 'ສະຖິຕິຄົນຂັບ' },
-    { id: 'financial', title: 'ການເງິນ', icon: <FiDollarSign />, description: 'ແບ່ງລາຍຮັບ' }
+    { id: 'financial', title: 'ການເງິນ', icon: <FiDollarSign />, description: 'ແບ່ງລາຍຮັບ' },
+    { id: 'vehicles', title: 'ຂໍ້ມູນລົດ', icon: <FiTruck />, description: 'ສະຖິຕິລົດແລະປະເພດ' },
+    { id: 'staff', title: 'ພະນັກງານ', icon: <FiUserCheck />, description: 'ລາຍງານພະນັກງານຂາຍປີ້' }
   ];
 
   return (
@@ -31,7 +33,7 @@ const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
         <FiFilter className="mr-2" />
         ເລືອກປະເພດບົດລາຍງານ
       </h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {reportTypes.map((report) => (
           <button
             key={report.id}

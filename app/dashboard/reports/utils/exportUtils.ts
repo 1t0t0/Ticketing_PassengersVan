@@ -1,4 +1,4 @@
-// app/dashboard/reports/utils/exportUtils.ts - Unified content with larger fonts
+// app/dashboard/reports/utils/exportUtils.ts - แก้ไข syntax errors
 
 // ฟังก์ชันสร้าง PDF จากเนื้อหาเดียวกับ Print
 export const exportToPDF = async (reportData: any, reportType: string) => {
@@ -105,7 +105,9 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
       'summary': 'ສະຫຼຸບລວມ',
       'sales': 'ບົດລາຍງານຍອດຂາຍ', 
       'drivers': 'ບົດລາຍງານຄົນຂັບ',
-      'financial': 'ບົດລາຍງານການເງິນ'
+      'financial': 'ບົດລາຍງານການເງິນ',
+      'vehicles': 'ບົດລາຍງານຂໍ້ມູນລົດ',
+      'staff': 'ບົດລາຍງານພະນັກງານຂາຍປີ້'
     };
     return titles[type as keyof typeof titles] || 'ບົດລາຍງານ';
   };
@@ -136,7 +138,7 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
           margin: 0;
           padding: 20px;
           background: white;
-          font-size: 16px; /* เพิ่มขนาดจาก 12px เป็น 16px */
+          font-size: 16px;
           line-height: 1.6;
           color: black;
         }
@@ -156,14 +158,14 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
         }
         
         .report-title {
-          font-size: 28px; /* เพิ่มขนาดจาก 20px */
+          font-size: 28px;
           font-weight: bold;
           margin-bottom: 8px;
           color: #2563EB;
         }
         
         .report-subtitle {
-          font-size: 18px; /* เพิ่มขนาดจาก 14px */
+          font-size: 18px;
           color: #666;
           margin-bottom: 5px;
         }
@@ -180,7 +182,7 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
           text-align: center;
           border-radius: 8px;
           border: 2px solid #e9ecef;
-          font-size: 18px; /* เพิ่มขนาด */
+          font-size: 18px;
           font-weight: bold;
         }
         
@@ -189,7 +191,7 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
         }
         
         .section-title {
-          font-size: 22px; /* เพิ่มขนาดจาก 16px */
+          font-size: 22px;
           font-weight: bold;
           margin-bottom: 15px;
           color: #333;
@@ -214,14 +216,14 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
         }
         
         .stat-label {
-          font-size: 16px; /* เพิ่มขนาดจาก 12px */
+          font-size: 16px;
           color: #666;
           margin-bottom: 8px;
           font-weight: bold;
         }
         
         .stat-value {
-          font-size: 24px; /* เพิ่มขนาดจาก 18px */
+          font-size: 24px;
           font-weight: bold;
           color: #2563EB;
         }
@@ -230,19 +232,19 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
           width: 100%;
           border-collapse: collapse;
           margin: 20px 0;
-          font-size: 16px; /* เพิ่มขนาดตาราง */
+          font-size: 16px;
         }
         
         table th, table td {
           border: 2px solid #ddd;
-          padding: 12px; /* เพิ่ม padding จาก 8px */
+          padding: 12px;
           text-align: left;
         }
         
         table th {
           background: #f1f3f4;
           font-weight: bold;
-          font-size: 18px; /* หัวตารางใหญ่ขึ้น */
+          font-size: 18px;
           color: #333;
         }
         
@@ -256,6 +258,7 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
         .text-success { color: #28a745; }
         .text-danger { color: #dc3545; }
         .text-primary { color: #2563EB; }
+        .text-warning { color: #ffc107; }
         
         .report-footer {
           margin-top: 40px;
@@ -324,8 +327,254 @@ const generateContentByType = (reportData: any, reportType: string, formatCurren
       return generateDriversContent(reportData, formatCurrency);
     case 'financial':
       return generateFinancialContent(reportData, formatCurrency);
+    case 'vehicles':
+      return generateVehiclesContent(reportData, formatCurrency);
+    case 'staff':
+      return generateStaffContent(reportData, formatCurrency);
     default:
       return '<div class="content-section">ບໍ່ມີຂໍ້ມູນ</div>';
+  }
+};
+
+// เพิ่มฟังก์ชันสำหรับรายงานรถ
+const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
+  const summary = reportData.summary || {};
+  const carTypes = reportData.carTypes || [];
+  const cars = reportData.cars || [];
+  
+  let carTypesTable = '';
+  if (carTypes.length > 0) {
+    const carTypeRows = carTypes.map((type: any) => `
+      <tr>
+        <td><strong>${type.carType_name}</strong></td>
+        <td class="text-center">${type.count}</td>
+        <td class="text-center">${summary.totalCars ? Math.round((type.count / summary.totalCars) * 100) : 0}%</td>
+        <td class="text-center text-success">${type.activeCars || 0}</td>
+        <td class="text-center text-danger">${type.count - (type.activeCars || 0)}</td>
+      </tr>
+    `).join('');
+    
+    carTypesTable = `
+      <table>
+        <tr class="table-highlight">
+          <th>ປະເພດລົດ</th>
+          <th class="text-center">ຈຳນວນ</th>
+          <th class="text-center">ສັດສ່ວນ</th>
+          <th class="text-center">ກຳລັງໃຊ້</th>
+          <th class="text-center">ບໍ່ໃຊ້</th>
+        </tr>
+        ${carTypeRows}
+        <tr style="background: #f8f9fa; font-weight: bold;">
+          <td><strong>📊 ລວມທັງໝົດ</strong></td>
+          <td class="text-center">${summary.totalCars || 0}</td>
+          <td class="text-center">100%</td>
+          <td class="text-center">${summary.activeCars || 0}</td>
+          <td class="text-center">${(summary.totalCars || 0) - (summary.activeCars || 0)}</td>
+        </tr>
+      </table>
+    `;
+  }
+
+  let carsTable = '';
+  if (cars.length > 0) {
+    const carRows = cars.slice(0, 15).map((car: any, index: number) => `
+      <tr>
+        <td class="text-center">${index + 1}</td>
+        <td class="text-primary"><strong>${car.car_id || 'N/A'}</strong></td>
+        <td>${car.car_name || 'N/A'}</td>
+        <td class="text-center" style="background: #f0f0f0; font-family: monospace;">${car.car_registration || 'N/A'}</td>
+        <td>${car.carType?.carType_name || 'ບໍ່ລະບຸ'}</td>
+        <td class="text-center">${car.car_capacity || 0} ຄົນ</td>
+        <td>
+          ${car.user_id ? `
+            <div><strong>${car.user_id.name}</strong></div>
+            <div style="font-size: 12px; color: #666;">${car.user_id.employeeId}</div>
+          ` : '<span style="color: #999;">ບໍ່ມີຄົນຂັບ</span>'}
+        </td>
+        <td class="text-center">
+          <span class="${car.user_id?.checkInStatus === 'checked-in' ? 'status-active' : 'status-inactive'}">
+            ${car.user_id?.checkInStatus === 'checked-in' ? '✅ ກຳລັງໃຊ້' : '❌ ບໍ່ໃຊ້'}
+          </span>
+        </td>
+      </tr>
+    `).join('');
+    
+    carsTable = `
+      <table>
+        <tr class="table-highlight">
+          <th class="text-center">#</th>
+          <th>ລະຫັດລົດ</th>
+          <th>ຊື່ລົດ</th>
+          <th class="text-center">ປ້າຍທະບຽນ</th>
+          <th>ປະເພດ</th>
+          <th class="text-center">ຄວາມຈຸ</th>
+          <th>ຄົນຂັບ</th>
+          <th class="text-center">ສະຖານະ</th>
+        </tr>
+        ${carRows}
+      </table>
+    `;
+  }
+  
+  return `
+    <div class="content-section">
+      <div class="section-title">🚗 ບົດລາຍງານຂໍ້ມູນລົດ</div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">🚛 ລົດທັງໝົດ</div>
+          <div class="stat-value">${summary.totalCars || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">✅ ລົດກຳລັງໃຊ້</div>
+          <div class="stat-value">${summary.activeCars || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🏷️ ປະເພດລົດ</div>
+          <div class="stat-value">${summary.totalCarTypes || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">👨‍✈️ ຄົນຂັບທີ່ມີລົດ</div>
+          <div class="stat-value">${summary.driversWithCars || 0}</div>
+        </div>
+      </div>
+      
+      <div class="section-title">📋 ລາຍລະອຽດປະເພດລົດ</div>
+      ${carTypesTable || '<p style="text-align: center; color: #666; font-size: 18px;">ບໍ່ມີຂໍ້ມູນປະເພດລົດ</p>'}
+      
+      <div class="section-title">🚗 ລາຍການລົດ (15 ຄັນທຳອິດ)</div>
+      ${carsTable || '<p style="text-align: center; color: #666; font-size: 18px;">ບໍ່ມີຂໍ້ມູນລົດ</p>'}
+    </div>
+  `;
+};
+
+// เพิ่มฟังก์ชันสำหรับรายงานพนักงาน
+const generateStaffContent = (reportData: any, formatCurrency: any) => {
+  const summary = reportData.summary || {};
+  const staff = reportData.staff || [];
+  
+  let staffTable = '';
+  if (staff.length > 0) {
+    const activeStaff = staff.filter((s: any) => s.ticketsSold > 0 || s.checkInStatus === 'checked-in').slice(0, 15);
+    
+    if (activeStaff.length > 0) {
+      const staffRows = activeStaff.map((member: any, index: number) => {
+        const performance = getPerformanceLevel(member.ticketsSold || 0, summary.averageTicketsPerStaff || 0);
+        return `
+          <tr>
+            <td class="text-center">${index + 1}</td>
+            <td><strong>${member.name || 'ບໍ່ລະບຸ'}</strong></td>
+            <td class="text-center">${member.employeeId || '-'}</td>
+            <td class="text-center">
+              <span class="${member.checkInStatus === 'checked-in' ? 'status-active' : 'status-inactive'}">
+                ${member.checkInStatus === 'checked-in' ? '✅ ເຂົ້າວຽກ' : '❌ ອອກວຽກ'}
+              </span>
+            </td>
+            <td class="text-center currency">${member.ticketsSold || 0}</td>
+            <td class="text-center">${member.workHours ? `${Math.round(member.workHours)}h` : '0h'}</td>
+            <td class="text-center">${member.workHours > 0 ? Math.round((member.ticketsSold || 0) / member.workHours) : 0}</td>
+            <td class="text-center" style="font-size: 12px;">
+              ${member.lastCheckIn ? new Date(member.lastCheckIn).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' }) : '-'}
+            </td>
+            <td class="text-center" style="font-size: 12px;">
+              ${member.lastCheckOut ? new Date(member.lastCheckOut).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' }) : '-'}
+            </td>
+            <td class="text-center">
+              <span class="${performance.color}">
+                ${performance.label}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+      staffTable = `
+        <table>
+          <tr class="table-highlight">
+            <th class="text-center">#</th>
+            <th>ຊື່</th>
+            <th class="text-center">ລະຫັດ</th>
+            <th class="text-center">ສະຖານະ</th>
+            <th class="text-center">ປີ້ທີ່ຂາຍ</th>
+            <th class="text-center">ຊົ່ວໂມງ</th>
+            <th class="text-center">ປີ້/ຊົ່ວໂມງ</th>
+            <th class="text-center">ເຂົ້າວຽກ</th>
+            <th class="text-center">ອອກວຽກ</th>
+            <th class="text-center">ການປະຕິບັດ</th>
+          </tr>
+          ${staffRows}
+        </table>
+      `;
+    }
+  }
+  
+  return `
+    <div class="content-section">
+      <div class="section-title">👥 ບົດລາຍງານພະນັກງານຂາຍປີ້</div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">👥 ພະນັກງານທັງໝົດ</div>
+          <div class="stat-value">${summary.totalStaff || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">✅ ເຂົ້າວຽກວັນນີ້</div>
+          <div class="stat-value">${summary.activeStaff || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🎫 ປີ້ທີ່ຂາຍລວມ</div>
+          <div class="stat-value">${summary.totalTicketsSold || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">⏰ ຊົ່ວໂມງທຳງານ</div>
+          <div class="stat-value">${summary.totalWorkHours || 0}h</div>
+        </div>
+      </div>
+      
+      <div class="content-section">
+        <div class="section-title">📊 ພາບລວມການປະຕິບັດງານ</div>
+        <table>
+          <tr class="table-highlight">
+            <th style="width: 33%;">ປີ້ຕໍ່ຄົນເຊລີ່ຍ</th>
+            <th style="width: 33%;">ປີ້ສູງສຸດ</th>
+            <th style="width: 34%;">ຊົ່ວໂມງເຊລີ່ຍ</th>
+          </tr>
+          <tr>
+            <td class="text-center currency" style="font-size: 20px; font-weight: bold;">${summary.averageTicketsPerStaff || 0}</td>
+            <td class="text-center text-success" style="font-size: 20px; font-weight: bold;">${summary.topPerformerTickets || 0}</td>
+            <td class="text-center text-primary" style="font-size: 20px; font-weight: bold;">${Math.round(summary.averageWorkHours || 0)}h</td>
+          </tr>
+        </table>
+      </div>
+      
+      <div class="section-title">👤 ລາຍລະອຽດການປະຕິບັດງານພະນັກງານ</div>
+      ${staffTable || '<p style="text-align: center; color: #666; font-size: 18px;">ບໍ່ມີຂໍ້ມູນພະນັກງານທີ່ເຂົ້າວຽກໃນຊ່ວງນີ້</p>'}
+    </div>
+  `;
+};
+
+// Helper function สำหรับ performance level
+const getPerformanceLevel = (ticketsSold: number, average: number) => {
+  if (ticketsSold >= average * 1.5) {
+    return {
+      label: 'ດີເລີດ',
+      color: 'text-success'
+    };
+  } else if (ticketsSold >= average) {
+    return {
+      label: 'ດີ',
+      color: 'text-primary'
+    };
+  } else if (ticketsSold >= average * 0.5) {
+    return {
+      label: 'ປົກກະຕິ',
+      color: 'text-warning'
+    };
+  } else {
+    return {
+      label: 'ຕ້ອງປັບປຸງ',
+      color: 'text-danger'
+    };
   }
 };
 
@@ -574,7 +823,9 @@ const getReportTypeName = (type: string) => {
     'summary': 'ສະຫຼຸບລວມ',
     'sales': 'ບົດລາຍງານຍອດຂາຍ',
     'drivers': 'ບົດລາຍງານຄົນຂັບ',
-    'financial': 'ບົດລາຍງານການເງິນ'
+    'financial': 'ບົດລາຍງານການເງິນ',
+    'vehicles': 'ບົດລາຍງານຂໍ້ມູນລົດ',
+    'staff': 'ບົດລາຍງານພະນັກງານຂາຍປີ້'
   };
   return titles[type as keyof typeof titles] || 'ບົດລາຍງານ';
 };

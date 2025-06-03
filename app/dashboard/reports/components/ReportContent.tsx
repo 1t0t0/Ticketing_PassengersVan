@@ -14,6 +14,10 @@ import {
   ArcElement,
 } from 'chart.js';
 
+// Import new components
+import VehiclesReportComponent from './VehiclesReportComponent';
+import StaffReportComponent from './StaffReportComponent';
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement);
 
 interface ReportContentProps {
@@ -158,7 +162,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
         <div className="bg-white border rounded-lg p-4">
           <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດຄົນຂັບ</h3>
           {reportData.drivers.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບໃນຊ່ວງເວລານີ້</div>
+            <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບທີ່ມີລາຍຮັບໃນຊ່ວງເວລານີ້</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -268,11 +272,20 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
 
   // Render based on report type
   switch (reportType) {
-    case 'summary': return renderSummaryReport();
-    case 'sales': return renderSalesReport();
-    case 'drivers': return renderDriverReport();
-    case 'financial': return renderFinancialReport();
-    default: return <div>ປະເພດບົດລາຍງານບໍ່ຖືກຕ້ອງ</div>;
+    case 'summary': 
+      return renderSummaryReport();
+    case 'sales': 
+      return renderSalesReport();
+    case 'drivers': 
+      return renderDriverReport();
+    case 'financial': 
+      return renderFinancialReport();
+    case 'vehicles': 
+      return <VehiclesReportComponent reportData={reportData} loading={loading} />;
+    case 'staff': 
+      return <StaffReportComponent reportData={reportData} loading={loading} />;
+    default: 
+      return <div>ປະເພດບົດລາຍງານບໍ່ຖືກຕ້ອງ</div>;
   }
 };
 

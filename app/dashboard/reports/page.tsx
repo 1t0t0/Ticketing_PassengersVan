@@ -1,4 +1,4 @@
-// app/dashboard/reports/page.tsx - Updated with separate PDF and Print functions
+// app/dashboard/reports/page.tsx - Updated with new report types
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -133,8 +133,21 @@ export default function ReportsPage() {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
+  // ฟังก์ชันสำหรับแสดงชื่อรายงาน
+  const getReportTitle = (type: string) => {
+    const titles = {
+      'summary': 'ສະຫຼຸບລວມ',
+      'sales': 'ບົດລາຍງານຍອດຂາຍ',
+      'drivers': 'ບົດລາຍງານຄົນຂັບ',
+      'financial': 'ບົດລາຍງານການເງິນ',
+      'vehicles': 'ບົດລາຍງານຂໍ້ມູນລົດ',
+      'staff': 'ບົດລາຍງານພະນັກງານຂາຍປີ້'
+    };
+    return titles[type as keyof typeof titles] || 'ບົດລາຍງານ';
+  };
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">📊 ລະບົບບົດລາຍງານ</h1>
@@ -170,10 +183,7 @@ export default function ReportsPage() {
       <NeoCard className="p-4">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">
-            {selectedReport === 'summary' && 'ສະຫຼຸບລວມ'}
-            {selectedReport === 'sales' && 'ບົດລາຍງານຍອດຂາຍ'}
-            {selectedReport === 'drivers' && 'ບົດລາຍງານຄົນຂັບ'}
-            {selectedReport === 'financial' && 'ບົດລາຍງານການເງິນ'}
+            {getReportTitle(selectedReport)}
           </h2>
           {reportData && (
             <div className="text-sm text-gray-500">
