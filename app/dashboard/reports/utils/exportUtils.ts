@@ -1,50 +1,120 @@
-// app/dashboard/reports/utils/exportUtils.ts - แก้ไข syntax errors
+// app/dashboard/reports/utils/exportUtils.ts - แก้ไขให้สร้าง PDF จริง
 
-// ฟังก์ชันสร้าง PDF จากเนื้อหาเดียวกับ Print
+// ฟังก์ชันสร้าง PDF จริงโดยใช้ jsPDF
 export const exportToPDF = async (reportData: any, reportType: string) => {
   try {
-    // สร้างเนื้อหา HTML เดียวกับการพิมพ์
-    const htmlContent = generateUnifiedContent(reportData, reportType);
+    // Import jsPDF และ html2canvas
+    const { default: jsPDF } = await import('jspdf');
+    const { default: html2canvas } = await import('html2canvas');
+
+    // สร้างเนื้อหา HTML สำหรับ PDF
+    const htmlContent = generatePDFContent(reportData, reportType);
     
-    // สร้าง blob จาก HTML
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    // สร้าง element ชั่วคราวสำหรับ render
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '0';
+    tempDiv.style.width = '794px'; // A4 width in pixels (210mm)
+    tempDiv.style.backgroundColor = 'white';
+    tempDiv.style.padding = '40px';
+    tempDiv.style.fontFamily = 'Arial, sans-serif';
     
-    // สร้าง URL สำหรับดาวน์โหลด
-    const url = window.URL.createObjectURL(blob);
+    document.body.appendChild(tempDiv);
+
+    // รอให้ fonts โหลดเสร็จ
+    await document.fonts.ready;
+
+    // แปลงเป็น canvas
+    const canvas = await html2canvas(tempDiv, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: 794,
+      height: tempDiv.scrollHeight + 80
+    });
+
+    // สร้าง PDF
+    const pdf = new jsPDF('p', 'mm', 'a4');
     
-    // สร้าง link element สำหรับดาวน์โหลด
-    const link = document.createElement('a');
-    link.href = url;
+    const imgData = canvas.toDataURL('image/png', 1.0);
+    const imgWidth = 210; // A4 width in mm
+    const pageHeight = 297; // A4 height in mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
     
-    // ตั้งชื่อไฟล์ตามประเภทรายงานและวันที่
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    // เพิ่มหน้าแรก
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    // เพิ่มหน้าถัดไปถ้าเนื้อหายาว
+    while (heightLeft >= 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    // ตั้งชื่อไฟล์
     const today = new Date();
     const dateStr = today.toLocaleDateString('lo-LA').replace(/\//g, '-');
     const reportTypeName = getReportTypeName(reportType);
-    link.download = `${reportTypeName}_${dateStr}.html`;
+    const fileName = `${reportTypeName}_${dateStr}.pdf`;
+
+    // ดาวน์โหลด PDF
+    pdf.save(fileName);
+
+    // ลบ element ชั่วคราว
+    document.body.removeChild(tempDiv);
     
-    // เพิ่ม link เข้า DOM, คลิก, แล้วลบออก
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // ล้าง URL object
-    window.URL.revokeObjectURL(url);
-    
-    console.log('Report file downloaded successfully');
-    
+    console.log('PDF exported successfully:', fileName);
+
   } catch (error) {
-    console.error('Error exporting report:', error);
-    alert('ເກີດຂໍ້ຜິດພາດໃນການສົ່ງອອກລາຍງານ');
+    console.error('Error exporting PDF:', error);
+    
+    // Fallback: ใช้วิธี browser print
+    try {
+      await exportToPDFBrowserFallback(reportData, reportType);
+    } catch (fallbackError) {
+      console.error('Fallback also failed:', fallbackError);
+      alert('ເກີດຂໍ້ຜິດພາດໃນການສ້າງ PDF กรุณาลองใหม่อีกครั้ງ');
+    }
   }
 };
 
-// ฟังก์ชันพิมพ์เหมือนระบบ ticket sales แต่ขนาดใหญ่ขึ้น
+// ฟังก์ชัน fallback ใช้ browser print
+const exportToPDFBrowserFallback = async (reportData: any, reportType: string) => {
+  const htmlContent = generatePDFContent(reportData, reportType);
+  
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  
+  if (printWindow) {
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+        
+        // แจ้งให้ผู้ใช้เลือก "Save as PDF"
+        alert('กรุณาเลือก "Save as PDF" ใน print dialog');
+      }, 500);
+    };
+  } else {
+    throw new Error('Cannot open print window');
+  }
+};
+
+// ฟังก์ชันพิมพ์เหมือนเดิม
 export const printReport = (reportData: any, reportType: string) => {
   try {
-    // สร้างเนื้อหา HTML เดียวกับ PDF
-    const htmlContent = generateUnifiedContent(reportData, reportType);
+    const htmlContent = generatePDFContent(reportData, reportType);
     
-    // สร้าง iframe สำหรับพิมพ์ (เหมือนระบบ ticket sales)
     const iframe = document.createElement('iframe');
     iframe.style.position = 'absolute';
     iframe.style.top = '-9999px';
@@ -55,23 +125,19 @@ export const printReport = (reportData: any, reportType: string) => {
     
     document.body.appendChild(iframe);
     
-    // เขียนเนื้อหา HTML ลง iframe
     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
     if (iframeDoc) {
       iframeDoc.open();
       iframeDoc.write(htmlContent);
       iframeDoc.close();
       
-      // รอให้โหลดเสร็จแล้วพิมพ์
       iframe.onload = () => {
         setTimeout(() => {
           try {
-            // Focus iframe และพิมพ์
             iframe.contentWindow?.focus();
             iframe.contentWindow?.print();
           } catch (error) {
             console.error('Print error:', error);
-            // Fallback: ใช้วิธีเปิดหน้าต่างใหม่
             const printWindow = window.open('', '_blank');
             if (printWindow) {
               printWindow.document.write(htmlContent);
@@ -83,7 +149,6 @@ export const printReport = (reportData: any, reportType: string) => {
             }
           }
           
-          // ลบ iframe หลังพิมพ์
           setTimeout(() => {
             document.body.removeChild(iframe);
           }, 2000);
@@ -96,8 +161,8 @@ export const printReport = (reportData: any, reportType: string) => {
   }
 };
 
-// ฟังก์ชันสร้างเนื้อหาเดียวกันสำหรับทั้ง PDF และ Print (ขนาดใหญ่ขึ้น)
-const generateUnifiedContent = (reportData: any, reportType: string) => {
+// ฟังก์ชันสร้างเนื้อหา HTML ที่เหมาะสำหรับ PDF
+const generatePDFContent = (reportData: any, reportType: string) => {
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('lo-LA');
   const formatCurrency = (amount: number) => `₭${amount.toLocaleString()}`;
   const getReportTitle = (type: string) => {
@@ -119,59 +184,51 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
       <meta charset="utf-8">
       <title>ບົດລາຍງານ - ${getReportTitle(reportType)}</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Phetsarath:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap');
         
         * {
-          font-family: "Phetsarath", serif;
           margin: 0;
           padding: 0;
           box-sizing: border-box;
         }
         
-        @page {
-          size: A4;
-          margin: 15mm;
-        }
-        
         body {
-          width: 210mm;
-          margin: 0;
-          padding: 20px;
-          background: white;
-          font-size: 16px;
+          font-family: 'Noto Sans Lao', 'Arial', sans-serif;
+          font-size: 14px;
           line-height: 1.6;
-          color: black;
+          color: #333;
+          background: white;
+          padding: 20px;
         }
         
         .report-container {
-          width: 100%;
-          margin: 0;
-          padding: 0;
+          max-width: 100%;
+          margin: 0 auto;
           background: white;
         }
         
         .report-header {
           text-align: center;
           margin-bottom: 30px;
-          border-bottom: 3px solid #333;
+          border-bottom: 3px solid #2563EB;
           padding-bottom: 20px;
         }
         
         .report-title {
-          font-size: 28px;
+          font-size: 24px;
           font-weight: bold;
           margin-bottom: 8px;
           color: #2563EB;
         }
         
         .report-subtitle {
-          font-size: 18px;
+          font-size: 16px;
           color: #666;
           margin-bottom: 5px;
         }
         
         .system-name {
-          font-size: 16px;
+          font-size: 14px;
           color: #888;
         }
         
@@ -182,16 +239,16 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
           text-align: center;
           border-radius: 8px;
           border: 2px solid #e9ecef;
-          font-size: 18px;
+          font-size: 16px;
           font-weight: bold;
         }
         
         .content-section {
-          margin: 30px 0;
+          margin: 20px 0;
         }
         
         .section-title {
-          font-size: 22px;
+          font-size: 18px;
           font-weight: bold;
           margin-bottom: 15px;
           color: #333;
@@ -201,29 +258,28 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
         
         .stats-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 20px;
-          margin: 20px 0;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 15px;
+          margin: 15px 0;
         }
         
         .stat-card {
           background: #f8f9fa;
           border: 2px solid #e9ecef;
-          border-radius: 10px;
-          padding: 20px;
+          border-radius: 8px;
+          padding: 15px;
           text-align: center;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .stat-label {
-          font-size: 16px;
+          font-size: 12px;
           color: #666;
-          margin-bottom: 8px;
+          margin-bottom: 5px;
           font-weight: bold;
         }
         
         .stat-value {
-          font-size: 24px;
+          font-size: 18px;
           font-weight: bold;
           color: #2563EB;
         }
@@ -231,20 +287,20 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
         table {
           width: 100%;
           border-collapse: collapse;
-          margin: 20px 0;
-          font-size: 16px;
+          margin: 15px 0;
+          font-size: 12px;
         }
         
         table th, table td {
-          border: 2px solid #ddd;
-          padding: 12px;
+          border: 1px solid #ddd;
+          padding: 8px;
           text-align: left;
         }
         
         table th {
           background: #f1f3f4;
           font-weight: bold;
-          font-size: 18px;
+          font-size: 13px;
           color: #333;
         }
         
@@ -261,12 +317,12 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
         .text-warning { color: #ffc107; }
         
         .report-footer {
-          margin-top: 40px;
+          margin-top: 30px;
           text-align: center;
-          font-size: 14px;
+          font-size: 12px;
           color: #666;
           border-top: 2px solid #ddd;
-          padding-top: 20px;
+          padding-top: 15px;
         }
         
         .currency {
@@ -284,12 +340,8 @@ const generateUnifiedContent = (reportData: any, reportType: string) => {
           font-weight: bold;
         }
         
-        @media print {
-          body { 
-            margin: 0; 
-            padding: 15mm;
-          }
-          .no-print { display: none; }
+        .no-break {
+          page-break-inside: avoid;
         }
       </style>
     </head>
@@ -355,7 +407,7 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
     `).join('');
     
     carTypesTable = `
-      <table>
+      <table class="no-break">
         <tr class="table-highlight">
           <th>ປະເພດລົດ</th>
           <th class="text-center">ຈຳນວນ</th>
@@ -364,13 +416,6 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
           <th class="text-center">ບໍ່ໃຊ້</th>
         </tr>
         ${carTypeRows}
-        <tr style="background: #f8f9fa; font-weight: bold;">
-          <td><strong>📊 ລວມທັງໝົດ</strong></td>
-          <td class="text-center">${summary.totalCars || 0}</td>
-          <td class="text-center">100%</td>
-          <td class="text-center">${summary.activeCars || 0}</td>
-          <td class="text-center">${(summary.totalCars || 0) - (summary.activeCars || 0)}</td>
-        </tr>
       </table>
     `;
   }
@@ -382,18 +427,18 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
         <td class="text-center">${index + 1}</td>
         <td class="text-primary"><strong>${car.car_id || 'N/A'}</strong></td>
         <td>${car.car_name || 'N/A'}</td>
-        <td class="text-center" style="background: #f0f0f0; font-family: monospace;">${car.car_registration || 'N/A'}</td>
+        <td class="text-center">${car.car_registration || 'N/A'}</td>
         <td>${car.carType?.carType_name || 'ບໍ່ລະບຸ'}</td>
-        <td class="text-center">${car.car_capacity || 0} ຄົນ</td>
+        <td class="text-center">${car.car_capacity || 0}</td>
         <td>
           ${car.user_id ? `
             <div><strong>${car.user_id.name}</strong></div>
-            <div style="font-size: 12px; color: #666;">${car.user_id.employeeId}</div>
+            <div style="font-size: 10px; color: #666;">${car.user_id.employeeId}</div>
           ` : '<span style="color: #999;">ບໍ່ມີຄົນຂັບ</span>'}
         </td>
         <td class="text-center">
           <span class="${car.user_id?.checkInStatus === 'checked-in' ? 'status-active' : 'status-inactive'}">
-            ${car.user_id?.checkInStatus === 'checked-in' ? '✅ ກຳລັງໃຊ້' : '❌ ບໍ່ໃຊ້'}
+            ${car.user_id?.checkInStatus === 'checked-in' ? 'ໃຊ້ງານ' : 'ບໍ່ໃຊ້'}
           </span>
         </td>
       </tr>
@@ -440,10 +485,10 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
       </div>
       
       <div class="section-title">📋 ລາຍລະອຽດປະເພດລົດ</div>
-      ${carTypesTable || '<p style="text-align: center; color: #666; font-size: 18px;">ບໍ່ມີຂໍ້ມູນປະເພດລົດ</p>'}
+      ${carTypesTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນປະເພດລົດ</p>'}
       
       <div class="section-title">🚗 ລາຍການລົດ (15 ຄັນທຳອິດ)</div>
-      ${carsTable || '<p style="text-align: center; color: #666; font-size: 18px;">ບໍ່ມີຂໍ້ມູນລົດ</p>'}
+      ${carsTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນລົດ</p>'}
     </div>
   `;
 };
@@ -467,18 +512,12 @@ const generateStaffContent = (reportData: any, formatCurrency: any) => {
             <td class="text-center">${member.employeeId || '-'}</td>
             <td class="text-center">
               <span class="${member.checkInStatus === 'checked-in' ? 'status-active' : 'status-inactive'}">
-                ${member.checkInStatus === 'checked-in' ? '✅ ເຂົ້າວຽກ' : '❌ ອອກວຽກ'}
+                ${member.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
               </span>
             </td>
             <td class="text-center currency">${member.ticketsSold || 0}</td>
             <td class="text-center">${member.workHours ? `${Math.round(member.workHours)}h` : '0h'}</td>
             <td class="text-center">${member.workHours > 0 ? Math.round((member.ticketsSold || 0) / member.workHours) : 0}</td>
-            <td class="text-center" style="font-size: 12px;">
-              ${member.lastCheckIn ? new Date(member.lastCheckIn).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' }) : '-'}
-            </td>
-            <td class="text-center" style="font-size: 12px;">
-              ${member.lastCheckOut ? new Date(member.lastCheckOut).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' }) : '-'}
-            </td>
             <td class="text-center">
               <span class="${performance.color}">
                 ${performance.label}
@@ -498,8 +537,6 @@ const generateStaffContent = (reportData: any, formatCurrency: any) => {
             <th class="text-center">ປີ້ທີ່ຂາຍ</th>
             <th class="text-center">ຊົ່ວໂມງ</th>
             <th class="text-center">ປີ້/ຊົ່ວໂມງ</th>
-            <th class="text-center">ເຂົ້າວຽກ</th>
-            <th class="text-center">ອອກວຽກ</th>
             <th class="text-center">ການປະຕິບັດ</th>
           </tr>
           ${staffRows}
@@ -531,24 +568,8 @@ const generateStaffContent = (reportData: any, formatCurrency: any) => {
         </div>
       </div>
       
-      <div class="content-section">
-        <div class="section-title">📊 ພາບລວມການປະຕິບັດງານ</div>
-        <table>
-          <tr class="table-highlight">
-            <th style="width: 33%;">ປີ້ຕໍ່ຄົນເຊລີ່ຍ</th>
-            <th style="width: 33%;">ປີ້ສູງສຸດ</th>
-            <th style="width: 34%;">ຊົ່ວໂມງເຊລີ່ຍ</th>
-          </tr>
-          <tr>
-            <td class="text-center currency" style="font-size: 20px; font-weight: bold;">${summary.averageTicketsPerStaff || 0}</td>
-            <td class="text-center text-success" style="font-size: 20px; font-weight: bold;">${summary.topPerformerTickets || 0}</td>
-            <td class="text-center text-primary" style="font-size: 20px; font-weight: bold;">${Math.round(summary.averageWorkHours || 0)}h</td>
-          </tr>
-        </table>
-      </div>
-      
       <div class="section-title">👤 ລາຍລະອຽດການປະຕິບັດງານພະນັກງານ</div>
-      ${staffTable || '<p style="text-align: center; color: #666; font-size: 18px;">ບໍ່ມີຂໍ້ມູນພະນັກງານທີ່ເຂົ້າວຽກໃນຊ່ວງນີ້</p>'}
+      ${staffTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນພະນັກງານທີ່ເຂົ້າວຽກໃນຊ່ວງນີ້</p>'}
     </div>
   `;
 };
@@ -556,25 +577,13 @@ const generateStaffContent = (reportData: any, formatCurrency: any) => {
 // Helper function สำหรับ performance level
 const getPerformanceLevel = (ticketsSold: number, average: number) => {
   if (ticketsSold >= average * 1.5) {
-    return {
-      label: 'ດີເລີດ',
-      color: 'text-success'
-    };
+    return { label: 'ດີເລີດ', color: 'text-success' };
   } else if (ticketsSold >= average) {
-    return {
-      label: 'ດີ',
-      color: 'text-primary'
-    };
+    return { label: 'ດີ', color: 'text-primary' };
   } else if (ticketsSold >= average * 0.5) {
-    return {
-      label: 'ປົກກະຕິ',
-      color: 'text-warning'
-    };
+    return { label: 'ປົກກະຕິ', color: 'text-warning' };
   } else {
-    return {
-      label: 'ຕ້ອງປັບປຸງ',
-      color: 'text-danger'
-    };
+    return { label: 'ຕ້ອງປັບປຸງ', color: 'text-danger' };
   }
 };
 
@@ -589,26 +598,22 @@ const generateSummaryContent = (reportData: any, formatCurrency: any) => {
         <div class="stat-card">
           <div class="stat-label">🎫 ປີ້ທີ່ຂາຍ</div>
           <div class="stat-value">${stats.totalTickets || 0}</div>
-          <div style="font-size: 14px; color: #888;">ໃບ</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">💰 ລາຍຮັບລວມ</div>
           <div class="stat-value currency">${formatCurrency(stats.totalRevenue || 0)}</div>
-          <div style="font-size: 14px; color: #888;">ກີບ</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">👥 ຄົນຂັບເຂົ້າວຽກ</div>
           <div class="stat-value">${stats.activeDrivers || 0}</div>
-          <div style="font-size: 14px; color: #888;">ຄົນ</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">📈 ລາຄາເຊລີ່ຍ</div>
           <div class="stat-value currency">${formatCurrency(stats.avgTicketPrice || 0)}</div>
-          <div style="font-size: 14px; color: #888;">ກີບ/ໃບ</div>
         </div>
       </div>
       
-      <table>
+      <table class="no-break">
         <tr class="table-highlight">
           <th style="width: 30%;">ປະເພດ</th>
           <th>ລາຍລະອຽດ</th>
@@ -649,7 +654,7 @@ const generateSalesContent = (reportData: any, formatCurrency: any) => {
     `).join('');
     
     paymentTable = `
-      <table>
+      <table class="no-break">
         <tr class="table-highlight">
           <th>ວິທີຊຳລະ</th>
           <th class="text-center">ຈຳນວນ</th>
@@ -686,7 +691,7 @@ const generateSalesContent = (reportData: any, formatCurrency: any) => {
         </div>
       </div>
       
-      ${paymentTable || '<p style="text-align: center; color: #666; font-size: 18px;">ບໍ່ມີຂໍ້ມູນການຊຳລະເງິນ</p>'}
+      ${paymentTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນການຊຳລະເງິນ</p>'}
     </div>
   `;
 };
@@ -753,7 +758,7 @@ const generateDriversContent = (reportData: any, formatCurrency: any) => {
         </div>
       </div>
       
-      ${driversTable || '<p style="text-align: center; color: #666; font-size: 18px;">ບໍ່ມີຂໍ້ມູນຄົນຂັບທີ່ມີລາຍຮັບໃນຊ່ວງນີ້</p>'}
+      ${driversTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນຄົນຂັບທີ່ມີລາຍຮັບໃນຊ່ວງນີ້</p>'}
     </div>
   `;
 };
@@ -772,7 +777,7 @@ const generateFinancialContent = (reportData: any, formatCurrency: any) => {
         </div>
       </div>
       
-      <table>
+      <table class="no-break">
         <tr class="table-highlight">
           <th style="width: 20%;">ປະເພດ</th>
           <th class="text-center" style="width: 30%;">ມູນຄ່າ</th>
@@ -797,22 +802,13 @@ const generateFinancialContent = (reportData: any, formatCurrency: any) => {
           <td class="text-center text-primary"><strong>85%</strong></td>
           <td class="text-center">${breakdown.driver?.transactionCount || 0} ລາຍການ</td>
         </tr>
-        <tr style="background: #f8f9fa; font-weight: bold; font-size: 18px;">
+        <tr style="background: #f8f9fa; font-weight: bold;">
           <td><strong>📊 ລວມທັງໝົດ</strong></td>
           <td class="text-right currency">${formatCurrency(reportData.summary?.totalRevenue || 0)}</td>
           <td class="text-center"><strong>100%</strong></td>
           <td class="text-center">-</td>
         </tr>
       </table>
-      
-      <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
-        <p style="font-size: 16px; margin-bottom: 10px;"><strong>📋 ໝາຍເຫດການແບ່ງລາຍຮັບ:</strong></p>
-        <ul style="margin-left: 20px; font-size: 14px;">
-          <li>ບໍລິສັດໄດ້ຮັບ <strong>10%</strong> ຈາກລາຍຮັບລວມ</li>
-          <li>ສະຖານີໄດ້ຮັບ <strong>5%</strong> ຈາກລາຍຮັບລວມ</li>
-          <li>ຄົນຂັບໄດ້ຮັບ <strong>85%</strong> ແບ່ງກັນຕາມຈຳນວນຄົນທີ່ເຂົ້າວຽກ</li>
-        </ul>
-      </div>
     </div>
   `;
 };

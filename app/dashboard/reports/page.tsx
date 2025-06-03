@@ -1,10 +1,11 @@
-// app/dashboard/reports/page.tsx - Updated with new report types
+// app/dashboard/reports/page.tsx - Updated with real PDF export
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import NeoCard from '@/components/ui/NotionCard';
+import Script from 'next/script';
 
 // Import components
 import ReportTypeSelector from './components/ReportTypeSelector';
@@ -29,6 +30,7 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pdfLibraryLoaded, setPdfLibraryLoaded] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login');
@@ -112,11 +114,22 @@ export default function ReportsPage() {
   };
 
   // ฟังก์ชันสำหรับดาวน์โหลด PDF จริง
-  const handleExportPDF = () => {
-    if (reportData) {
-      exportToPDF(reportData, selectedReport);
-    } else {
+  const handleExportPDF = async () => {
+    if (!reportData) {
       alert('ບໍ່ມີຂໍ້ມູນບົດລາຍງານສຳລັບສົ່ງອອກ PDF');
+      return;
+    }
+
+    if (!pdfLibraryLoaded) {
+      alert('ກຳລັງໂຫລດ PDF library, ກະລຸນາລໍຖ້າ...');
+      return;
+    }
+
+    try {
+      await exportToPDF(reportData, selectedReport);
+    } catch (error) {
+      console.error('PDF export error:', error);
+      alert('ເກີດຂໍ້ຜິດພາດໃນການສົ່ງອອກ PDF');
     }
   };
 
@@ -147,57 +160,78 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">📊 ລະບົບບົດລາຍງານ</h1>
-        <p className="text-gray-600">ຈັດການແລະສ້າງບົດລາຍງານສຳລັບທຸລະກິດຂາຍປີ້ລົດໂດຍສານ</p>
-      </div>
+    <>
+      {/* โหลด html2pdf.js library */}
+      <Script
+        src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+        onLoad={() => {
+          setPdfLibraryLoaded(true);
+          console.log('html2pdf library loaded successfully');
+        }}
+        onError={() => {
+          console.error('Failed to load html2pdf library');
+        }}
+      />
 
-      {/* Report Type Selector */}
-      <NeoCard className="p-4 mb-4">
-        <ReportTypeSelector 
-          selectedReport={selectedReport}
-          onReportChange={setSelectedReport}
-        />
-      </NeoCard>
-
-      {/* Date Range Selector */}
-      <NeoCard className="p-4 mb-4">
-        <DateRangeSelector
-          selectedPeriod={selectedPeriod}
-          onPeriodChange={setSelectedPeriod}
-          startDate={startDate}
-          endDate={endDate}
-          onStartDateChange={setStartDate}
-          onEndDateChange={setEndDate}
-          onRefresh={fetchReport}
-          loading={loading}
-          onExportPDF={handleExportPDF}
-          onPrintReport={handlePrintReport}
-          reportData={reportData}
-        />
-      </NeoCard>
-
-      {/* Report Content */}
-      <NeoCard className="p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">
-            {getReportTitle(selectedReport)}
-          </h2>
-          {reportData && (
-            <div className="text-sm text-gray-500">
-              {new Date(reportData.period.startDate).toLocaleDateString('lo-LA')} - {new Date(reportData.period.endDate).toLocaleDateString('lo-LA')}
+      <div className="p-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">📊 ລະບົບບົດລາຍງານ</h1>
+          <p className="text-gray-600">ຈັດການແລະສ້າງບົດລາຍງານສຳລັບທຸລະກິດຂາຍປີ້ລົດໂດຍສານ</p>
+          
+          {/* แสดงสถานะการโหลด PDF library */}
+          {!pdfLibraryLoaded && (
+            <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-sm text-yellow-700">
+              ⏳ ກຳລັງໂຫລດ PDF library... ກະລຸນາລໍຖ້າ
             </div>
           )}
         </div>
-        
-        <ReportContent 
-          reportData={reportData}
-          reportType={selectedReport}
-          loading={loading}
-        />
-      </NeoCard>
-    </div>
+
+        {/* Report Type Selector */}
+        <NeoCard className="p-4 mb-4">
+          <ReportTypeSelector 
+            selectedReport={selectedReport}
+            onReportChange={setSelectedReport}
+          />
+        </NeoCard>
+
+        {/* Date Range Selector */}
+        <NeoCard className="p-4 mb-4">
+          <DateRangeSelector
+            selectedPeriod={selectedPeriod}
+            onPeriodChange={setSelectedPeriod}
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            onRefresh={fetchReport}
+            loading={loading}
+            onExportPDF={handleExportPDF}
+            onPrintReport={handlePrintReport}
+            reportData={reportData}
+          />
+        </NeoCard>
+
+        {/* Report Content */}
+        <NeoCard className="p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">
+              {getReportTitle(selectedReport)}
+            </h2>
+            {reportData && (
+              <div className="text-sm text-gray-500">
+                {new Date(reportData.period.startDate).toLocaleDateString('lo-LA')} - {new Date(reportData.period.endDate).toLocaleDateString('lo-LA')}
+              </div>
+            )}
+          </div>
+          
+          <ReportContent 
+            reportData={reportData}
+            reportType={selectedReport}
+            loading={loading}
+          />
+        </NeoCard>
+      </div>
+    </>
   );
 }
