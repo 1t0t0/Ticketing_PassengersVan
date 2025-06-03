@@ -143,6 +143,8 @@ async function getVehiclesReport(startDate: Date, endDate: Date) {
 }
 
 // เพิ่มฟังก์ชันรายงานพนักงาน
+// เพิ่มฟังก์ชันรายงานพนักงาน - แก้ไขแล้ว
+// แก้ไข app/api/reports/route.ts - ฟังก์ชัน getStaffReport
 async function getStaffReport(startDate: Date, endDate: Date) {
   console.log('Staff Report - Date range:', startDate, 'to', endDate);
   
@@ -152,10 +154,17 @@ async function getStaffReport(startDate: Date, endDate: Date) {
     // ดึงข้อมูลพนักงานทั้งหมด (staff + admin)
     const allStaff = await User.find({ 
       role: { $in: ['staff', 'admin'] } 
-    }).select('name employeeId checkInStatus lastCheckIn lastCheckOut');
+    }).select('name email employeeId checkInStatus lastCheckIn lastCheckOut');
 
-    // หาปี้ที่ขายโดยพนักงานแต่ละคน (ในช่วงเวลาที่เลือก)
-    const ticketsByStaff = await Ticket.aggregate([
+    console.log(`Found ${allStaff.length} staff members`);
+
+    // Debug: ตรวจสอบข้อมูล Ticket ทั้งหมดในช่วงเวลา
+    const allTicketsInRange = await Ticket.find(dateFilter).select('soldBy price soldAt');
+    console.log(`Found ${allTicketsInRange.length} tickets in date range`);
+    console.log('Sample soldBy values:', allTicketsInRange.slice(0, 5).map(t => t.soldBy));
+
+    // วิธีที่ 1: ลองจับคู่จาก email ก่อน
+    const ticketsByEmail = await Ticket.aggregate([
       {
         $match: dateFilter
       },
@@ -168,13 +177,75 @@ async function getStaffReport(startDate: Date, endDate: Date) {
       }
     ]);
 
+    console.log('Tickets grouped by soldBy:', ticketsByEmail);
+
+    // วิธีที่ 2: ใช้ lookup เพื่อหาการจับคู่ที่ถูกต้อง
+    const ticketsByStaffLookup = await Ticket.aggregate([
+      {
+        $match: dateFilter
+      },
+      {
+        $lookup: {
+          from: 'users',
+          let: { soldBy: '$soldBy' },
+          pipeline: [
+            {
+              $match: {
+                role: { $in: ['staff', 'admin'] },
+                $expr: {
+                  $or: [
+                    { $eq: ['$email', '$soldBy'] },
+                    { $eq: ['$name', '$soldBy'] },
+                    { $eq: [{ $toString: '$_id' }, '$soldBy'] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'staffInfo'
+        }
+      },
+      {
+        $unwind: {
+          path: '$staffInfo',
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      {
+        $group: {
+          _id: '$staffInfo._id',
+          staffInfo: { $first: '$staffInfo' },
+          ticketsSold: { $sum: 1 },
+          totalRevenue: { $sum: '$price' }
+        }
+      }
+    ]);
+
+    console.log('Tickets by staff with lookup:', ticketsByStaffLookup);
+
     // รวมข้อมูลพนักงานกับยอดขาย
     const staffWithSales = allStaff.map(staff => {
-      const salesData = ticketsByStaff.find(ticket => 
+      // หา sales data จาก lookup result
+      const salesData = ticketsByStaffLookup.find(ticket => 
         ticket._id && ticket._id.toString() === staff._id.toString()
       );
 
-      // คำนวณชั่วโมงทำงาน (ประมาณการจาก check-in/out)
+      // ถ้าไม่เจอจาก lookup ลองหาจาก email/name matching
+      let fallbackSalesData = null;
+      if (!salesData) {
+        fallbackSalesData = ticketsByEmail.find(ticket => {
+          if (!ticket._id) return false;
+          return (
+            ticket._id === staff.email || 
+            ticket._id === staff.name ||
+            ticket._id === staff._id.toString()
+          );
+        });
+      }
+
+      const finalSalesData = salesData || fallbackSalesData;
+
+      // คำนวณชั่วโมงทำงาน
       let workHours = 0;
       if (staff.lastCheckIn && staff.lastCheckOut) {
         const checkIn = new Date(staff.lastCheckIn);
@@ -183,23 +254,26 @@ async function getStaffReport(startDate: Date, endDate: Date) {
           workHours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
         }
       } else if (staff.checkInStatus === 'checked-in' && staff.lastCheckIn) {
-        // ยังไม่ check out - คำนวณจากเวลาปัจจุบัน
         const checkIn = new Date(staff.lastCheckIn);
         const now = new Date();
         workHours = (now.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
       }
 
-      return {
+      const result = {
         id: staff._id,
         name: staff.name,
         employeeId: staff.employeeId,
+        email: staff.email,
         checkInStatus: staff.checkInStatus,
         lastCheckIn: staff.lastCheckIn,
         lastCheckOut: staff.lastCheckOut,
-        ticketsSold: salesData?.ticketsSold || 0,
-        totalRevenue: salesData?.totalRevenue || 0,
-        workHours: Math.max(0, Math.round(workHours * 10) / 10) // ปัดเศษ 1 ตำแหน่ง
+        ticketsSold: finalSalesData?.ticketsSold || 0,
+        totalRevenue: finalSalesData?.totalRevenue || 0,
+        workHours: Math.max(0, Math.round(workHours * 10) / 10)
       };
+
+      console.log(`Staff ${staff.name} (${staff.email}): ${result.ticketsSold} tickets sold`);
+      return result;
     });
 
     // เรียงลำดับตามยอดขาย
@@ -208,30 +282,17 @@ async function getStaffReport(startDate: Date, endDate: Date) {
     // คำนวณสถิติรวม
     const totalStaff = allStaff.length;
     const activeStaff = allStaff.filter(s => s.checkInStatus === 'checked-in').length;
-    const totalTicketsSold = ticketsByStaff.reduce((sum, t) => sum + t.ticketsSold, 0);
+    const totalTicketsSold = staffWithSales.reduce((sum, s) => sum + s.ticketsSold, 0);
     const totalWorkHours = staffWithSales.reduce((sum, s) => sum + s.workHours, 0);
     const averageTicketsPerStaff = totalStaff > 0 ? Math.round(totalTicketsSold / totalStaff) : 0;
     const topPerformerTickets = staffWithSales.length > 0 ? staffWithSales[0].ticketsSold : 0;
     const averageWorkHours = totalStaff > 0 ? totalWorkHours / totalStaff : 0;
 
-    // สร้างข้อมูลการขายตามชั่วโมง
-    const hourlySales = await Ticket.aggregate([
-      { $match: dateFilter },
-      {
-        $group: {
-          _id: { $hour: '$soldAt' },
-          ticketCount: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id': 1 } }
-    ]);
-
-    const workHoursData = Array.from({ length: 24 }, (_, hour) => {
-      const hourData = hourlySales.find(h => h._id === hour);
-      return {
-        hour,
-        ticketCount: hourData?.ticketCount || 0
-      };
+    console.log('Final summary:', {
+      totalStaff,
+      activeStaff,
+      totalTicketsSold,
+      staffWithTickets: staffWithSales.filter(s => s.ticketsSold > 0).length
     });
 
     return NextResponse.json({
@@ -246,12 +307,13 @@ async function getStaffReport(startDate: Date, endDate: Date) {
         topPerformerTickets,
         averageWorkHours
       },
-      staff: staffWithSales,
-      workHours: workHoursData
+      staff: staffWithSales
+      // ลบ workHours array ออกตามความต้องการ
     });
 
   } catch (error) {
     console.error('Staff Report Error:', error);
+    
     return NextResponse.json({
       type: 'staff',
       period: { startDate, endDate },
@@ -264,8 +326,7 @@ async function getStaffReport(startDate: Date, endDate: Date) {
         topPerformerTickets: 0,
         averageWorkHours: 0
       },
-      staff: [],
-      workHours: []
+      staff: []
     });
   }
 }

@@ -1,8 +1,6 @@
-// app/dashboard/reports/components/StaffReportComponent.tsx
+// app/dashboard/reports/components/StaffReportComponent.tsx - แก้ไขแล้ว
 import React from 'react';
-import { FiUserCheck, FiUsers, FiClock, FiDollarSign, FiTrendingUp, FiTrendingDown } from 'react-icons/fi';
-import { Line } from 'react-chartjs-2';
-import { BarChart } from 'recharts';
+import { FiUserCheck, FiUsers, FiClock, FiDollarSign } from 'react-icons/fi';
 
 interface StaffReportComponentProps {
   reportData: any;
@@ -24,31 +22,11 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
 
   const summary = reportData.summary || {};
   const staff = reportData.staff || [];
-  const workHours = reportData.workHours || [];
 
-  // Prepare chart data for tickets sold by staff
-  const ticketsSoldChartData = {
-    labels: staff.slice(0, 10).map((s: any) => s.name || 'N/A'),
-    datasets: [{
-      label: 'ປີ້ທີ່ຂາຍ',
-      data: staff.slice(0, 10).map((s: any) => s.ticketsSold || 0),
-      backgroundColor: '#3B82F6',
-      borderColor: '#2563EB',
-      borderWidth: 1
-    }]
-  };
-
-  // Prepare chart data for work hours
-  const workHoursChartData = {
-    labels: workHours.map((h: any) => `${h.hour}:00`),
-    datasets: [{
-      label: 'ປີ້ທີ່ຂາຍ',
-      data: workHours.map((h: any) => h.ticketCount || 0),
-      borderColor: '#10B981',
-      backgroundColor: 'rgba(16, 185, 129, 0.1)',
-      tension: 0.1
-    }]
-  };
+  // Debug: ตรวจสอบข้อมูลที่ได้รับ
+  console.log('Staff Report Data:', reportData);
+  console.log('Summary:', summary);
+  console.log('Staff Array:', staff);
 
   return (
     <div className="space-y-6">
@@ -82,8 +60,7 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
 
       {/* Performance Overview */}
       <div className="bg-white border rounded-lg p-4">
-        <h3 className="text-lg font-semibold mb-4 flex items-center">
-          <FiTrendingUp className="mr-2" />
+        <h3 className="text-lg font-semibold mb-4">
           ພາບລວມການປະຕິບັດງານ
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -99,69 +76,6 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
             <div className="text-2xl font-bold text-purple-600">{Math.round(summary.averageWorkHours || 0)}h</div>
             <div className="text-sm text-gray-600">ຊົ່ວໂມງເຊລີ່ຍ</div>
           </div>
-        </div>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Tickets Sold by Staff */}
-        <div className="bg-white border rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-3 flex items-center">
-            <FiDollarSign className="mr-2" />
-            ປີ້ທີ່ຂາຍໂດຍພະນັກງານ (10 ອັນດັບ)
-          </h3>
-          {staff.length > 0 ? (
-            <div className="h-64">
-              <BarChart 
-                data={ticketsSoldChartData} 
-                options={{ 
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      display: false
-                    }
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true
-                    }
-                  }
-                }} 
-              />
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນການຂາຍ</div>
-          )}
-        </div>
-
-        {/* Hourly Sales Trend */}
-        <div className="bg-white border rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-3 flex items-center">
-            <FiClock className="mr-2" />
-            ແນວໂນ້ມການຂາຍຕາມຊົ່ວໂມງ
-          </h3>
-          {workHours.length > 0 ? (
-            <div className="h-64">
-              <Line 
-                data={workHoursChartData} 
-                options={{ 
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      display: false
-                    }
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true
-                    }
-                  }
-                }} 
-              />
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຊົ່ວໂມງການຂາຍ</div>
-          )}
         </div>
       </div>
 
@@ -181,12 +95,10 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
                   <th className="text-center p-2">ປີ້/ຊົ່ວໂມງ</th>
                   <th className="text-center p-2">ເຂົ້າວຽກ</th>
                   <th className="text-center p-2">ອອກວຽກ</th>
-                  <th className="text-center p-2">ການປະຕິບັດ</th>
                 </tr>
               </thead>
               <tbody>
                 {staff.map((member: any, index: number) => {
-                  const performance = getPerformanceLevel(member.ticketsSold || 0, summary.averageTicketsPerStaff || 0);
                   return (
                     <tr key={member.id || index} className="border-b">
                       <td className="p-2 font-medium">{member.name || 'N/A'}</td>
@@ -229,14 +141,6 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
                           : '-'
                         }
                       </td>
-                      <td className="p-2 text-center">
-                        <span className={`flex items-center justify-center text-xs font-medium ${
-                          performance.color
-                        }`}>
-                          {performance.icon}
-                          <span className="ml-1">{performance.label}</span>
-                        </span>
-                      </td>
                     </tr>
                   );
                 })}
@@ -247,35 +151,6 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
       )}
     </div>
   );
-};
-
-// Helper function to determine performance level
-const getPerformanceLevel = (ticketsSold: number, average: number) => {
-  if (ticketsSold >= average * 1.5) {
-    return {
-      label: 'ດີເລີດ',
-      color: 'text-green-600',
-      icon: <FiTrendingUp />
-    };
-  } else if (ticketsSold >= average) {
-    return {
-      label: 'ດີ',
-      color: 'text-blue-600',
-      icon: <FiTrendingUp />
-    };
-  } else if (ticketsSold >= average * 0.5) {
-    return {
-      label: 'ປົກກະຕິ',
-      color: 'text-yellow-600',
-      icon: <FiUserCheck />
-    };
-  } else {
-    return {
-      label: 'ຕ້ອງປັບປຸງ',
-      color: 'text-red-600',
-      icon: <FiTrendingDown />
-    };
-  }
 };
 
 // StatCard Component
