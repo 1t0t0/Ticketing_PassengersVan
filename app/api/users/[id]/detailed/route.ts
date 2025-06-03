@@ -4,7 +4,6 @@ import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import bcrypt from 'bcryptjs';
 
 export async function GET(
   request: Request,
@@ -35,9 +34,46 @@ export async function GET(
     // แปลงข้อมูลผู้ใช้เป็นออบเจ็กต์
     const userData = user.toObject();
     
+    // Debug: แสดงข้อมูลวันเกิดใน console
+    console.log('User birthDate from DB:', {
+      userId: userData._id,
+      name: userData.name,
+      birthDate: userData.birthDate,
+      birthDateType: typeof userData.birthDate
+    });
+    
+    // จัดการวันที่ให้อยู่ในรูปแบบที่ถูกต้อง
+    if (userData.birthDate) {
+      try {
+        let formattedDate = '';
+        
+        // ถ้าเป็น Date object จาก MongoDB
+        if (userData.birthDate instanceof Date) {
+          // แปลงเป็น YYYY-MM-DD สำหรับ input type="date"
+          formattedDate = userData.birthDate.toISOString().split('T')[0];
+        } 
+        // ถ้าเป็น string แล้ว
+        else if (typeof userData.birthDate === 'string') {
+          // ลองแปลงเป็น Date object ก่อน
+          const date = new Date(userData.birthDate);
+          if (!isNaN(date.getTime())) {
+            formattedDate = date.toISOString().split('T')[0];
+          } else {
+            // ถ้าแปลงไม่ได้ ให้ใช้ค่าเดิม (อาจเป็น YYYY-MM-DD อยู่แล้ว)
+            formattedDate = userData.birthDate;
+          }
+        }
+        
+        console.log('Formatted birthDate for response:', formattedDate);
+        userData.birthDate = formattedDate;
+      } catch (dateError) {
+        console.error('Error formatting birthDate in API:', dateError);
+        // ถ้าแปลงวันที่ไม่ได้ ให้เป็นค่าว่าง
+        userData.birthDate = '';
+      }
+    }
+    
     // ถอดรหัสแฮชเพื่อรับรหัสผ่านดิบ (สำหรับแอดมินเท่านั้น)
-    // หมายเหตุ: bcrypt ไม่สามารถถอดรหัสแฮชได้ ดังนั้นเราไม่สามารถกู้คืนรหัสผ่านดิบได้จริงๆ
-    // แนวทางที่เป็นไปได้คือการกำหนดรหัสผ่านว่างเพื่อให้แอดมินกรอกใหม่ หรือใช้รหัสผ่านสำรอง
     userData.unhashedPassword = '********'; // เราจำเป็นต้องให้แอดมินกำหนดรหัสผ่านใหม่
     
     // ลบรหัสผ่านแฮชออกเพื่อความปลอดภัย

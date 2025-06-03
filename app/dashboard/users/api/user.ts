@@ -58,9 +58,20 @@ export async function fetchUserDetailed(userId: string): Promise<User> {
       throw new Error(errorData.error || 'Failed to fetch user details');
     }
     
-    return response.json();
+    const userData = await response.json();
+    
+    // แปลงวันที่ให้อยู่ในรูปแบบ YYYY-MM-DD สำหรับ input type="date"
+    if (userData.birthDate) {
+      const date = new Date(userData.birthDate);
+      if (!isNaN(date.getTime())) {
+        // จัดรูปแบบเป็น YYYY-MM-DD
+        userData.birthDate = date.toISOString().split('T')[0];
+      }
+    }
+    
+    return userData;
   } catch (error) {
-    console.error('Error fetching user details:', error);
+    console.error('Error in fetchUserDetailed:', error);
     throw error;
   }
 }

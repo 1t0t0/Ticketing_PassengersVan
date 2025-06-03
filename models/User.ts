@@ -27,38 +27,39 @@ export interface IUser extends Document {
 }
 
 // models/User.ts (แก้ไขเฉพาะ schema)
-const userSchema = new Schema({
-  // Common fields for all roles
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  name: { type: String, required: true },
   role: { 
     type: String, 
-    enum: ['admin', 'staff', 'driver', 'station'],
+    enum: ['admin', 'staff', 'driver', 'station'], 
     required: true 
   },
-  
-  // Driver specific fields
-  employeeId: { type: String, sparse: true },
-  phone: { type: String },
-  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-  checkInStatus: { type: String, enum: ['checked-in', 'checked-out'], default: 'checked-out' },
-  lastCheckIn: { type: Date },
-  lastCheckOut: { type: Date },
-  
-  // เพิ่มฟิลด์สำหรับวันเกิด
-  birthDate: { type: String },
-  
-  // เพิ่มฟิลด์สำหรับรูปภาพ
-  idCardNumber: { type: String },
-  idCardImage: { type: String },
-  userImage: { type: String },
-  
-  // Station specific fields
-  stationId: { type: String, sparse: true },
-  stationName: { type: String },
-  location: { type: String }
-}, { timestamps: true });
+  phone: String,
+  birthDate: Date, // ตรวจสอบว่าเป็น Date type
+  idCardNumber: String,
+  idCardImage: String,
+  userImage: String,
+  employeeId: String,
+  stationId: String,
+  stationName: String,
+  location: String,
+  status: { 
+    type: String, 
+    enum: ['active', 'inactive'], 
+    default: 'active' 
+  },
+  checkInStatus: { 
+    type: String, 
+    enum: ['checked-in', 'checked-out'], 
+    default: 'checked-out' 
+  },
+  lastCheckIn: Date,
+  lastCheckOut: Date
+}, {
+  timestamps: true
+});
 
 // Create indexes for efficient queries
 userSchema.index({ role: 1 });

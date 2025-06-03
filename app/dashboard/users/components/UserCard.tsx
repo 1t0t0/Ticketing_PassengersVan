@@ -1,4 +1,4 @@
-// app/dashboard/users/components/UserCard.tsx - Larger Size Version (Lao Language)
+// app/dashboard/users/components/UserCard.tsx - Updated
 import React, { useState } from 'react';
 import { FiEye, FiEdit2, FiTrash2, FiLogIn, FiLogOut } from 'react-icons/fi';
 import { User } from '../types';
@@ -6,6 +6,7 @@ import useUserPermissions from '../hooks/useUserPermissions';
 import useCheckInOut from '../hooks/useCheckinOut';
 import EditUserModal from './EditUserModal';
 import ViewUserModal from './ViewUserModal';
+import GoogleAlphabetIcon from '@/components/GoogleAlphabetIcon'; // Import component ใหม่
 
 interface UserCardProps {
   user: User;
@@ -34,7 +35,7 @@ const UserCard: React.FC<UserCardProps> = ({ user, admins = [], onDelete, onRefr
     return 'ແອດມິນ';
   };
 
-  // Check if user has valid image
+  // ตรวจสอบว่ามีรูปภาพที่ใช้งานได้หรือไม่
   const hasValidImage = user?.userImage && 
                        typeof user.userImage === 'string' && 
                        user.userImage.trim() !== '' &&
@@ -50,21 +51,21 @@ const UserCard: React.FC<UserCardProps> = ({ user, admins = [], onDelete, onRefr
       <tr className="border-b hover:bg-gray-50 transition-colors">
         <td className="p-6">
           <div className="flex items-center">
-            <div className="w-16 h-16 mr-5 rounded-full overflow-hidden flex-shrink-0 border-2 border-gray-200">
-              {hasValidImage ? (
-                <img 
-                  src={user.userImage!} 
-                  alt={user.name}
-                  className="w-full h-full object-cover"
-                  onError={handleImageError}
-                  onLoad={() => setImageError(false)}
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
+              <div className="mr-4">
+  {user.userImage ? (
+    <img 
+      src={user.userImage} 
+      alt={user.name} 
+      className="w-16 h-16 rounded-full object-cover border-4 border-white"
+    />
+  ) : (
+    <GoogleAlphabetIcon 
+      name={user.name} 
+      size="xxl"
+      className="border-4 border-white"
+    />
+  )}
+</div>
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-lg text-gray-900 mb-1">{user.name}</div>
               <div className="text-sm text-gray-600 mb-1">{user.email}</div>

@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchUserDetailed } from '../api/user';
 import notificationService from '@/lib/notificationService';
-import { TABS } from '../config/constants';
 import { User } from '../types';
 import { FiUser, FiSave, FiX, FiLoader } from 'react-icons/fi';
 
@@ -113,40 +112,76 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
     }
   };
   
-  // โหลดข้อมูลผู้ใช้แบบละเอียด
-  useEffect(() => {
-    const loadUserDetails = async () => {
-      try {
-        setLoadingUser(true);
-        if (initialUser._id) {
-          const detailedUser = await fetchUserDetailed(initialUser._id);
-          
-          // ตั้งค่าพรีวิวของรูปภาพ
-          if (detailedUser.idCardImage) {
-            setIdCardImagePreview(detailedUser.idCardImage);
-          }
-
-          setUserData(detailedUser);
-
-          if (detailedUser.userImage) {
-            setUserImagePreview(detailedUser.userImage);
-          }
-          
-          // ถ้าเป็น driver ให้ดึงข้อมูลรถด้วย
-          if (detailedUser.role === 'driver' && detailedUser._id) {
-            await fetchDriverCarData(detailedUser._id);
+useEffect(() => {
+  const loadUserDetails = async () => {
+    try {
+      setLoadingUser(true);
+      if (initialUser._id) {
+        const detailedUser = await fetchUserDetailed(initialUser._id);
+        
+        // จัดการวันที่ให้แสดงในรูปแบบที่ถูกต้อง
+        if (detailedUser.birthDate) {
+          try {
+            // ตัวแปรสำหรับเก็บวันที่ที่จัดรูปแบบแล้ว
+            let formattedDate = '';
+            
+            console.log('Original birthDate from API:', detailedUser.birthDate);
+            
+            // ถ้าเป็น Date object
+            if (detailedUser.birthDate instanceof Date) {
+              formattedDate = detailedUser.birthDate.toISOString().split('T')[0];
+            } 
+            // ถ้าเป็น string
+            else if (typeof detailedUser.birthDate === 'string') {
+              // ถ้าเป็นรูปแบบ YYYY-MM-DD อยู่แล้ว
+              if (/^\d{4}-\d{2}-\d{2}$/.test(detailedUser.birthDate)) {
+                formattedDate = detailedUser.birthDate;
+              } 
+              // ถ้าเป็น ISO string หรือรูปแบบอื่น
+              else {
+                const date = new Date(detailedUser.birthDate);
+                if (!isNaN(date.getTime())) {
+                  formattedDate = date.toISOString().split('T')[0];
+                } else {
+                  console.warn('Invalid date format:', detailedUser.birthDate);
+                  formattedDate = '';
+                }
+              }
+            }
+            
+            console.log('Formatted date for input:', formattedDate);
+            detailedUser.birthDate = formattedDate;
+          } catch (dateError) {
+            console.error('Error formatting birthDate in modal:', dateError);
+            detailedUser.birthDate = '';
           }
         }
-      } catch (error) {
-        console.error('Failed to load user details:', error);
-        notificationService.error('ບໍ່ສາມາດໂຫລດຂໍ້ມູນຜູ້ໃຊ້ໄດ້');
-      } finally {
-        setLoadingUser(false);
+        
+        // ตั้งค่าพรีวิวของรูปภาพ
+        if (detailedUser.idCardImage) {
+          setIdCardImagePreview(detailedUser.idCardImage);
+        }
+        if (detailedUser.userImage) {
+          setUserImagePreview(detailedUser.userImage);
+        }
+
+        setUserData(detailedUser);
+        
+        // ถ้าเป็น driver ให้ดึงข้อมูลรถด้วย
+        if (detailedUser.role === 'driver' && detailedUser._id) {
+          await fetchDriverCarData(detailedUser._id);
+        }
       }
-    };
-    
-    loadUserDetails();
-  }, [initialUser._id]);
+    } catch (error) {
+      console.error('Failed to load user details:', error);
+      notificationService.error('ບໍ່ສາມາດໂຫລດຂໍ້ມູນຜູ້ໃຊ້ໄດ້');
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+  
+  loadUserDetails();
+}, [initialUser._id]);
   
   // จัดการการเปลี่ยนแปลงข้อมูลรถ
   const handleCarDataChange = (newCarData: CarData | null) => {
@@ -289,80 +324,98 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   };
   
   // Submit form
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  try {
+    setLoading(true);
     
-    try {
-      setLoading(true);
-      
-      // อัปโหลดรูปภาพใหม่ถ้ามี
-      if (idCardImageFile) {
-        const idCardImageUrl = await uploadImage(idCardImageFile, 'idCard');
-        if (idCardImageUrl) {
-          userData.idCardImage = idCardImageUrl;
-        }
+    // อัปโหลดรูปภาพใหม่ถ้ามี
+    if (idCardImageFile) {
+      const idCardImageUrl = await uploadImage(idCardImageFile, 'idCard');
+      if (idCardImageUrl) {
+        userData.idCardImage = idCardImageUrl;
       }
-      
-      if (userImageFile) {
-        const userImageUrl = await uploadImage(userImageFile, 'user');
-        if (userImageUrl) {
-          userData.userImage = userImageUrl;
-        }
-      }
-      
-      // เตรียมข้อมูลสำหรับอัพเดท
-      const updateData: any = { ...userData };
-      
-      // ลบฟิลด์ที่ไม่ต้องการส่งไป API
-      delete updateData._id;
-      delete updateData.__v;
-      delete updateData.createdAt;
-      delete updateData.updatedAt;
-      delete updateData.unhashedPassword; // ลบฟิลด์ที่เราเพิ่มเอง
-      
-      // ถ้ามีการเปลี่ยนรหัสผ่าน
-      if (userData.password && userData.password !== '********') {
-        // ไม่ต้องแฮชรหัสผ่านที่นี่ เพราะจะทำในฝั่ง API
-      } else {
-        // ไม่มีการเปลี่ยนรหัสผ่าน
-        delete updateData.password;
-      }
-      
-      // เรียก API เพื่ออัพเดทข้อมูลผู้ใช้
-      const response = await fetch(`/api/users/${initialUser._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update user');
-      }
-      
-      // ถ้าเป็น driver และมีข้อมูลรถ ให้อัปเดตข้อมูลรถด้วย
-      if (initialUser.role === 'driver' && carData) {
-        try {
-          await updateCarData(carData);
-          notificationService.success('ບັນທຶກຂໍ້ມູນຜູ້ໃຊ້ແລະລົດສຳເລັດແລ້ວ');
-        } catch (carError) {
-          console.error('Car update failed:', carError);
-          notificationService.warning('ບັນທຶກຂໍ້ມູນຜູ້ໃຊ້ສຳເລັດ ແຕ່ບໍ່ສາມາດອັບເດດຂໍ້ມູນລົດໄດ້');
-        }
-      } else {
-        notificationService.success('ບັນທຶກຂໍ້ມູນສຳເລັດແລ້ວ');
-      }
-      
-      onSuccess();
-      onClose();
-    } catch (error: any) {
-      console.error('Error updating user:', error);
-      notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
-    } finally {
-      setLoading(false);
-      setUploadProgress(0);
     }
-  };
+    
+    if (userImageFile) {
+      const userImageUrl = await uploadImage(userImageFile, 'user');
+      if (userImageUrl) {
+        userData.userImage = userImageUrl;
+      }
+    }
+    
+    // เตรียมข้อมูลสำหรับอัพเดท
+    const updateData: any = { ...userData };
+    
+    // จัดการวันที่ก่อนส่ง API
+    if (updateData.birthDate) {
+      try {
+        // ตรวจสอบว่าเป็นรูปแบบ YYYY-MM-DD หรือไม่
+        if (typeof updateData.birthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(updateData.birthDate)) {
+          // แปลงเป็น ISO string สำหรับบันทึกในฐานข้อมูล
+          const date = new Date(updateData.birthDate + 'T00:00:00.000Z');
+          if (!isNaN(date.getTime())) {
+            updateData.birthDate = date.toISOString();
+          }
+        }
+      } catch (dateError) {
+        console.error('Error processing birthDate:', dateError);
+        // ถ้าแปลงวันที่ไม่ได้ ให้ลบออก
+        delete updateData.birthDate;
+      }
+    }
+    
+    // ลบฟิลด์ที่ไม่ต้องการส่งไป API
+    delete updateData._id;
+    delete updateData.__v;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+    delete updateData.unhashedPassword;
+    
+    // ถ้ามีการเปลี่ยนรหัสผ่าน
+    if (userData.password && userData.password !== '********') {
+      // ไม่ต้องแฮชรหัสผ่านที่นี่ เพราะจะทำในฝั่ง API
+    } else {
+      // ไม่มีการเปลี่ยนรหัสผ่าน
+      delete updateData.password;
+    }
+    
+    // เรียก API เพื่ออัพเดทข้อมูลผู้ใช้
+    const response = await fetch(`/api/users/${initialUser._id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update user');
+    }
+    
+    // ถ้าเป็น driver และมีข้อมูลรถ ให้อัปเดตข้อมูลรถด้วย
+    if (initialUser.role === 'driver' && carData) {
+      try {
+        await updateCarData(carData);
+        notificationService.success('ບັນທຶກຂໍ້ມູນຜູ້ໃຊ້ແລະລົດສຳເລັດແລ້ວ');
+      } catch (carError) {
+        console.error('Car update failed:', carError);
+        notificationService.warning('ບັນທຶກຂໍ້ມູນຜູ້ໃຊ້ສຳເລັດ ແຕ່ບໍ່ສາມາດອັບເດດຂໍ້ມູນລົດໄດ້');
+      }
+    } else {
+      notificationService.success('ບັນທຶກຂໍ້ມູນສຳເລັດແລ້ວ');
+    }
+    
+    onSuccess();
+    onClose();
+  } catch (error: any) {
+    console.error('Error updating user:', error);
+    notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
+  } finally {
+    setLoading(false);
+    setUploadProgress(0);
+  }
+};
   
   // Render appropriate form based on user role
   const renderForm = () => {
