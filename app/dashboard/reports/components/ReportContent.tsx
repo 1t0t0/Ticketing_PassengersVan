@@ -142,67 +142,97 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
     );
   };
 
-  const renderDriverReport = () => {
-    if (!reportData || !Array.isArray(reportData.drivers)) {
-      return <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບ</div>;
-    }
+const renderDriverReport = () => {
+  if (!reportData || !Array.isArray(reportData.drivers)) {
+    return <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບ</div>;
+  }
 
-    const summary = reportData.summary || {};
-    const metadata = reportData.metadata || {};
+  const summary = reportData.summary || {};
+  const metadata = reportData.metadata || {};
 
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard title="ຄົນຂັບທັງໝົດ" value={summary.totalDrivers || 0} color="blue" />
-          <StatCard title="ຄົນຂັບທີ່ທຳງານ" value={summary.workingDriversInPeriod || 0} color="green" />
-          <StatCard title="ວັນທຳວຽກລວມ" value={summary.totalWorkDays || 0} color="purple" />
-          <StatCard title="ລາຍຮັບຕໍ່ຄົນ" value={`₭${(metadata.revenuePerDriver || 0).toLocaleString()}`} color="orange" />
-        </div>
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard title="ຄົນຂັບທັງໝົດ" value={summary.totalDrivers || 0} color="blue" />
+        <StatCard title="ຄົນຂັບທີ່ທຳງານ" value={summary.workingDriversInPeriod || 0} color="green" />
+        <StatCard title="ວັນທຳວຽກລວມ" value={summary.totalWorkDays || 0} color="purple" />
+        <StatCard title="ລາຍຮັບຕໍ່ຄົນ" value={`₭${(metadata.revenuePerDriver || 0).toLocaleString()}`} color="orange" />
+      </div>
 
-        <div className="bg-white border rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດຄົນຂັບ</h3>
-          {reportData.drivers.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບທີ່ມີລາຍຮັບໃນຊ່ວງເວລານີ້</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">ຊື່</th>
-                    <th className="text-left p-2">ລະຫັດ</th>
-                    <th className="text-center p-2">ສະຖານະ</th>
-                    <th className="text-center p-2">ວັນທຳງານ</th>
-                    <th className="text-right p-2">ລາຍຮັບ (KIP)</th>
+      <div className="bg-white border rounded-lg p-4">
+        <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດຄົນຂັບ</h3>
+        {reportData.drivers.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບທີ່ມີລາຍຮັບໃນຊ່ວງເວລານີ້</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">ຊື່</th>
+                  <th className="text-left p-2">ລະຫັດ</th>
+                  <th className="text-center p-2">ສະຖານະ</th>
+                  <th className="text-center p-2">ວັນທຳງານ</th>
+                  <th className="text-right p-2">ລາຍຮັບ (KIP)</th>
+                  <th className="text-center p-2">ເຂົ້າວຽກ</th>
+                  <th className="text-center p-2">ອອກວຽກ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.drivers.slice(0, 10).map((driver: any, index: number) => (
+                  <tr key={driver.id || index} className="border-b">
+                    <td className="p-2 font-medium">{driver.name || 'N/A'}</td>
+                    <td className="p-2 text-gray-600">{driver.employeeId || 'N/A'}</td>
+                    <td className="p-2 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        driver.performance === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {driver.performance === 'Active' ? 'ເຂົ້າວຽກ' : 'ບໍ່ເຂົ້າວຽກ'}
+                      </span>
+                    </td>
+                    <td className="p-2 text-center">{driver.workDays || 0}</td>
+                    <td className="p-2 text-right">
+                      <span className={`font-bold ${(driver.totalIncome || 0) > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                        ₭{(driver.totalIncome || 0).toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="p-2 text-center text-sm text-gray-600">
+                      {driver.lastCheckIn 
+                        ? new Date(driver.lastCheckIn).toLocaleDateString('lo-LA') + ' ' +
+                          new Date(driver.lastCheckIn).toLocaleTimeString('lo-LA', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })
+                        : '-'
+                      }
+                    </td>
+                    <td className="p-2 text-center text-sm text-gray-600">
+                      {driver.lastCheckOut 
+                        ? new Date(driver.lastCheckOut).toLocaleDateString('lo-LA') + ' ' +
+                          new Date(driver.lastCheckOut).toLocaleTimeString('lo-LA', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })
+                        : '-'
+                      }
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {reportData.drivers.slice(0, 10).map((driver: any, index: number) => (
-                    <tr key={driver.id || index} className="border-b">
-                      <td className="p-2 font-medium">{driver.name || 'N/A'}</td>
-                      <td className="p-2 text-gray-600">{driver.employeeId || 'N/A'}</td>
-                      <td className="p-2 text-center">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          driver.performance === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {driver.performance === 'Active' ? 'ເຂົ້າວຽກ' : 'ບໍ່ເຂົ້າວຽກ'}
-                        </span>
-                      </td>
-                      <td className="p-2 text-center">{driver.workDays || 0}</td>
-                      <td className="p-2 text-right">
-                        <span className={`font-bold ${(driver.totalIncome || 0) > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                          ₭{(driver.totalIncome || 0).toLocaleString()}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        
+        {/* เพิ่มข้อความอธิบาย */}
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-700">
+            <strong>📝 ໝາຍເຫດ:</strong> ຂໍ້ມູນທີ່ສະແດງເປັນຂໍ້ມູນໃນຊ່ວງເວລາທີ່ເລືອກເທົ່ານັ້ນ 
+            (ເຂົ້າ-ອອກວຽກແມ່ນຄັ້ງລ່າສຸດໃນຊ່ວງເວລານັ້ນ)
+          </p>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const renderFinancialReport = () => {
     if (!reportData?.breakdown) return null;

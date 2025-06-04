@@ -1,6 +1,6 @@
 // app/dashboard/reports/components/StaffReportComponent.tsx - แก้ไขแล้ว
 import React from 'react';
-import { FiUserCheck, FiUsers, FiClock, FiDollarSign } from 'react-icons/fi';
+import { FiUserCheck, FiUsers, FiCalendar, FiDollarSign } from 'react-icons/fi';
 
 interface StaffReportComponentProps {
   reportData: any;
@@ -30,7 +30,7 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
 
   return (
     <div className="space-y-6">
-      {/* Summary Stats */}
+      {/* Summary Stats - แก้ไขแล้ว */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard 
           icon={<FiUsers />} 
@@ -40,7 +40,7 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
         />
         <StatCard 
           icon={<FiUserCheck />} 
-          title="ເຂົ້າວຽກວັນນີ້" 
+          title="ເຂົ້າວຽກ" 
           value={summary.activeStaff || 0} 
           color="green" 
         />
@@ -51,35 +51,16 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
           color="purple" 
         />
         <StatCard 
-          icon={<FiClock />} 
-          title="ຊົ່ວໂມງທຳງານ" 
-          value={`${summary.totalWorkHours || 0}h`} 
+          icon={<FiCalendar />} 
+          title="ວັນທຳງານລວມ" 
+          value={summary.totalWorkDays || 0} 
           color="orange" 
         />
       </div>
 
-      {/* Performance Overview */}
-      <div className="bg-white border rounded-lg p-4">
-        <h3 className="text-lg font-semibold mb-4">
-          ພາບລວມການປະຕິບັດງານ
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">{summary.averageTicketsPerStaff || 0}</div>
-            <div className="text-sm text-gray-600">ປີ້ຕໍ່ຄົນເຊລີ່ຍ</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">{summary.topPerformerTickets || 0}</div>
-            <div className="text-sm text-gray-600">ປີ້ສູງສຸດ</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-purple-600">{Math.round(summary.averageWorkHours || 0)}h</div>
-            <div className="text-sm text-gray-600">ຊົ່ວໂມງເຊລີ່ຍ</div>
-          </div>
-        </div>
-      </div>
+      {/* ลบ Performance Overview ออกตามที่ต้องการ */}
 
-      {/* Staff Performance Table */}
+      {/* Staff Performance Table - แก้ไขแล้ว */}
       {staff.length > 0 && (
         <div className="bg-white border rounded-lg p-4">
           <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດການປະຕິບັດງານພະນັກງານ</h3>
@@ -91,8 +72,7 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
                   <th className="text-left p-2">ລະຫັດ</th>
                   <th className="text-center p-2">ສະຖານະ</th>
                   <th className="text-center p-2">ປີ້ທີ່ຂາຍ</th>
-                  <th className="text-center p-2">ຊົ່ວໂມງທຳງານ</th>
-                  <th className="text-center p-2">ປີ້/ຊົ່ວໂມງ</th>
+                  <th className="text-center p-2">ວັນທຳງານ</th>
                   <th className="text-center p-2">ເຂົ້າວຽກ</th>
                   <th className="text-center p-2">ອອກວຽກ</th>
                 </tr>
@@ -115,17 +95,13 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
                       <td className="p-2 text-center font-bold text-blue-600">
                         {member.ticketsSold || 0}
                       </td>
-                      <td className="p-2 text-center">
-                        {member.workHours ? `${Math.round(member.workHours)}h` : '0h'}
-                      </td>
-                      <td className="p-2 text-center">
-                        {member.workHours > 0 
-                          ? Math.round((member.ticketsSold || 0) / member.workHours) 
-                          : 0}
+                      <td className="p-2 text-center font-bold text-purple-600">
+                        {member.workDays || 0} ວັນ
                       </td>
                       <td className="p-2 text-center text-sm text-gray-600">
                         {member.lastCheckIn 
-                          ? new Date(member.lastCheckIn).toLocaleTimeString('lo-LA', { 
+                          ? new Date(member.lastCheckIn).toLocaleDateString('lo-LA') + ' ' +
+                            new Date(member.lastCheckIn).toLocaleTimeString('lo-LA', { 
                               hour: '2-digit', 
                               minute: '2-digit' 
                             })
@@ -134,7 +110,8 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
                       </td>
                       <td className="p-2 text-center text-sm text-gray-600">
                         {member.lastCheckOut 
-                          ? new Date(member.lastCheckOut).toLocaleTimeString('lo-LA', { 
+                          ? new Date(member.lastCheckOut).toLocaleDateString('lo-LA') + ' ' +
+                            new Date(member.lastCheckOut).toLocaleTimeString('lo-LA', { 
                               hour: '2-digit', 
                               minute: '2-digit' 
                             })
@@ -147,13 +124,21 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
               </tbody>
             </table>
           </div>
+          
+          {/* เพิ่มข้อความอธิบาย */}
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              <strong>📝 ໝາຍເຫດ:</strong> ຂໍ້ມູນທີ່ສະແດງເປັນຂໍ້ມູນໃນຊ່ວງເວລາທີ່ເລືອກເທົ່ານັ້ນ 
+              (ເຂົ້າ-ອອກວຽກແມ່ນຄັ້ງລ່າສຸດໃນຊ່ວງເວລານັ້ນ)
+            </p>
+          </div>
         </div>
       )}
     </div>
   );
 };
 
-// StatCard Component
+// StatCard Component - ไม่เปลี่ยนแปลง
 const StatCard: React.FC<{
   title: string;
   value: string | number;

@@ -1,4 +1,4 @@
-// app/api/reports/route.ts - เปลี่ยนจากโค้ดเดิมและเพิ่มการป้องกัน Staff
+// app/api/reports/route.ts - Complete file with all updates
 
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
@@ -170,6 +170,27 @@ async function getStaffReport(startDate: Date, endDate: Date) {
 
     console.log(`Found ${allStaff.length} staff members`);
 
+    // ดึงข้อมูล Work Logs ในช่วงเวลาที่เลือก
+    const workLogsInRange = await WorkLog.find({
+      user_id: { $in: allStaff.map(staff => staff._id) },
+      date: { 
+        $gte: startDate.toISOString().split('T')[0],
+        $lte: endDate.toISOString().split('T')[0]
+      }
+    }).populate('user_id', 'name employeeId email');
+
+    console.log(`Found ${workLogsInRange.length} work logs in date range`);
+
+    // จัดกลุ่ม Work Logs ตาม user_id
+    const workLogsByUser = workLogsInRange.reduce((acc, log) => {
+      const userId = log.user_id._id.toString();
+      if (!acc[userId]) {
+        acc[userId] = [];
+      }
+      acc[userId].push(log);
+      return acc;
+    }, {});
+
     // Debug: ตรวจสอบข้อมูล Ticket ทั้งหมดในช่วงเวลา
     const allTicketsInRange = await Ticket.find(dateFilter).select('soldBy price soldAt');
     console.log(`Found ${allTicketsInRange.length} tickets in date range`);
@@ -235,14 +256,15 @@ async function getStaffReport(startDate: Date, endDate: Date) {
 
     console.log('Tickets by staff with lookup:', ticketsByStaffLookup);
 
-    // รวมข้อมูลพนักงานกับยอดขาย
-    const staffWithSales = allStaff.map(staff => {
-      // หา sales data จาก lookup result
+    // รวมข้อมูลพนักงานกับยอดขายและวันทำงาน
+    const staffWithWorkData = allStaff.map(staff => {
+      const userId = staff._id.toString();
+      
+      // หา sales data
       const salesData = ticketsByStaffLookup.find(ticket => 
-        ticket._id && ticket._id.toString() === staff._id.toString()
+        ticket._id && ticket._id.toString() === userId
       );
 
-      // ถ้าไม่เจอจาก lookup ลองหาจาก email/name matching
       let fallbackSalesData = null;
       if (!salesData) {
         fallbackSalesData = ticketsByEmail.find(ticket => {
@@ -250,25 +272,27 @@ async function getStaffReport(startDate: Date, endDate: Date) {
           return (
             ticket._id === staff.email || 
             ticket._id === staff.name ||
-            ticket._id === staff._id.toString()
+            ticket._id === userId
           );
         });
       }
 
       const finalSalesData = salesData || fallbackSalesData;
 
-      // คำนวณชั่วโมงทำงาน
-      let workHours = 0;
-      if (staff.lastCheckIn && staff.lastCheckOut) {
-        const checkIn = new Date(staff.lastCheckIn);
-        const checkOut = new Date(staff.lastCheckOut);
-        if (checkOut > checkIn) {
-          workHours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
-        }
-      } else if (staff.checkInStatus === 'checked-in' && staff.lastCheckIn) {
-        const checkIn = new Date(staff.lastCheckIn);
-        const now = new Date();
-        workHours = (now.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+      // คำนวณวันทำงานจาก Work Logs ในช่วงเวลาที่เลือก
+      const userWorkLogs = workLogsByUser[userId] || [];
+      const workDays = calculateWorkDaysFromLogs(userWorkLogs, startDate, endDate);
+
+      // ดึงข้อมูลการเข้า-ออกงานล่าสุดในช่วงเวลา
+      const latestCheckIn = getLatestActionInRange(userWorkLogs, 'check-in');
+      const latestCheckOut = getLatestActionInRange(userWorkLogs, 'check-out');
+
+      // กำหนดสถานะปัจจุบันโดยดูจาก Work Logs ในช่วงเวลา
+      let currentStatus = 'checked-out'; // default
+      if (latestCheckIn && latestCheckOut) {
+        currentStatus = latestCheckIn.timestamp > latestCheckOut.timestamp ? 'checked-in' : 'checked-out';
+      } else if (latestCheckIn && !latestCheckOut) {
+        currentStatus = 'checked-in';
       }
 
       const result = {
@@ -276,35 +300,35 @@ async function getStaffReport(startDate: Date, endDate: Date) {
         name: staff.name,
         employeeId: staff.employeeId,
         email: staff.email,
-        checkInStatus: staff.checkInStatus,
-        lastCheckIn: staff.lastCheckIn,
-        lastCheckOut: staff.lastCheckOut,
+        checkInStatus: currentStatus, // สถานะในช่วงเวลาที่เลือก
+        lastCheckIn: latestCheckIn ? latestCheckIn.timestamp : null,
+        lastCheckOut: latestCheckOut ? latestCheckOut.timestamp : null,
         ticketsSold: finalSalesData?.ticketsSold || 0,
         totalRevenue: finalSalesData?.totalRevenue || 0,
-        workHours: Math.max(0, Math.round(workHours * 10) / 10)
+        workDays: workDays // จำนวนวันทำงานในช่วงเวลาที่เลือก
       };
 
-      console.log(`Staff ${staff.name} (${staff.email}): ${result.ticketsSold} tickets sold`);
+      console.log(`Staff ${staff.name}: ${result.ticketsSold} tickets, ${result.workDays} work days`);
       return result;
     });
 
     // เรียงลำดับตามยอดขาย
-    staffWithSales.sort((a, b) => b.ticketsSold - a.ticketsSold);
+    staffWithWorkData.sort((a, b) => b.ticketsSold - a.ticketsSold);
 
     // คำนวณสถิติรวม
     const totalStaff = allStaff.length;
-    const activeStaff = allStaff.filter(s => s.checkInStatus === 'checked-in').length;
-    const totalTicketsSold = staffWithSales.reduce((sum, s) => sum + s.ticketsSold, 0);
-    const totalWorkHours = staffWithSales.reduce((sum, s) => sum + s.workHours, 0);
+    const activeStaff = staffWithWorkData.filter(s => s.checkInStatus === 'checked-in').length;
+    const totalTicketsSold = staffWithWorkData.reduce((sum, s) => sum + s.ticketsSold, 0);
+    const totalWorkDays = staffWithWorkData.reduce((sum, s) => sum + s.workDays, 0);
     const averageTicketsPerStaff = totalStaff > 0 ? Math.round(totalTicketsSold / totalStaff) : 0;
-    const topPerformerTickets = staffWithSales.length > 0 ? staffWithSales[0].ticketsSold : 0;
-    const averageWorkHours = totalStaff > 0 ? totalWorkHours / totalStaff : 0;
+    const topPerformerTickets = staffWithWorkData.length > 0 ? staffWithWorkData[0].ticketsSold : 0;
 
     console.log('Final summary:', {
       totalStaff,
       activeStaff,
       totalTicketsSold,
-      staffWithTickets: staffWithSales.filter(s => s.ticketsSold > 0).length
+      totalWorkDays,
+      staffWithTickets: staffWithWorkData.filter(s => s.ticketsSold > 0).length
     });
 
     return NextResponse.json({
@@ -314,12 +338,12 @@ async function getStaffReport(startDate: Date, endDate: Date) {
         totalStaff,
         activeStaff,
         totalTicketsSold,
-        totalWorkHours: Math.round(totalWorkHours),
+        totalWorkDays, // เปลี่ยนจาก totalWorkHours
         averageTicketsPerStaff,
         topPerformerTickets,
-        averageWorkHours
+        averageWorkDaysPerStaff: totalStaff > 0 ? Math.round(totalWorkDays / totalStaff) : 0 // เพิ่มใหม่
       },
-      staff: staffWithSales
+      staff: staffWithWorkData
     });
 
   } catch (error) {
@@ -332,10 +356,10 @@ async function getStaffReport(startDate: Date, endDate: Date) {
         totalStaff: 0,
         activeStaff: 0,
         totalTicketsSold: 0,
-        totalWorkHours: 0,
+        totalWorkDays: 0, // เปลี่ยนจาก totalWorkHours
         averageTicketsPerStaff: 0,
         topPerformerTickets: 0,
-        averageWorkHours: 0
+        averageWorkDaysPerStaff: 0 // เพิ่มใหม่
       },
       staff: []
     });
@@ -389,13 +413,32 @@ async function getSalesReport(startDate: Date, endDate: Date) {
   });
 }
 
-// Driver Report (เดิม - ตัดให้สั้นลง)
+// Driver Report (แก้ไขแล้ว - เพิ่มข้อมูลเข้า-ออกงาน)
 async function getDriverReport(startDate: Date, endDate: Date) {
   console.log('Driver Report - Date range:', startDate, 'to', endDate);
   
   try {
     const allDrivers = await User.find({ role: 'driver' })
-      .select('name employeeId checkInStatus');
+      .select('name employeeId checkInStatus lastCheckIn lastCheckOut');
+
+    // ดึงข้อมูล Work Logs ในช่วงเวลาที่เลือกสำหรับคนขับ
+    const workLogsInRange = await WorkLog.find({
+      user_id: { $in: allDrivers.map(driver => driver._id) },
+      date: { 
+        $gte: startDate.toISOString().split('T')[0],
+        $lte: endDate.toISOString().split('T')[0]
+      }
+    }).populate('user_id', 'name employeeId');
+
+    // จัดกลุ่ม Work Logs ตาม user_id
+    const workLogsByUser = workLogsInRange.reduce((acc, log) => {
+      const userId = log.user_id._id.toString();
+      if (!acc[userId]) {
+        acc[userId] = [];
+      }
+      acc[userId].push(log);
+      return acc;
+    }, {});
     
     const dateArray = [];
     let currentDate = new Date(startDate);
@@ -490,14 +533,34 @@ async function getDriverReport(startDate: Date, endDate: Date) {
     let totalWorkingDriversInPeriod = new Set();
     
     allDrivers.forEach(driver => {
+      // ดึงข้อมูล Work Logs สำหรับคนขับนี้
+      const userWorkLogs = workLogsByUser[driver._id.toString()] || [];
+      
+      // คำนวณวันทำงาน
+      const workDays = calculateWorkDaysFromLogs(userWorkLogs, startDate, endDate);
+      
+      // หาเวลาเข้า-ออกงานล่าสุดในช่วงเวลา
+      const latestCheckIn = getLatestActionInRange(userWorkLogs, 'check-in');
+      const latestCheckOut = getLatestActionInRange(userWorkLogs, 'check-out');
+      
+      // กำหนดสถานะปัจจุบันโดยดูจาก Work Logs ในช่วงเวลา
+      let currentStatus = 'checked-out'; // default
+      if (latestCheckIn && latestCheckOut) {
+        currentStatus = latestCheckIn.timestamp > latestCheckOut.timestamp ? 'checked-in' : 'checked-out';
+      } else if (latestCheckIn && !latestCheckOut) {
+        currentStatus = 'checked-in';
+      }
+      
       driverIncomeMap.set(driver._id.toString(), {
         id: driver._id,
         name: driver.name,
         employeeId: driver.employeeId,
-        checkInStatus: driver.checkInStatus,
-        workDays: 0,
+        checkInStatus: currentStatus, // สถานะในช่วงเวลาที่เลือก
+        workDays: workDays,
         totalIncome: 0,
-        performance: 'Inactive'
+        performance: workDays > 0 ? 'Active' : 'Inactive',
+        lastCheckIn: latestCheckIn ? latestCheckIn.timestamp : null, // เพิ่มใหม่
+        lastCheckOut: latestCheckOut ? latestCheckOut.timestamp : null // เพิ่มใหม่
       });
     });
     
@@ -513,7 +576,6 @@ async function getDriverReport(startDate: Date, endDate: Date) {
           
           if (driverIncomeMap.has(driverId)) {
             const existing = driverIncomeMap.get(driverId);
-            existing.workDays += 1;
             existing.totalIncome += dayData.revenuePerDriver;
             existing.performance = 'Active';
             driverIncomeMap.set(driverId, existing);
@@ -565,7 +627,9 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       checkInStatus: driver.checkInStatus,
       workDays: 0,
       totalIncome: 0,
-      performance: 'Inactive'
+      performance: 'Inactive',
+      lastCheckIn: null, // เพิ่มใหม่
+      lastCheckOut: null // เพิ่มใหม่
     }));
     
     return NextResponse.json({
@@ -780,4 +844,36 @@ async function getSummaryReport(startDate: Date, endDate: Date) {
       }
     });
   }
+}
+
+// Helper functions สำหรับคำนวณวันทำงานและเวลาเข้า-ออกงาน
+function calculateWorkDaysFromLogs(workLogs: any[], startDate: Date, endDate: Date) {
+  if (!workLogs || workLogs.length === 0) return 0;
+
+  // จัดกลุ่ม logs ตามวันที่
+  const logsByDate = workLogs.reduce((acc, log) => {
+    const date = log.date; // YYYY-MM-DD format
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    acc[date].push(log);
+    return acc;
+  }, {});
+
+  // นับวันที่มีการ check-in
+  const workDates = Object.keys(logsByDate).filter(date => {
+    const logsForDate = logsByDate[date];
+    return logsForDate.some((log: any) => log.action === 'check-in');
+  });
+
+  return workDates.length;
+}
+
+function getLatestActionInRange(workLogs: any[], action: 'check-in' | 'check-out') {
+  const actionsOfType = workLogs.filter(log => log.action === action);
+  if (actionsOfType.length === 0) return null;
+  
+  // เรียงตามเวลาล่าสุดไปเก่าสุด
+  actionsOfType.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return actionsOfType[0];
 }

@@ -493,99 +493,8 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
   `;
 };
 
-// เพิ่มฟังก์ชันสำหรับรายงานพนักงาน
-const generateStaffContent = (reportData: any, formatCurrency: any) => {
-  const summary = reportData.summary || {};
-  const staff = reportData.staff || [];
-  
-  let staffTable = '';
-  if (staff.length > 0) {
-    const activeStaff = staff.filter((s: any) => s.ticketsSold > 0 || s.checkInStatus === 'checked-in').slice(0, 15);
-    
-    if (activeStaff.length > 0) {
-      const staffRows = activeStaff.map((member: any, index: number) => {
-        const performance = getPerformanceLevel(member.ticketsSold || 0, summary.averageTicketsPerStaff || 0);
-        return `
-          <tr>
-            <td class="text-center">${index + 1}</td>
-            <td><strong>${member.name || 'ບໍ່ລະບຸ'}</strong></td>
-            <td class="text-center">${member.employeeId || '-'}</td>
-            <td class="text-center">
-              <span class="${member.checkInStatus === 'checked-in' ? 'status-active' : 'status-inactive'}">
-                ${member.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
-              </span>
-            </td>
-            <td class="text-center currency">${member.ticketsSold || 0}</td>
-            <td class="text-center">${member.workHours ? `${Math.round(member.workHours)}h` : '0h'}</td>
-            <td class="text-center">${member.workHours > 0 ? Math.round((member.ticketsSold || 0) / member.workHours) : 0}</td>
-            <td class="text-center">
-              <span class="${performance.color}">
-                ${performance.label}
-              </span>
-            </td>
-          </tr>
-        `;
-      }).join('');
-      
-      staffTable = `
-        <table>
-          <tr class="table-highlight">
-            <th class="text-center">#</th>
-            <th>ຊື່</th>
-            <th class="text-center">ລະຫັດ</th>
-            <th class="text-center">ສະຖານະ</th>
-            <th class="text-center">ປີ້ທີ່ຂາຍ</th>
-            <th class="text-center">ຊົ່ວໂມງ</th>
-            <th class="text-center">ປີ້/ຊົ່ວໂມງ</th>
-            <th class="text-center">ການປະຕິບັດ</th>
-          </tr>
-          ${staffRows}
-        </table>
-      `;
-    }
-  }
-  
-  return `
-    <div class="content-section">
-      <div class="section-title">👥 ບົດລາຍງານພະນັກງານຂາຍປີ້</div>
-      
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">👥 ພະນັກງານທັງໝົດ</div>
-          <div class="stat-value">${summary.totalStaff || 0}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">✅ ເຂົ້າວຽກວັນນີ້</div>
-          <div class="stat-value">${summary.activeStaff || 0}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">🎫 ປີ້ທີ່ຂາຍລວມ</div>
-          <div class="stat-value">${summary.totalTicketsSold || 0}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">⏰ ຊົ່ວໂມງທຳງານ</div>
-          <div class="stat-value">${summary.totalWorkHours || 0}h</div>
-        </div>
-      </div>
-      
-      <div class="section-title">👤 ລາຍລະອຽດການປະຕິບັດງານພະນັກງານ</div>
-      ${staffTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນພະນັກງານທີ່ເຂົ້າວຽກໃນຊ່ວງນີ້</p>'}
-    </div>
-  `;
-};
 
-// Helper function สำหรับ performance level
-const getPerformanceLevel = (ticketsSold: number, average: number) => {
-  if (ticketsSold >= average * 1.5) {
-    return { label: 'ດີເລີດ', color: 'text-success' };
-  } else if (ticketsSold >= average) {
-    return { label: 'ດີ', color: 'text-primary' };
-  } else if (ticketsSold >= average * 0.5) {
-    return { label: 'ປົກກະຕິ', color: 'text-warning' };
-  } else {
-    return { label: 'ຕ້ອງປັບປຸງ', color: 'text-danger' };
-  }
-};
+
 
 const generateSummaryContent = (reportData: any, formatCurrency: any) => {
   const stats = reportData.quickStats || {};
@@ -716,6 +625,26 @@ const generateDriversContent = (reportData: any, formatCurrency: any) => {
               ${driver.performance === 'Active' ? '✅ ເຂົ້າວຽກ' : '❌ ບໍ່ເຂົ້າວຽກ'}
             </span>
           </td>
+          <td class="text-center text-sm">
+            ${driver.lastCheckIn 
+              ? new Date(driver.lastCheckIn).toLocaleDateString('lo-LA') + '<br>' +
+                new Date(driver.lastCheckIn).toLocaleTimeString('lo-LA', { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })
+              : '-'
+            }
+          </td>
+          <td class="text-center text-sm">
+            ${driver.lastCheckOut 
+              ? new Date(driver.lastCheckOut).toLocaleDateString('lo-LA') + '<br>' +
+                new Date(driver.lastCheckOut).toLocaleTimeString('lo-LA', { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })
+              : '-'
+            }
+          </td>
         </tr>
       `).join('');
       
@@ -728,6 +657,8 @@ const generateDriversContent = (reportData: any, formatCurrency: any) => {
             <th class="text-center">ວັນທຳງານ</th>
             <th class="text-center">ລາຍຮັບ</th>
             <th class="text-center">ສະຖານະ</th>
+            <th class="text-center">ເຂົ້າວຽກ (ລ່າສຸດ)</th>
+            <th class="text-center">ອອກວຽກ (ລ່າສຸດ)</th>
           </tr>
           ${driverRows}
         </table>
@@ -758,7 +689,13 @@ const generateDriversContent = (reportData: any, formatCurrency: any) => {
         </div>
       </div>
       
+      <div class="section-title">👤 ລາຍລະອຽດຄົນຂັບ</div>
       ${driversTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນຄົນຂັບທີ່ມີລາຍຮັບໃນຊ່ວງນີ້</p>'}
+      
+      <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px; font-size: 12px;">
+        <strong>📝 ໝາຍເຫດ:</strong> ຂໍ້ມູນທີ່ສະແດງເປັນຂໍ້ມູນໃນຊ່ວງເວລາທີ່ເລືອກເທົ່ານັ້ນ 
+        (ເຂົ້າ-ອອກວຽກແມ່ນຄັ້ງລ່າສຸດໃນຊ່ວງເວລານັ້ນ)
+      </div>
     </div>
   `;
 };
@@ -824,4 +761,105 @@ const getReportTypeName = (type: string) => {
     'staff': 'ບົດລາຍງານພະນັກງານຂາຍປີ້'
   };
   return titles[type as keyof typeof titles] || 'ບົດລາຍງານ';
+};
+
+// app/dashboard/reports/utils/exportUtils.ts - เฉพาะส่วน Staff Report ที่แก้ไข
+
+// เพิ่มฟังก์ชันสำหรับรายงานพนักงาน - แก้ไขแล้ว
+const generateStaffContent = (reportData: any, formatCurrency: any) => {
+  const summary = reportData.summary || {};
+  const staff = reportData.staff || [];
+  
+  let staffTable = '';
+  if (staff.length > 0) {
+    const activeStaff = staff.filter((s: any) => s.ticketsSold > 0 || s.checkInStatus === 'checked-in').slice(0, 15);
+    
+    if (activeStaff.length > 0) {
+      const staffRows = activeStaff.map((member: any, index: number) => {
+        return `
+          <tr>
+            <td class="text-center">${index + 1}</td>
+            <td><strong>${member.name || 'ບໍ່ລະບຸ'}</strong></td>
+            <td class="text-center">${member.employeeId || '-'}</td>
+            <td class="text-center">
+              <span class="${member.checkInStatus === 'checked-in' ? 'status-active' : 'status-inactive'}">
+                ${member.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
+              </span>
+            </td>
+            <td class="text-center currency">${member.ticketsSold || 0}</td>
+            <td class="text-center"><strong>${member.workDays || 0} ວັນ</strong></td>
+            <td class="text-center text-sm">
+              ${member.lastCheckIn 
+                ? new Date(member.lastCheckIn).toLocaleDateString('lo-LA') + '<br>' +
+                  new Date(member.lastCheckIn).toLocaleTimeString('lo-LA', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })
+                : '-'
+              }
+            </td>
+            <td class="text-center text-sm">
+              ${member.lastCheckOut 
+                ? new Date(member.lastCheckOut).toLocaleDateString('lo-LA') + '<br>' +
+                  new Date(member.lastCheckOut).toLocaleTimeString('lo-LA', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })
+                : '-'
+              }
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+      staffTable = `
+        <table>
+          <tr class="table-highlight">
+            <th class="text-center">#</th>
+            <th>ຊື່</th>
+            <th class="text-center">ລະຫັດ</th>
+            <th class="text-center">ສະຖານະ</th>
+            <th class="text-center">ປີ້ທີ່ຂາຍ</th>
+            <th class="text-center">ວັນທຳງານ</th>
+            <th class="text-center">ເຂົ້າວຽກ (ລ່າສຸດ)</th>
+            <th class="text-center">ອອກວຽກ (ລ່າສຸດ)</th>
+          </tr>
+          ${staffRows}
+        </table>
+      `;
+    }
+  }
+  
+  return `
+    <div class="content-section">
+      <div class="section-title">👥 ບົດລາຍງານພະນັກງານຂາຍປີ້</div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">👥 ພະນັກງານທັງໝົດ</div>
+          <div class="stat-value">${summary.totalStaff || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">✅ ເຂົ້າວຽກ</div>
+          <div class="stat-value">${summary.activeStaff || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🎫 ປີ້ທີ່ຂາຍລວມ</div>
+          <div class="stat-value">${summary.totalTicketsSold || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">📅 ວັນທຳງານລວມ</div>
+          <div class="stat-value">${summary.totalWorkDays || 0} ວັນ</div>
+        </div>
+      </div>
+      
+      <div class="section-title">👤 ລາຍລະອຽດການປະຕິບັດງານພະນັກງານ</div>
+      ${staffTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນພະນັກງານທີ່ເຂົ້າວຽກໃນຊ່ວງນີ້</p>'}
+      
+      <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px; font-size: 12px;">
+        <strong>📝 ໝາຍເຫດ:</strong> ຂໍ້ມູນທີ່ສະແດງເປັນຂໍ້ມູນໃນຊ່ວງເວລາທີ່ເລືອກເທົ່ານັ້ນ 
+        (ເຂົ້າ-ອອກວຽກແມ່ນຄັ້ງລ່າສຸດໃນຊ່ວງເວລານັ້ນ)
+      </div>
+    </div>
+  `;
 };

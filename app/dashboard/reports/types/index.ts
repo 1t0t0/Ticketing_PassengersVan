@@ -54,6 +54,8 @@ export interface DriverReportData {
     totalIncome: number;
     ticketCount: number;
     performance: string;
+    lastCheckIn?: string; // เพิ่มใหม่
+    lastCheckOut?: string; // เพิ่มใหม่
   }>;
   metadata: {
     totalRevenue: number;
@@ -141,6 +143,9 @@ export interface VehiclesReportData {
 }
 
 // เพิ่ม interface สำหรับรายงานพนักงาน
+// app/dashboard/reports/types/index.ts - เฉพาะส่วน Staff Report ที่แก้ไข
+
+// เพิ่ม interface สำหรับรายงานพนักงาน - แก้ไขแล้ว
 export interface StaffReportData {
   type: 'staff';
   period: ReportPeriod;
@@ -148,10 +153,10 @@ export interface StaffReportData {
     totalStaff: number;
     activeStaff: number;
     totalTicketsSold: number;
-    totalWorkHours: number;
+    totalWorkDays: number; // เปลี่ยนจาก totalWorkHours
     averageTicketsPerStaff: number;
     topPerformerTickets: number;
-    averageWorkHours: number;
+    averageWorkDaysPerStaff: number; // เพิ่มใหม่ เปลี่ยนจาก averageWorkHours
   };
   staff: Array<{
     id: string;
@@ -162,12 +167,34 @@ export interface StaffReportData {
     lastCheckOut: string;
     ticketsSold: number;
     totalRevenue: number;
-    workHours: number;
+    workDays: number; // เปลี่ยนจาก workHours
   }>;
-  workHours: Array<{
-    hour: number;
-    ticketCount: number;
-  }>;
+  // ลบ workHours array ออก
+}
+
+// เพิ่ม interface สำหรับ staff performance - แก้ไขแล้ว
+export interface StaffPerformanceData {
+  staffId: string;
+  name: string;
+  employeeId: string;
+  ticketsSold: number;
+  workDays: number; // เปลี่ยนจาก hoursWorked
+  efficiency: number; // ปี้ต่อวัน แทนที่จะเป็นต่อชั่วโมง
+  checkInStatus: 'checked-in' | 'checked-out';
+  lastCheckIn?: string;
+  lastCheckOut?: string;
+  performanceLevel: 'excellent' | 'good' | 'average' | 'needs_improvement';
+}
+
+// เพิ่ม interface สำหรับ work schedule - แก้ไขแล้ว
+export interface WorkScheduleData {
+  date: string;
+  staffId: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  workDays: number; // เปลี่ยนจาก hoursWorked
+  ticketsSold: number;
+  status: 'present' | 'absent' | 'late' | 'early_leave';
 }
 
 export interface SummaryReportData {
