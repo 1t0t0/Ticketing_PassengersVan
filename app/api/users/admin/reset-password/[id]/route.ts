@@ -1,4 +1,4 @@
-// app/api/users/admin/reset-password/[id]/route.ts
+// app/api/users/admin/reset-password/[id]/route.ts - Updated to allow Staff reset Driver passwords
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
@@ -6,17 +6,17 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
-// POST - Reset user password and return a temporary one
+// POST - Reset user password and return a temporary one - Allow Staff to reset Driver passwords
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check authorization (only admin)
+    // Check authorization
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Unauthorized - Only admins can reset passwords' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -33,6 +33,21 @@ export async function POST(
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
+      );
+    }
+    
+    // Check permissions - Admin can reset all passwords, Staff can only reset driver passwords
+    if (session.user.role === 'staff') {
+      if (user.role !== 'driver') {
+        return NextResponse.json(
+          { error: 'Forbidden - Staff can only reset driver passwords' },
+          { status: 403 }
+        );
+      }
+    } else if (session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
     

@@ -1,5 +1,6 @@
-// app/dashboard/users/components/AddUserModal.tsx - Enhanced with Car Data
+// app/dashboard/users/components/AddUserModal.tsx - Updated to allow Staff add Drivers only
 import React, { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import NeoButton from '@/components/ui/NotionButton';
 import { createUser } from '../api/user';
 import notificationService from '@/lib/notificationService';
@@ -32,11 +33,15 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   
   // State สำหรับข้อมูลรถ (เฉพาะ Driver)
   const [carData, setCarData] = useState<CarData | null>(null);
+  
+  // Check if staff is trying to create non-driver user
+  const isStaffCreatingNonDriver = session?.user?.role === 'staff' && activeTab !== 'drivers';
   
   // ใช้ Custom hook สำหรับจัดการฟอร์ม
   const {
@@ -49,6 +54,29 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
     resetForm,
     validateForm
   } = useUserForm(activeTab);
+  
+  // Show error if staff tries to create non-driver
+  if (isStaffCreatingNonDriver) {
+    return (
+      <div className="fixed inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl w-full max-w-md mx-4 shadow-xl p-6">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">ไม่มีสิทธิ์</h3>
+            <p className="text-gray-600 mb-6">
+              พนักงานสามารถเพิ่มได้เฉพาะ <strong>คนขับรถ</strong> เท่านั้น
+            </p>
+            <button
+              onClick={onClose}
+              className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              ปิด
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // ฟังก์ชันอัปโหลดรูปภาพ
   const uploadImage = async (file: File, type: 'idCard' | 'user') => {
@@ -202,14 +230,14 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
           console.log('Creating car for driver:', carData);
           const createdCar = await createCarForDriver(createdUser._id, carData);
           console.log('Car created successfully:', createdCar);
-          notificationService.success(`ເພີ່ມ${TABS[activeTab]}ແລະລົດສຳເລັດແລ້ວ`);
+          notificationService.success(`เพิ่ม${TABS[activeTab]}และรถสำเร็จแล้ว`);
         } catch (carError: any) {
           // ถ้าสร้างรถไม่สำเร็จ แต่ผู้ใช้สร้างสำเร็จแล้ว
           console.error('Car creation failed:', carError);
-          notificationService.warning(`ເພີ່ມ${TABS[activeTab]}ສຳເລັດ ແຕ່ບໍ່ສາມາດສ້າງຂໍ້ມູນລົດໄດ້: ${carError.message}`);
+          notificationService.warning(`เพิ่ม${TABS[activeTab]}สำเร็จ แต่ไม่สามารถสร้างข้อมูลรถได้: ${carError.message}`);
         }
       } else {
-        notificationService.success(`ເພີ່ມ${TABS[activeTab]}ສຳເລັດແລ້ວ`);
+        notificationService.success(`เพิ่ม${TABS[activeTab]}สำเร็จแล้ว`);
       }
       
       // รีเซ็ตฟอร์มและรีเฟรชข้อมูล
@@ -220,7 +248,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
       
     } catch (error: any) {
       console.error('Error adding user:', error);
-      notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
+      notificationService.error(`เกิดข้อผิดพลาด: ${error.message}`);
     } finally {
       setLoading(false);
       setUploadProgress(0);
@@ -270,12 +298,21 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
     }
   };
   
+  // Get title with permission info
+  const getModalTitle = () => {
+    let title = `เพิ่ม${TABS[activeTab]}`;
+    if (session?.user?.role === 'staff' && activeTab === 'drivers') {
+      title += ' (คุณมีสิทธิ์จัดการคนขับได้เต็มรูปแบบ)';
+    }
+    return title;
+  };
+  
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl w-full max-w-6xl mx-4 shadow-xl overflow-y-auto max-h-[95vh]">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-gray-800">ເພີ່ມ{TABS[activeTab]}</h3>
+            <h3 className="text-2xl font-bold text-gray-800">{getModalTitle()}</h3>
             <button 
               className="text-gray-500 hover:text-gray-700 text-2xl font-bold transition-colors"
               onClick={onClose}
@@ -294,7 +331,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
                 onClick={onClose}
                 disabled={loading}
               >
-                ຍົກເລີກ
+                ยกเลิก
               </button>
               <button
                 type="submit"
@@ -307,10 +344,10 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    ກຳລັງບັນທຶກ...
+                    กำลังบันทึก...
                   </div>
                 ) : (
-                  `ບັນທຶກ${TABS[activeTab]}`
+                  `บันทึก${TABS[activeTab]}`
                 )}
               </button>
             </div>

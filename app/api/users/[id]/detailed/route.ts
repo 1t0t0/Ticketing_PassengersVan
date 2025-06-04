@@ -1,4 +1,4 @@
-// app/api/users/[id]/detailed/route.ts
+// app/api/users/[id]/detailed/route.ts - Updated to allow Staff view Driver details
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
@@ -12,9 +12,9 @@ export async function GET(
   try {
     // Check authorization
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Unauthorized - Only admins can view detailed user data' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -28,6 +28,21 @@ export async function GET(
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
+      );
+    }
+    
+    // Check permissions - Admin can view all detailed data, Staff can only view driver detailed data
+    if (session.user.role === 'staff') {
+      if (user.role !== 'driver') {
+        return NextResponse.json(
+          { error: 'Forbidden - Staff can only view driver detailed information' },
+          { status: 403 }
+        );
+      }
+    } else if (session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized - Only admins and staff can view detailed user data' },
+        { status: 401 }
       );
     }
     
@@ -73,7 +88,7 @@ export async function GET(
       }
     }
     
-    // ถอดรหัสแฮชเพื่อรับรหัสผ่านดิบ (สำหรับแอดมินเท่านั้น)
+    // ถอดรหัสแฮชเพื่อรับรหัสผ่านดิบ (สำหรับแอดมินและ staff เท่านั้น)
     userData.unhashedPassword = '********'; // เราจำเป็นต้องให้แอดมินกำหนดรหัสผ่านใหม่
     
     // ลบรหัสผ่านแฮชออกเพื่อความปลอดภัย

@@ -1,4 +1,4 @@
-// app/api/users/[id]/route.ts
+// app/api/users/[id]/route.ts - Updated to allow Staff manage Drivers
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
@@ -6,7 +6,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
-// GET - Get user by ID
+// GET - Get user by ID - Allow Staff to view Drivers
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -33,6 +33,14 @@ export async function GET(
       );
     }
     
+    // Check if Staff can access this user (only drivers)
+    if (session.user.role === 'staff' && user.role !== 'driver') {
+      return NextResponse.json(
+        { error: 'Forbidden - Staff can only access driver information' },
+        { status: 403 }
+      );
+    }
+    
     // Convert user to a plain object
     const userData = user.toObject();
     
@@ -49,17 +57,17 @@ export async function GET(
   }
 }
 
-// PUT - Update a user
+// PUT - Update a user - Allow Staff to update Drivers
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check authorization (only admin can update users)
+    // Check authorization
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Unauthorized - Only admins can update users' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -68,9 +76,6 @@ export async function PUT(
     
     // Get user ID from params
     const userId = params.id;
-    
-    // Get update data from request body
-    const body = await request.json();
     
     // Find the user to update
     const user = await User.findById(userId);
@@ -81,6 +86,24 @@ export async function PUT(
         { status: 404 }
       );
     }
+    
+    // Check permissions - Admin can update all, Staff can only update drivers
+    if (session.user.role === 'staff') {
+      if (user.role !== 'driver') {
+        return NextResponse.json(
+          { error: 'Forbidden - Staff can only update drivers' },
+          { status: 403 }
+        );
+      }
+    } else if (session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    // Get update data from request body
+    const body = await request.json();
     
     // Create updateData object with fields to update
     const updateData: any = {};
@@ -123,17 +146,17 @@ export async function PUT(
   }
 }
 
-// DELETE - Delete a user
+// DELETE - Delete a user - Allow Staff to delete Drivers
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check authorization (only admin can delete users)
+    // Check authorization
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Unauthorized - Only admins can delete users' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -150,6 +173,21 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
+      );
+    }
+    
+    // Check permissions - Admin can delete all, Staff can only delete drivers
+    if (session.user.role === 'staff') {
+      if (user.role !== 'driver') {
+        return NextResponse.json(
+          { error: 'Forbidden - Staff can only delete drivers' },
+          { status: 403 }
+        );
+      }
+    } else if (session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
     

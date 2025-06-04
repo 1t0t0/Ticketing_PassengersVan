@@ -1,4 +1,4 @@
-// app/dashboard/users/page.tsx - Updated with Auto Checkout
+// app/dashboard/users/page.tsx - Updated to remove homepage link and note for Staff
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -11,7 +11,7 @@ import UserTabs from './components/UserTabs';
 import UserSearchComponent from './components/UserSearchComponent';
 import { DriverList, StaffList, AdminList, StationList } from './components/lists';
 import AddUserModal from './components/AddUserModal';
-import AutoCheckoutModal from './components/AutoCheckoutModal'; // เพิ่ม import
+import AutoCheckoutModal from './components/AutoCheckoutModal';
 
 // Hooks
 import useUserData from './hooks/useUserData';
@@ -25,14 +25,14 @@ export default function UserManagementPage() {
   // State
   const [activeTab, setActiveTab] = useState<'drivers' | 'staff' | 'admin' | 'station'>('drivers');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showAutoCheckoutModal, setShowAutoCheckoutModal] = useState(false); // เพิ่ม state
+  const [showAutoCheckoutModal, setShowAutoCheckoutModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{show: boolean, message: string, onConfirm?: () => void}>({
     show: false, message: '', onConfirm: undefined
   });
 
   // Custom hooks
   const { loading: loadingUsers, drivers, ticketSellers, admins, stations, fetchUsers } = useUserData();
-  const { canAddUser, shouldShowTab, isAdmin } = useUserPermissions(); // เพิ่ม isAdmin
+  const { canAddUser, shouldShowTab, isAdmin } = useUserPermissions();
 
   // Authentication check
   useEffect(() => {
@@ -164,7 +164,7 @@ export default function UserManagementPage() {
       <div className="bg-white border border-gray-300 rounded p-4">
         <h2 className="text-xl font-bold mb-4">User Directory</h2>
         
-        {/* Tabs */}
+        {/* Tabs - แสดงข้อความเฉพาะ Admin */}
         <UserTabs 
           activeTab={activeTab} 
           onTabChange={handleTabChange} 
@@ -211,7 +211,7 @@ export default function UserManagementPage() {
         <AutoCheckoutModal
           onClose={() => setShowAutoCheckoutModal(false)}
           onSuccess={() => {
-            fetchUsers(); // รีเฟรชข้อมูลผู้ใช้หลังจากมีการเปลี่ยนแปลง
+            fetchUsers();
             setShowAutoCheckoutModal(false);
           }}
         />

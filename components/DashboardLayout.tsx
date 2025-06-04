@@ -1,4 +1,4 @@
-// components/DashboardLayout.tsx - Updated with GoogleAlphabetIcon
+// components/DashboardLayout.tsx - Updated to remove homepage for Staff
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -31,7 +31,7 @@ const menuItems: MenuItem[] = [
     name: 'ໜ້າຫຼັກ',
     href: '/dashboard',
     icon: FiHome,
-    roles: ['admin', 'staff', 'station'],
+    roles: ['admin', 'station'], // Remove staff from homepage access
     description: 'ພາບລວມລະບົບ'
   },
   {
@@ -109,6 +109,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     fetchUserImage();
   }, [session?.user?.id]);
+
+  // Redirect staff to /dashboard/users if they try to access homepage
+  useEffect(() => {
+    if (session?.user?.role === 'staff' && pathname === '/dashboard') {
+      router.push('/dashboard/users');
+    }
+  }, [session?.user?.role, pathname, router]);
 
   if (!mounted || status === 'loading') {
     return (
