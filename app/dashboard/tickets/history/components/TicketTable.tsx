@@ -1,5 +1,6 @@
-// TicketTable.tsx - Reduced
+// app/dashboard/tickets/history/components/TicketTable.tsx - Updated to prevent Staff from deleting tickets
 import React from 'react';
+import { useSession } from 'next-auth/react';
 import { Ticket } from '../../types';
 import { FiEdit2 } from 'react-icons/fi';
 
@@ -13,6 +14,8 @@ interface TicketTableProps {
 const TicketTable: React.FC<TicketTableProps> = ({ 
   tickets, loading, onDeleteTicket, onEditPaymentMethod 
 }) => {
+  const { data: session } = useSession();
+  
   const getPaymentBadge = (method: string) => {
     const config = {
       cash: { class: "bg-blue-100 text-blue-800", label: "ເງິນສົດ" },
@@ -23,6 +26,9 @@ const TicketTable: React.FC<TicketTableProps> = ({
     
     return <span className={`px-2 py-1 text-xs rounded-full ${className}`}>{label}</span>;
   };
+
+  // ตรวจสอบสิทธิ์ในการลบ - เฉพาะ Admin เท่านั้น
+  const canDeleteTicket = session?.user?.role === 'admin';
 
   if (loading) {
     return (
@@ -72,6 +78,7 @@ const TicketTable: React.FC<TicketTableProps> = ({
               </td>
               <td className="p-3 text-center">
                 <div className="flex justify-center gap-2">
+                  {/* ปุ่มแก้ไขวิธีการชำระเงิน - ทุกคนสามารถใช้ได้ */}
                   <button 
                     className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm flex items-center gap-1"
                     onClick={() => onEditPaymentMethod?.(ticket._id, ticket.ticketNumber, ticket.paymentMethod)}
@@ -79,12 +86,16 @@ const TicketTable: React.FC<TicketTableProps> = ({
                     <FiEdit2 size={12} />
                     ແກ້ໄຂ
                   </button>
-                  <button 
-                    className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
-                    onClick={() => onDeleteTicket(ticket._id, ticket.ticketNumber)}
-                  >
-                    ລົບ
-                  </button>
+                  
+                  {/* ปุ่มลบ - เฉพาะ Admin เท่านั้น */}
+                  {canDeleteTicket && (
+                    <button 
+                      className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
+                      onClick={() => onDeleteTicket(ticket._id, ticket.ticketNumber)}
+                    >
+                      ລົບ
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

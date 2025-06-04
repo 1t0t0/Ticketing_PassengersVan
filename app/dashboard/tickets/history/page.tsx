@@ -1,4 +1,4 @@
-// page.tsx - Reduced
+// app/dashboard/tickets/history/page.tsx - Updated to handle delete permissions properly
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -64,6 +64,18 @@ export default function TicketHistoryPage() {
     }
   };
 
+  // ตรวจสอบสิทธิ์การลบ - เฉพาะ Admin
+  const canDeleteTickets = session?.user?.role === 'admin';
+
+  // ฟังก์ชันลบตั๋วที่ตรวจสอบสิทธิ์
+  const handleDeleteWithPermissionCheck = (ticketId: string, ticketNumber: string) => {
+    if (!canDeleteTickets) {
+      notificationService.error('ທ່ານບໍ່ມີສິດທິ່ໃນການລົບປີ້ - ເຉພາະແອດມິນເທົ່ານັ້ນ');
+      return;
+    }
+    handleDeleteTicket(ticketId, ticketNumber);
+  };
+
   const paymentButtons = [
     { method: 'all', label: 'ທັງໝົດ', color: 'gray' },
     { method: 'cash', label: 'ເງິນສົດ', color: 'blue' },
@@ -75,6 +87,15 @@ export default function TicketHistoryPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">🎫 ລາຍການປີ້</h1>
         <p className="text-gray-600">ຈັດການແລະເບິ່ງປະຫວັດການຂາຍປີ້ລົດໂດຍສານ</p>
+        
+        {/* แสดงข้อความแจ้งเตือนสำหรับ Staff */}
+        {session?.user?.role === 'staff' && (
+          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <span className="font-semibold">ໝາຍເຫດ:</span> ທ່ານສາມາດແກ້ໄຂວິທີການຊຳລະເງິນໄດ້ ແຕ່ບໍ່ສາມາດລົບປີ້ໄດ້
+            </p>
+          </div>
+        )}
       </div>
       
       <NeoCard className="p-4 mb-4">
@@ -106,15 +127,22 @@ export default function TicketHistoryPage() {
             ))}
           </div>
           
-          <span className='text-sm text-gray-500'>
-            ທັງໝົດ {pagination?.totalItems || 0} ລາຍການ
-          </span>
+          <div className="flex items-center gap-4">
+            <span className='text-sm text-gray-500'>
+              ທັງໝົດ {pagination?.totalItems || 0} ລາຍການ
+            </span>
+            {canDeleteTickets && (
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                Admin: ສາມາດລົບປີ້ໄດ້
+              </span>
+            )}
+          </div>
         </div>
         
         <TicketTable 
           tickets={tickets}
           loading={loading}
-          onDeleteTicket={handleDeleteTicket}
+          onDeleteTicket={handleDeleteWithPermissionCheck}
           onEditPaymentMethod={handleEditPaymentMethod}
         />
         
