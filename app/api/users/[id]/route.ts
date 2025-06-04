@@ -1,42 +1,62 @@
-// app/api/users/[id]/route.ts - Updated to allow Staff manage Drivers
+// app/api/users/[id]/route.ts - แก้ไขให้ส่ง userImage กลับมา
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import bcrypt from 'bcryptjs';
 
-// GET - Get user by ID - Allow Staff to view Drivers
+// GET - Get user by ID - แก้ไขให้ส่ง userImage กลับมา
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('🔍 GET /api/users/[id] called with ID:', params.id);
+    
     // Check authorization
     const session = await getServerSession(authOptions);
     if (!session) {
+      console.log('❌ No session found');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    console.log('✅ Session found:', {
+      userId: session.user.id,
+      role: session.user.role,
+      requestedId: params.id
+    });
+
     await connectDB();
+    console.log('✅ MongoDB connected');
     
     // Find user by ID
     const user = await User.findById(params.id);
     
     if (!user) {
+      console.log('❌ User not found for ID:', params.id);
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
+
+    console.log('👤 User found:', {
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      hasUserImage: !!user.userImage,
+      userImageLength: user.userImage?.length || 0,
+      userImagePreview: user.userImage ? user.userImage.substring(0, 50) + '...' : null
+    });
     
-    // Check if Staff can access this user (only drivers)
-    if (session.user.role === 'staff' && user.role !== 'driver') {
+    // Check if Staff can access this user (only drivers or themselves)
+    if (session.user.role === 'staff' && user.role !== 'driver' && user._id.toString() !== session.user.id) {
+      console.log('❌ Staff trying to access non-driver user');
       return NextResponse.json(
-        { error: 'Forbidden - Staff can only access driver information' },
+        { error: 'Forbidden - Staff can only access driver information or their own' },
         { status: 403 }
       );
     }
@@ -44,12 +64,19 @@ export async function GET(
     // Convert user to a plain object
     const userData = user.toObject();
     
-    // Remove sensitive data
+    // Remove sensitive data but keep userImage
     delete userData.password;
+    
+    console.log('📤 Returning user data:', {
+      name: userData.name,
+      email: userData.email,
+      hasUserImage: !!userData.userImage,
+      userImageLength: userData.userImage?.length || 0
+    });
     
     return NextResponse.json(userData);
   } catch (error) {
-    console.error('Get User Error:', error);
+    console.error('❌ Get User Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch user: ' + (error as Error).message },
       { status: 500 }
@@ -57,7 +84,7 @@ export async function GET(
   }
 }
 
-// PUT - Update a user - Allow Staff to update Drivers
+// PUT method remains the same...
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
@@ -87,11 +114,11 @@ export async function PUT(
       );
     }
     
-    // Check permissions - Admin can update all, Staff can only update drivers
+    // Check permissions - Admin can update all, Staff can only update drivers or themselves
     if (session.user.role === 'staff') {
-      if (user.role !== 'driver') {
+      if (user.role !== 'driver' && user._id.toString() !== session.user.id) {
         return NextResponse.json(
-          { error: 'Forbidden - Staff can only update drivers' },
+          { error: 'Forbidden - Staff can only update drivers or themselves' },
           { status: 403 }
         );
       }
@@ -108,7 +135,7 @@ export async function PUT(
     // Create updateData object with fields to update
     const updateData: any = {};
     
-    // Add fields to update (excluding sensitive fields)
+    // Add fields to update (including userImage)
     const allowedFields = [
       'name', 'email', 'phone', 'status', 'idCardNumber', 
       'idCardImage', 'userImage', 'location', 'birthDate'
@@ -120,9 +147,9 @@ export async function PUT(
       }
     });
     
-    // ถ้ามีการส่งรหัสผ่านมาด้วย (กรณีเปลี่ยนรหัสผ่าน)
+    // Handle password if provided
     if (body.password) {
-      // แฮชรหัสผ่านใหม่
+      const bcrypt = require('bcryptjs');
       updateData.password = await bcrypt.hash(body.password, 10);
     }
     
@@ -146,7 +173,7 @@ export async function PUT(
   }
 }
 
-// DELETE - Delete a user - Allow Staff to delete Drivers
+// DELETE method remains the same...
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }

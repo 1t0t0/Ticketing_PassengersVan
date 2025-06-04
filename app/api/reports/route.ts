@@ -1,4 +1,4 @@
-// app/api/reports/route.ts - เพิ่มรายงานรถและพนักงาน
+// app/api/reports/route.ts - เปลี่ยนจากโค้ดเดิมและเพิ่มการป้องกัน Staff
 
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
@@ -24,12 +24,26 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     
+    // ✅ เพิ่มการตรวจสอบสิทธิ์สำหรับรายงานพนักงาน
+    if (reportType === 'staff') {
+      // เฉพาะ admin และ station เท่านั้นที่ดูรายงานพนักงานได้
+      if (!['admin', 'station'].includes(session.user.role)) {
+        return NextResponse.json(
+          { 
+            error: 'Forbidden - You do not have permission to view staff reports',
+            message: 'ທ່ານບໍ່ມີສິດທິ່ເບິ່ງລາຍງານພະນັກງານ'
+          }, 
+          { status: 403 }
+        );
+      }
+    }
+    
     // Set default date range (today)
     const today = new Date();
     const defaultStart = startDate ? new Date(startDate + 'T00:00:00.000Z') : new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const defaultEnd = endDate ? new Date(endDate + 'T23:59:59.999Z') : new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
     
-    console.log('Report request:', { reportType, startDate, endDate });
+    console.log('Report request:', { reportType, startDate, endDate, userRole: session.user.role });
     
     switch (reportType) {
       case 'sales':
@@ -142,9 +156,7 @@ async function getVehiclesReport(startDate: Date, endDate: Date) {
   }
 }
 
-// เพิ่มฟังก์ชันรายงานพนักงาน
 // เพิ่มฟังก์ชันรายงานพนักงาน - แก้ไขแล้ว
-// แก้ไข app/api/reports/route.ts - ฟังก์ชัน getStaffReport
 async function getStaffReport(startDate: Date, endDate: Date) {
   console.log('Staff Report - Date range:', startDate, 'to', endDate);
   
@@ -308,7 +320,6 @@ async function getStaffReport(startDate: Date, endDate: Date) {
         averageWorkHours
       },
       staff: staffWithSales
-      // ลบ workHours array ออกตามความต้องการ
     });
 
   } catch (error) {

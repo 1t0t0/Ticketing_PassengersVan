@@ -18,12 +18,13 @@ export default withAuth(
       }
     }
     
-    // ถ้าเป็น staff
+    // ถ้าเป็น staff - เพิ่ม /dashboard/reports เข้าไป
     if (token.role === "staff") {
-      // Staff สามารถเข้าถึงได้เฉพาะหน้า tickets, users และ revenue
+      // Staff สามารถเข้าถึงได้เฉพาะหน้า tickets, users, reports และ revenue
       const allowedStaffPaths = [
         "/dashboard/tickets",
         "/dashboard/users",
+        "/dashboard/reports",     // ✅ เพิ่มบรรทัดนี้
         "/dashboard/revenue",
       ];
 
@@ -40,6 +41,7 @@ export default withAuth(
       const allowedStationPaths = [
         "/dashboard",
         "/dashboard/tickets/history",
+        "/dashboard/reports",     // ✅ Station ก็ควรเข้า Reports ได้
         "/dashboard/revenue"
       ];
 
