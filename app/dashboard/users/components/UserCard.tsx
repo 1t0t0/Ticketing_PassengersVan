@@ -1,4 +1,4 @@
-// app/dashboard/users/components/UserCard.tsx - Updated
+// app/dashboard/users/components/UserCard.tsx - Updated with GoogleAlphabetIcon
 import React, { useState } from 'react';
 import { FiEye, FiEdit2, FiTrash2, FiLogIn, FiLogOut } from 'react-icons/fi';
 import { User } from '../types';
@@ -6,7 +6,7 @@ import useUserPermissions from '../hooks/useUserPermissions';
 import useCheckInOut from '../hooks/useCheckinOut';
 import EditUserModal from './EditUserModal';
 import ViewUserModal from './ViewUserModal';
-import GoogleAlphabetIcon from '@/components/GoogleAlphabetIcon'; // Import component ใหม่
+import GoogleAlphabetIcon from '@/components/GoogleAlphabetIcon';
 
 interface UserCardProps {
   user: User;
@@ -51,21 +51,22 @@ const UserCard: React.FC<UserCardProps> = ({ user, admins = [], onDelete, onRefr
       <tr className="border-b hover:bg-gray-50 transition-colors">
         <td className="p-6">
           <div className="flex items-center">
-              <div className="mr-4">
-  {user.userImage ? (
-    <img 
-      src={user.userImage} 
-      alt={user.name} 
-      className="w-16 h-16 rounded-full object-cover border-4 border-white"
-    />
-  ) : (
-    <GoogleAlphabetIcon 
-      name={user.name} 
-      size="xxl"
-      className="border-4 border-white"
-    />
-  )}
-</div>
+            <div className="mr-4">
+              {hasValidImage ? (
+                <img 
+                  src={user.userImage} 
+                  alt={user.name} 
+                  className="w-16 h-16 rounded-full object-cover border-4 border-white"
+                  onError={handleImageError}
+                />
+              ) : (
+                <GoogleAlphabetIcon 
+                  name={user.name} 
+                  size="xxl"
+                  className="border-4 border-white"
+                />
+              )}
+            </div>
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-lg text-gray-900 mb-1">{user.name}</div>
               <div className="text-sm text-gray-600 mb-1">{user.email}</div>

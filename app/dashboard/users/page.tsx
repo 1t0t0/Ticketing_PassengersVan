@@ -137,7 +137,7 @@ export default function UserManagementPage() {
                 title="ຕັ້ງຄ່າ Auto Checkout"
               >
                 <FiClock className="inline mr-1" size={16} />
-                Auto Checkout
+                ຕັ້ງເວລາ Checkout
               </button>
             )}
             
@@ -146,7 +146,7 @@ export default function UserManagementPage() {
                 onClick={() => setShowAddModal(true)}
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
-                + Add User
+                + ເພີ່ມຜູ້ໃຊ້
               </button>
             )}
             
@@ -154,7 +154,7 @@ export default function UserManagementPage() {
               onClick={refreshData}
               className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
             >
-              Refresh
+              ອັບເດດ
             </button>
           </div>
         </div>
@@ -183,7 +183,7 @@ export default function UserManagementPage() {
         {/* Stats */}
         <div className="mb-4 p-3 bg-gray-100 rounded">
           <p className="text-sm">
-            Showing {displayItems.length} {activeTab}
+            ສະແດງ {displayItems.length} {activeTab}
             {searchTerm && <span> (filtered by: "{searchTerm}")</span>}
           </p>
         </div>

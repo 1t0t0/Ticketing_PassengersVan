@@ -1,4 +1,4 @@
-// components/DashboardLayout.tsx - อัปเดตเพิ่มเมนู Reports
+// components/DashboardLayout.tsx - Updated with GoogleAlphabetIcon
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,11 +13,10 @@ import {
   FiLogOut, 
   FiMenu, 
   FiX,
-  FiUser,
-  FiFileText,
-  FiPieChart  // เพิ่ม icon สำหรับ Reports
+  FiPieChart
 } from 'react-icons/fi';
 import { TbBus } from "react-icons/tb";
+import GoogleAlphabetIcon from '@/components/GoogleAlphabetIcon';
 
 interface MenuItem {
   name: string;
@@ -56,7 +55,6 @@ const menuItems: MenuItem[] = [
     roles: ['admin', 'staff'],
     description: 'ຄົນຂັບ, ພະນັກງານ, Admin'
   },
-  // เพิ่มเมนู Reports ใหม่
   {
     name: 'ລາຍງານ',
     href: '/dashboard/reports',
@@ -72,6 +70,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [userImageError, setUserImageError] = useState(false);
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -82,6 +82,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
     }
   }, [status, router]);
+
+  // รีเซ็ต image error เมื่อ user เปลี่ยน
+  useEffect(() => {
+    setUserImageError(false);
+  }, [session?.user?.id]);
+
+  // ดึงข้อมูลรูปภาพผู้ใช้จากฐานข้อมูล
+  useEffect(() => {
+    const fetchUserImage = async () => {
+      if (session?.user?.id) {
+        try {
+          const response = await fetch(`/api/users/${session.user.id}`);
+          if (response.ok) {
+            const userData = await response.json();
+            setUserProfileImage(userData.userImage || null);
+          }
+        } catch (error) {
+          console.error('Error fetching user image:', error);
+          setUserProfileImage(null);
+        }
+      } else {
+        setUserProfileImage(null);
+      }
+    };
+
+    fetchUserImage();
+  }, [session?.user?.id]);
 
   if (!mounted || status === 'loading') {
     return (
@@ -99,9 +126,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const userRole = session?.user?.role;
+  const userName = session?.user?.name || 'User';
+  
+  // ใช้รูปภาพจากฐานข้อมูลแทน session.user.image
+  const userImage = userProfileImage || session?.user?.image;
+  
+  // ตรวจสอบว่ามีรูปภาพที่ใช้งานได้หรือไม่
+  const hasValidUserImage = userImage && 
+                           typeof userImage === 'string' && 
+                           userImage.trim() !== '' &&
+                           (userImage.startsWith('http') || userImage.startsWith('data:')) &&
+                           !userImageError;
+                           
   const filteredMenuItems = menuItems.filter(item => 
     item.roles.includes(userRole || '')
   );
+
+  const handleUserImageError = () => {
+    setUserImageError(true);
+  };
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/login' });
@@ -131,11 +174,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* User Info */}
         <div className="p-4 border-b border-gray-200 bg-blue-50">
           <div className="flex items-center">
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-              <FiUser className="h-5 w-5 text-white" />
+            <div className="mr-3">
+              {hasValidUserImage ? (
+                <img 
+                  src={userImage} 
+                  alt={userName} 
+                  className="w-10 h-10 rounded-full object-cover border-2 border-white"
+                  onError={handleUserImageError}
+                />
+              ) : (
+                <GoogleAlphabetIcon 
+                  name={userName} 
+                  size="lg"
+                />
+              )}
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-800">{session?.user?.name}</p>
+              <p className="text-sm font-medium text-gray-800">{userName}</p>
               <p className="text-xs text-blue-600 capitalize">
                 {userRole === 'admin' ? 'ຜູ້ບໍລິຫານ' : 
                  userRole === 'staff' ? 'ພະນັກງານ' : 
