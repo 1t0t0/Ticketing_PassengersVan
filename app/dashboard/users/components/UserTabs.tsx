@@ -1,4 +1,4 @@
-// app/dashboard/users/components/UserTabs.tsx - Updated to remove note for Staff
+// app/dashboard/users/components/UserTabs.tsx - ลบวงกลม count ออก
 import React from 'react';
 import { useSession } from 'next-auth/react';
 
@@ -46,21 +46,11 @@ const UserTabs: React.FC<UserTabsProps> = ({ activeTab, onTabChange, shouldShowT
                 onClick={() => onTabChange(tab.key as any)}
               >
                 {tab.label}
-                {/* Show count if needed */}
-                {session?.user?.role === 'admin' && (
-                  <span className={`ml-2 py-0.5 px-2 rounded-full text-xs ${
-                    isActive ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {/* You can add count here if available */}
-                  </span>
-                )}
               </button>
             );
           })}
         </nav>
       </div>
-      
-      {/* Remove the info text for staff - just show clean interface */}
     </div>
   );
 };
