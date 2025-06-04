@@ -1,4 +1,4 @@
-// components/DashboardLayout.tsx - Updated with GoogleAlphabetIcon
+// components/DashboardLayout.tsx - Updated with Dashboard หลัก
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -29,6 +29,13 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+  {
+    name: 'ໜ້າຫຼັກ',
+    href: '/dashboard',
+    icon: FiHome,
+    roles: ['admin', 'station'],
+    description: 'ພາບລວມຂໍ້ມູນສະຖິຕິ'
+  },
   {
     name: 'ອອກປີ້',
     href: '/dashboard/tickets',
@@ -199,11 +206,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Navigation */}
         <nav className="mt-4 px-2">
           {filteredMenuItems.map((item) => {
-            // แก้ไข logic การตรวจสอบ active state
-            const isActive = pathname === item.href || 
-              (item.href !== '/dashboard' && 
-               item.href !== '/dashboard/tickets' && 
-               pathname.startsWith(item.href));
+            // ใช้ exact matching เพื่อป้องกันปัญหา nested paths
+            const isActive = pathname === item.href;
             
             return (
               <Link
