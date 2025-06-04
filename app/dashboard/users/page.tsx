@@ -1,15 +1,17 @@
-// app/dashboard/users/page.tsx - Low Quality Main Page
+// app/dashboard/users/page.tsx - Updated with Auto Checkout
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { FiClock } from 'react-icons/fi';
 
 // Components
 import UserTabs from './components/UserTabs';
 import UserSearchComponent from './components/UserSearchComponent';
 import { DriverList, StaffList, AdminList, StationList } from './components/lists';
 import AddUserModal from './components/AddUserModal';
+import AutoCheckoutModal from './components/AutoCheckoutModal'; // เพิ่ม import
 
 // Hooks
 import useUserData from './hooks/useUserData';
@@ -23,13 +25,14 @@ export default function UserManagementPage() {
   // State
   const [activeTab, setActiveTab] = useState<'drivers' | 'staff' | 'admin' | 'station'>('drivers');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAutoCheckoutModal, setShowAutoCheckoutModal] = useState(false); // เพิ่ม state
   const [confirmDialog, setConfirmDialog] = useState<{show: boolean, message: string, onConfirm?: () => void}>({
     show: false, message: '', onConfirm: undefined
   });
 
   // Custom hooks
   const { loading: loadingUsers, drivers, ticketSellers, admins, stations, fetchUsers } = useUserData();
-  const { canAddUser, shouldShowTab } = useUserPermissions();
+  const { canAddUser, shouldShowTab, isAdmin } = useUserPermissions(); // เพิ่ม isAdmin
 
   // Authentication check
   useEffect(() => {
@@ -126,6 +129,18 @@ export default function UserManagementPage() {
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold">User Management System</h2>
           <div className="space-x-2">
+            {/* ปุ่ม Auto Checkout - แสดงเฉพาะ Admin */}
+            {isAdmin() && (
+              <button 
+                onClick={() => setShowAutoCheckoutModal(true)}
+                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
+                title="ຕັ້ງຄ່າ Auto Checkout"
+              >
+                <FiClock className="inline mr-1" size={16} />
+                Auto Checkout
+              </button>
+            )}
+            
             {canAddUser() && (
               <button 
                 onClick={() => setShowAddModal(true)}
@@ -134,6 +149,7 @@ export default function UserManagementPage() {
                 + Add User
               </button>
             )}
+            
             <button 
               onClick={refreshData}
               className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
@@ -186,6 +202,17 @@ export default function UserManagementPage() {
           onSuccess={() => {
             fetchUsers();
             setShowAddModal(false);
+          }}
+        />
+      )}
+
+      {/* Auto Checkout Modal */}
+      {showAutoCheckoutModal && (
+        <AutoCheckoutModal
+          onClose={() => setShowAutoCheckoutModal(false)}
+          onSuccess={() => {
+            fetchUsers(); // รีเฟรชข้อมูลผู้ใช้หลังจากมีการเปลี่ยนแปลง
+            setShowAutoCheckoutModal(false);
           }}
         />
       )}
