@@ -1,8 +1,5 @@
 'use client';
 
-// Format currency
-  const formatCurrency = (amount: number) => `₭${amount.toLocaleString()}`;// app/driver-portal/page.tsx - เชื่อมกับ API จริง
-
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -58,6 +55,11 @@ interface DashboardData {
     workingDrivers: number;
     sharePerDriver: number;
   };
+  dateRange?: {
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+  };
 }
 
 export default function DriverPortalPage() {
@@ -68,7 +70,7 @@ export default function DriverPortalPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState('วันนี้');
+  const [selectedPeriod, setSelectedPeriod] = useState('ວັນນີ້');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -82,16 +84,33 @@ export default function DriverPortalPage() {
     }
   }, [status, session, router]);
 
-  // Fetch dashboard data
-  const fetchDashboardData = async (date?: string) => {
+  // Format currency
+  const formatCurrency = (amount: number) => `₭${amount.toLocaleString()}`;
+
+  // Fetch dashboard data - แก้ไขให้รองรับ date range
+  const fetchDashboardData = async (queryStartDate?: string, queryEndDate?: string) => {
     try {
       setError(null);
       if (!refreshing) setLoading(true);
       
-      const targetDate = date || selectedDate;
-      console.log('Fetching dashboard data for date:', targetDate);
+      let url = `/api/driver/income?type=dashboard`;
       
-      const response = await fetch(`/api/driver/income?type=dashboard&date=${targetDate}`);
+      // ถ้ามี date range
+      if (queryStartDate && queryEndDate) {
+        url += `&startDate=${queryStartDate}&endDate=${queryEndDate}`;
+      } 
+      // ถ้ามีแค่วันเดียว
+      else if (queryStartDate) {
+        url += `&date=${queryStartDate}`;
+      }
+      // default ใช้ selectedDate
+      else {
+        url += `&date=${selectedDate}`;
+      }
+      
+      console.log('Fetching dashboard data from:', url);
+      
+      const response = await fetch(url);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -108,7 +127,7 @@ export default function DriverPortalPage() {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      setError(error instanceof Error ? error.message : 'เกີดຂໍ້ຜິດພາດໃນການໂຫລດຂໍ້ມູນ');
+      setError(error instanceof Error ? error.message : 'เກີດຂໍ້ຜິດພາດໃນການໂຫລດຂໍ້ມູນ');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -118,34 +137,34 @@ export default function DriverPortalPage() {
   // Handle refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchDashboardData();
+    
+    // ใช้ช่วงเวลาที่เลือกปัจจุบัน
+    if (selectedPeriod === 'ກຳໜົດເອງ') {
+      await fetchDashboardData(startDate, endDate);
+    } else {
+      await fetchDashboardData(selectedDate);
+    }
   };
 
-  // Handle period change
-  const handlePeriodChange = (period: string) => {
-    setSelectedPeriod(period);
-    
-    if (period === 'ກຳໜົດເອງ') {
-      // Don't change dates, let user pick manually
-      return;
-    }
-    
-    let newStartDate = new Date();
-    let newEndDate = new Date();
+  // Calculate date range based on period
+  const calculateDateRange = (period: string) => {
+    const today = new Date();
+    let newStartDate = new Date(today);
+    let newEndDate = new Date(today);
     
     switch (period) {
       case 'ວັນນີ້':
         // Same day
         break;
       case 'ມື້ວານ':
-        newStartDate.setDate(newStartDate.getDate() - 1);
-        newEndDate.setDate(newEndDate.getDate() - 1);
+        newStartDate.setDate(today.getDate() - 1);
+        newEndDate.setDate(today.getDate() - 1);
         break;
       case 'ອາທິດນີ້':
         // Get start of this week (Monday) to today
-        const dayOfWeek = newStartDate.getDay();
+        const dayOfWeek = today.getDay();
         const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        newStartDate.setDate(newStartDate.getDate() - daysToMonday);
+        newStartDate.setDate(today.getDate() - daysToMonday);
         // End date stays today
         break;
       case 'ເດືອນນີ້':
@@ -153,16 +172,55 @@ export default function DriverPortalPage() {
         newStartDate.setDate(1);
         // End date stays today
         break;
+      default:
+        return null; // สำหรับ 'ກຳໜົດເອງ'
     }
     
-    const startDateString = newStartDate.toISOString().split('T')[0];
-    const endDateString = newEndDate.toISOString().split('T')[0];
+    return {
+      startDate: newStartDate.toISOString().split('T')[0],
+      endDate: newEndDate.toISOString().split('T')[0]
+    };
+  };
+
+  // Handle period change - แก้ไขให้ทำงานถูกต้อง
+  const handlePeriodChange = async (period: string) => {
+    setSelectedPeriod(period);
     
-    setStartDate(startDateString);
-    setEndDate(endDateString);
-    setSelectedDate(startDateString); // Keep for backward compatibility
+    if (period === 'ກຳໜົດເອງ') {
+      // ไม่ต้องเปลี่ยนวันที่ ให้ผู้ใช้เลือกเอง
+      return;
+    }
     
-    fetchDashboardData(startDateString, endDateString);
+    const dateRange = calculateDateRange(period);
+    if (dateRange) {
+      setStartDate(dateRange.startDate);
+      setEndDate(dateRange.endDate);
+      setSelectedDate(dateRange.startDate);
+      
+      // ถ้าเป็นวันเดียว (วันนี้, มื้วาน)
+      if (dateRange.startDate === dateRange.endDate) {
+        await fetchDashboardData(dateRange.startDate);
+      } 
+      // ถ้าเป็นช่วงวันที่ (อาทิตนี้, เดือนนี้)
+      else {
+        await fetchDashboardData(dateRange.startDate, dateRange.endDate);
+      }
+    }
+  };
+
+  // Handle custom date range update
+  const handleCustomDateUpdate = async () => {
+    if (!startDate || !endDate) {
+      setError('กรุณาเลือกวันที่เริ่มต้นและวันที่สิ้นสุด');
+      return;
+    }
+    
+    if (new Date(startDate) > new Date(endDate)) {
+      setError('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด');
+      return;
+    }
+    
+    await fetchDashboardData(startDate, endDate);
   };
 
   // Initial load
@@ -179,6 +237,24 @@ export default function DriverPortalPage() {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
+  };
+
+  // Get display text for current period
+  const getDisplayPeriod = () => {
+    switch (selectedPeriod) {
+      case 'ວັນນີ້':
+        return `ວັນນີ້ - ${formatDateLao(selectedDate)}`;
+      case 'ມື້ວານ':
+        return `ມື້ວານ - ${formatDateLao(selectedDate)}`;
+      case 'ອາທິດນີ້':
+        return `ອາທິດນີ້ - ${formatDateLao(startDate)} ຫາ ${formatDateLao(endDate)}`;
+      case 'ເດືອນນີ້':
+        return `ເດືອນນີ້ - ${formatDateLao(startDate)} ຫາ ${formatDateLao(endDate)}`;
+      case 'ກຳໜົດເອງ':
+        return `ຊ່ວງທີ່ເລືອກ - ${formatDateLao(startDate)} ຫາ ${formatDateLao(endDate)}`;
+      default:
+        return formatDateLao(selectedDate);
+    }
   };
 
   // Prepare chart data
@@ -299,13 +375,15 @@ export default function DriverPortalPage() {
           </div>
         )}
 
-        {/* Period Selector */}
+        {/* Period Selector - แก้ไขให้ทำงานถูกต้อง */}
         <div className="mb-6">
           <div className="flex items-center mb-4">
             <FiCalendar className="mr-2 text-gray-600" />
             <h2 className="text-lg font-semibold text-gray-900">ເລືອກຊ່ວງເວລາ</h2>
           </div>
-          <div className="flex flex-wrap gap-2 mb-3">
+          
+          {/* Period Buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
             {[
               'ວັນນີ້', 
               'ມື້ວານ', 
@@ -316,7 +394,8 @@ export default function DriverPortalPage() {
               <button
                 key={period}
                 onClick={() => handlePeriodChange(period)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                disabled={loading}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
                   selectedPeriod === period
                     ? 'bg-blue-500 text-white'
                     : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-300'
@@ -326,41 +405,48 @@ export default function DriverPortalPage() {
               </button>
             ))}
           </div>
-          <div className={`${selectedPeriod === 'ກຳໜົດເອງ' ? 'opacity-100' : 'opacity-50'} ${selectedPeriod === 'ກຳໜົດເອງ' ? 'block' : 'hidden'}`}>
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">ຈາກ:</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setSelectedPeriod('ກຳໜົດເອງ');
-                  }}
-                  className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+
+          {/* Custom Date Range Selector */}
+          {selectedPeriod === 'ກຳໜົດເອງ' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700">ຈາກ:</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700">ຫາ:</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <button
+                  onClick={handleCustomDateUpdate}
+                  disabled={loading}
+                  className="px-4 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'ກຳລັງໂຫລດ...' : 'ອັບເດດ'}
+                </button>
               </div>
-              
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">ຫາ:</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    setSelectedPeriod('ກຳໜົດເອງ');
-                  }}
-                  className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              <button
-                onClick={() => fetchDashboardData(startDate, endDate)}
-                className="px-4 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors"
-              >
-                ອັບເດດ
-              </button>
             </div>
+          )}
+
+          {/* Current Period Display */}
+          <div className="mt-3 text-sm text-gray-600">
+            <strong>ຊ່ວງເວລາປັດຈຸບັນ:</strong> {getDisplayPeriod()}
+            {dashboardData && dashboardData.totalTickets > 0 && (
+              <span className="ml-2">({dashboardData.totalTickets} ໃບ)</span>
+            )}
           </div>
         </div>
 
@@ -374,18 +460,6 @@ export default function DriverPortalPage() {
             {/* Revenue Summary Cards */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">ລາຍຮັບລວມ</h3>
-              <p className="text-sm text-gray-500 mb-4">
-                {selectedPeriod === 'ວັນນີ້' && 'ວັນນີ້ - '}
-                {selectedPeriod === 'ມື້ວານ' && 'ມື້ວານ - '}
-                {selectedPeriod === 'ອາທິດນີ້' && 'ອາທິດນີ້ - '}
-                {selectedPeriod === 'ເດືອນນີ້' && 'ເດືອນນີ້ - '}
-                {selectedPeriod === 'ກຳໜົດເອງ' && 'ຊ່ວງທີ່ເລືອກ - '}
-                {selectedPeriod === 'ກຳໜົດເອງ' 
-                  ? `${formatDateLao(startDate)} - ${formatDateLao(endDate)}`
-                  : formatDateLao(startDate)
-                }
-                {dashboardData.totalTickets > 0 && ` - ${dashboardData.totalTickets} ໃບ`}
-              </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <RevenueCard
@@ -394,17 +468,17 @@ export default function DriverPortalPage() {
                   color="blue"
                 />
                 <RevenueCard
-                  title="ວັນນີ້"
-                  amount={dashboardData.todayRevenue}
-                  color="green"
-                />
-                <RevenueCard
-                  title="ສະຖານີ"
-                  amount={dashboardData.stationRevenue}
+                  title="ບໍລິສັດ (10%)"
+                  amount={dashboardData.companyRevenue}
                   color="purple"
                 />
                 <RevenueCard
-                  title="ຄົນຂັບ"
+                  title="ສະຖານີ (5%)"
+                  amount={dashboardData.stationRevenue}
+                  color="green"
+                />
+                <RevenueCard
+                  title="ຄົນຂັບ (85%)"
                   amount={dashboardData.driverRevenue}
                   color="orange"
                 />
