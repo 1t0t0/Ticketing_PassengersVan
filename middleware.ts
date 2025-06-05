@@ -1,3 +1,4 @@
+// middleware.ts - Updated to include station-portal routes
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
@@ -18,13 +19,20 @@ export default withAuth(
       }
     }
     
+    // ถ้าเป็น station และพยายามเข้าหน้าอื่นที่ไม่ใช่ station-portal
+    if (token.role === "station") {
+      if (!path.startsWith("/station-portal")) {
+        return NextResponse.redirect(new URL("/station-portal", req.url));
+      }
+    }
+    
     // ถ้าเป็น staff - เพิ่ม /dashboard/reports เข้าไป
     if (token.role === "staff") {
       // Staff สามารถเข้าถึงได้เฉพาะหน้า tickets, users, reports และ revenue
       const allowedStaffPaths = [
         "/dashboard/tickets",
         "/dashboard/users",
-        "/dashboard/reports",     // ✅ เพิ่มบรรทัดนี้
+        "/dashboard/reports",
         "/dashboard/revenue",
       ];
 
@@ -35,25 +43,12 @@ export default withAuth(
       }
     }
     
-    // ถ้าเป็น station และพยายามเข้าหน้าที่ไม่ได้รับอนุญาต
-    if (token.role === "station") {
-      // Station สามารถเข้าถึงได้เฉพาะหน้า dashboard, tickets history และ revenue
-      const allowedStationPaths = [
-        "/dashboard",
-        "/dashboard/tickets/history",
-        "/dashboard/reports",     // ✅ Station ก็ควรเข้า Reports ได้
-        "/dashboard/revenue"
-      ];
-
-      // ถ้า path เริ่มต้นด้วย /dashboard แต่ไม่ได้อยู่ใน allowedStationPaths
-      if (path.startsWith("/dashboard") && !allowedStationPaths.some(allowedPath => path.startsWith(allowedPath))) {
-        // ให้ redirect ไปที่หน้า dashboard
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
+    // ป้องกันไม่ให้ staff, station และ driver เข้าถึงหน้าที่ไม่ได้รับอนุญาต
+    if ((token.role === "staff" || token.role === "station") && path.startsWith("/driver-portal")) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
     }
     
-    // ป้องกันไม่ให้ staff และ station เข้าถึงหน้าที่ไม่ได้รับอนุญาต
-    if ((token.role === "staff" || token.role === "station") && path.startsWith("/driver-portal")) {
+    if ((token.role === "staff" || token.role === "driver") && path.startsWith("/station-portal")) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
     
@@ -71,5 +66,6 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/driver-portal/:path*",
+    "/station-portal",
   ],
 };
