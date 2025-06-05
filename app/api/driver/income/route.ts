@@ -1,7 +1,6 @@
-// app/api/driver/income/route.ts - Enhanced version
+// app/api/driver/income/route.ts - แก้ไขให้แสดงรายได้ต่อคนไม่ว่าสถานะอะไร
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
-import Income from '@/models/Income';
 import User from '@/models/User';
 import Ticket from '@/models/Ticket';
 import { getServerSession } from 'next-auth';
@@ -34,7 +33,7 @@ export async function GET(request: Request) {
 
     switch (type) {
       case 'dashboard':
-        // ✅ แก้ไข: รองรับ date range
+        // รองรับ date range
         if (startDate && endDate) {
           result = await getDashboardDataRange(driverId, startDate, endDate);
         } else {
@@ -43,47 +42,17 @@ export async function GET(request: Request) {
         break;
         
       case 'daily':
-        result = await Income.getDriverDailyIncome(driverId, date);
+        result = await getDailyIncome(driverId, date);
         break;
         
       case 'monthly':
-        result = await Income.getDriverMonthlyIncome(driverId, year, month);
+        result = await getMonthlyIncome(driverId, year, month);
         break;
         
       case 'summary':
         const today = new Date();
         const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
-        
-        const summaryData = await Income.aggregate([
-          {
-            $match: {
-              driver_id: new Income.base.Types.ObjectId(driverId),
-              revenue_share_type: 'driver',
-              income_date: {
-                $gte: thirtyDaysAgo,
-                $lte: today
-              }
-            }
-          },
-          {
-            $group: {
-              _id: null,
-              totalIncome: { $sum: '$income_amount' },
-              totalTickets: { $sum: 1 },
-              avgDailyIncome: { $avg: '$income_amount' },
-              maxDailyIncome: { $max: '$income_amount' },
-              minDailyIncome: { $min: '$income_amount' }
-            }
-          }
-        ]);
-        
-        result = summaryData.length > 0 ? summaryData[0] : {
-          totalIncome: 0,
-          totalTickets: 0,
-          avgDailyIncome: 0,
-          maxDailyIncome: 0,
-          minDailyIncome: 0
-        };
+        result = await getSummaryIncome(driverId, thirtyDaysAgo, today);
         break;
         
       default:
@@ -138,20 +107,56 @@ async function getDashboardDataRange(driverId: string, startDateStr: string, end
     const totalRevenue = totalRevenueResult.length > 0 ? totalRevenueResult[0].totalRevenue : 0;
     const totalTickets = totalRevenueResult.length > 0 ? totalRevenueResult[0].totalTickets : 0;
     
-    // 2. ดึงข้อมูลคนขับที่เข้าทำงาน (ใช้ข้อมูลปัจจุบัน)
-    const workingDriversToday = await User.countDocuments({
-      role: 'driver',
-      checkInStatus: 'checked-in'
+    // 2. ✅ แก้ไข: ดึงข้อมูลคนขับทั้งหมดที่มี role = 'driver' (ไม่ขึ้นกับสถานะ check-in)
+    const allDrivers = await User.countDocuments({
+      role: 'driver'
     });
+    
+    // ✅ แก้ไข: ถ้าไม่มีข้อมูลการขายในช่วงนี้ ให้ใช้จำนวนคนขับทั้งหมด
+    // แต่ถ้ามีข้อมูลการขาย ให้ดูว่ามีคนขับกี่คนที่เข้าทำงานจริงๆ ในช่วงนั้น
+    let workingDriversInPeriod = allDrivers;
+    
+    if (totalRevenue > 0) {
+      // หาจำนวนคนขับที่เข้าทำงานจริงๆ ในช่วงเวลานี้
+      // โดยดูจากข้อมูลการขายว่ามีการขายเมื่อไหร่
+      const soldDates = await Ticket.distinct('soldAt', {
+        soldAt: { $gte: startOfRange, $lte: endOfRange }
+      });
+      
+      if (soldDates.length > 0) {
+        // ใช้จำนวนคนขับที่เข้าทำงานในวันแรกที่มีการขาย
+        const firstSaleDate = new Date(Math.min(...soldDates.map(d => new Date(d).getTime())));
+        const firstSaleDateStart = new Date(firstSaleDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
+        const firstSaleDateEnd = new Date(firstSaleDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
+        
+        // หาคนขับที่ check-in ในวันแรกที่มีการขาย
+        const workingDriversOnFirstSale = await User.countDocuments({
+          role: 'driver',
+          $or: [
+            { checkInStatus: 'checked-in' }, // คนขับที่ check-in อยู่
+            { 
+              lastCheckIn: { 
+                $gte: firstSaleDateStart, 
+                $lte: firstSaleDateEnd 
+              } 
+            } // คนขับที่ check-in ในวันนั้น
+          ]
+        });
+        
+        workingDriversInPeriod = Math.max(workingDriversOnFirstSale, 1); // อย่างน้อย 1 คน
+      }
+    }
+    
+    console.log(`💡 Working drivers calculation: Total drivers = ${allDrivers}, Working in period = ${workingDriversInPeriod}`);
     
     // 3. คำนวณการแบ่งรายได้
     const companyShare = Math.round(totalRevenue * 0.10);
     const stationShare = Math.round(totalRevenue * 0.05);
     const driversShare = Math.round(totalRevenue * 0.85);
     
-    // 4. คำนวณส่วนแบ่งของคนขับคนนี้
-    const myCalculatedShare = workingDriversToday > 0 
-      ? Math.round(driversShare / workingDriversToday) 
+    // 4. ✅ แก้ไข: คำนวณส่วนแบ่งของคนขับคนนี้ (ไม่ขึ้นกับสถานะ check-in ปัจจุบัน)
+    const myCalculatedShare = workingDriversInPeriod > 0 
+      ? Math.round(driversShare / workingDriversInPeriod) 
       : 0;
     
     // 5. คำนวณจำนวนวันในช่วงนี้
@@ -168,7 +173,7 @@ async function getDashboardDataRange(driverId: string, startDateStr: string, end
         checkInStatus: driverInfo?.checkInStatus || 'checked-out'
       },
       
-      // ✅ เพิ่ม dateRange info
+      // เพิ่ม dateRange info
       dateRange: {
         startDate: startDateStr,
         endDate: endDateStr,
@@ -182,16 +187,16 @@ async function getDashboardDataRange(driverId: string, startDateStr: string, end
       stationRevenue: stationShare,
       driverRevenue: driversShare,
       
-      workingDriversCount: workingDriversToday,
+      workingDriversCount: workingDriversInPeriod,
       myDailyIncome: myCalculatedShare,
-      myExpectedShare: myCalculatedShare,
-      myTicketsCount: Math.round(totalTickets / Math.max(workingDriversToday, 1)),
+      myExpectedShare: myCalculatedShare, // ✅ แสดงเสมอไม่ว่าสถานะอะไร
+      myTicketsCount: Math.round(totalTickets / Math.max(workingDriversInPeriod, 1)),
       
       monthlyIncome: myCalculatedShare, // ใช้เป็นรายได้ช่วงที่เลือก
       monthlyDays: totalDays,
       
       averagePerTicket: totalTickets > 0 ? Math.round(totalRevenue / totalTickets) : 0,
-      averageDriverShare: workingDriversToday > 0 ? Math.round(driversShare / workingDriversToday) : 0,
+      averageDriverShare: workingDriversInPeriod > 0 ? Math.round(driversShare / workingDriversInPeriod) : 0,
       
       chartData: {
         company: companyShare,
@@ -204,9 +209,9 @@ async function getDashboardDataRange(driverId: string, startDateStr: string, end
         companyPercent: 10,
         stationPercent: 5,
         driversPercent: 85,
-        workingDrivers: workingDriversToday,
+        workingDrivers: workingDriversInPeriod,
         sharePerDriver: myCalculatedShare,
-        method: 'calculated_from_tickets_range'
+        method: 'calculated_regardless_of_checkin_status'
       }
     };
     
@@ -214,7 +219,9 @@ async function getDashboardDataRange(driverId: string, startDateStr: string, end
       totalRevenue,
       totalTickets, 
       totalDays,
-      myShare: myCalculatedShare
+      myShare: myCalculatedShare,
+      driverStatus: driverInfo?.checkInStatus,
+      workingDrivers: workingDriversInPeriod
     });
     
     return result;
@@ -225,7 +232,7 @@ async function getDashboardDataRange(driverId: string, startDateStr: string, end
   }
 }
 
-// ฟังก์ชันเดิม: สำหรับวันเดียว
+// ✅ แก้ไขฟังก์ชันเดิม: สำหรับวันเดียว
 async function getDashboardData(driverId: string, date: string) {
   try {
     console.log('📊 Fetching dashboard data for driver:', driverId, 'date:', date);
@@ -252,18 +259,43 @@ async function getDashboardData(driverId: string, date: string) {
     const totalRevenue = totalRevenueResult.length > 0 ? totalRevenueResult[0].totalRevenue : 0;
     const totalTickets = totalRevenueResult.length > 0 ? totalRevenueResult[0].totalTickets : 0;
     
-    // ดึงจำนวนคนขับที่เข้าทำงานวันนี้
-    const workingDriversToday = await User.countDocuments({
-      role: 'driver',
-      checkInStatus: 'checked-in'
-    });
+    // ✅ แก้ไข: หาจำนวนคนขับที่ควรจะแบ่งรายได้ (ไม่ขึ้นกับสถานะปัจจุบัน)
+    let workingDriversToday;
+    
+    if (totalRevenue > 0) {
+      // ถ้ามีรายได้ ให้หาคนขับที่เข้าทำงานในวันนั้นจริงๆ
+      workingDriversToday = await User.countDocuments({
+        role: 'driver',
+        $or: [
+          { checkInStatus: 'checked-in' }, // คนขับที่ check-in อยู่
+          { 
+            lastCheckIn: { 
+              $gte: startOfDay, 
+              $lte: endOfDay 
+            } 
+          } // คนขับที่ check-in ในวันนั้น
+        ]
+      });
+      
+      // ถ้าไม่พบคนขับที่ check-in ในวันนั้น ให้ใช้คนขับทั้งหมด
+      if (workingDriversToday === 0) {
+        workingDriversToday = await User.countDocuments({ role: 'driver' });
+      }
+    } else {
+      // ถ้าไม่มีรายได้ ให้ใช้คนขับทั้งหมด
+      workingDriversToday = await User.countDocuments({ role: 'driver' });
+    }
+    
+    workingDriversToday = Math.max(workingDriversToday, 1); // อย่างน้อย 1 คน
+    
+    console.log(`💡 Working drivers today: ${workingDriversToday} drivers`);
     
     // คำนวณการแบ่งรายได้
     const companyShare = Math.round(totalRevenue * 0.10);
     const stationShare = Math.round(totalRevenue * 0.05);
     const driversShare = Math.round(totalRevenue * 0.85);
     
-    // คำนวณส่วนแบ่งของคนขับคนนี้
+    // ✅ แก้ไข: คำนวณส่วนแบ่งของคนขับคนนี้ (แสดงเสมอ)
     const myShare = workingDriversToday > 0 
       ? Math.round(driversShare / workingDriversToday) 
       : 0;
@@ -273,9 +305,9 @@ async function getDashboardData(driverId: string, date: string) {
       ? Math.round(totalTickets / workingDriversToday)
       : 0;
     
-    // ดึงข้อมูลรายได้เดือนนี้
+    // ดึงข้อมูลรายได้เดือนนี้ (30 วันที่ผ่านมา)
     const oneMonthAgo = new Date(startOfDay);
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
     
     const monthlyRevenueResult = await Ticket.aggregate([
       {
@@ -294,11 +326,14 @@ async function getDashboardData(driverId: string, date: string) {
     
     const monthlyTotalRevenue = monthlyRevenueResult.length > 0 ? monthlyRevenueResult[0].monthlyRevenue : 0;
     const monthlyDriversShare = Math.round(monthlyTotalRevenue * 0.85);
-    const monthlyMyShare = workingDriversToday > 0 
-      ? Math.round(monthlyDriversShare / workingDriversToday)
+    
+    // สำหรับรายได้เดือน ใช้จำนวนคนขับทั้งหมด
+    const totalDriversForMonthly = await User.countDocuments({ role: 'driver' });
+    const monthlyMyShare = totalDriversForMonthly > 0 
+      ? Math.round(monthlyDriversShare / totalDriversForMonthly)
       : 0;
     
-    const daysInMonth = Math.ceil((endOfDay.getTime() - oneMonthAgo.getTime()) / (1000 * 60 * 60 * 24));
+    const daysInMonth = 30; // ใช้ 30 วันคงที่
     
     // ดึงข้อมูลผู้ใช้
     const driverInfo = await User.findById(driverId).select('name employeeId checkInStatus');
@@ -320,7 +355,7 @@ async function getDashboardData(driverId: string, date: string) {
       
       workingDriversCount: workingDriversToday,
       myDailyIncome: myShare,
-      myExpectedShare: myShare,
+      myExpectedShare: myShare, // ✅ แสดงเสมอไม่ว่าสถานะอะไร
       myTicketsCount: myTicketsCount,
       
       monthlyIncome: monthlyMyShare,
@@ -342,20 +377,154 @@ async function getDashboardData(driverId: string, date: string) {
         driversPercent: 85,
         workingDrivers: workingDriversToday,
         sharePerDriver: myShare,
-        method: 'calculated_from_tickets'
+        method: 'calculated_regardless_of_checkin_status'
       }
     };
     
     console.log('✅ Dashboard result:', {
       totalRevenue,
       totalTickets,
-      myShare
+      myShare,
+      driverStatus: driverInfo?.checkInStatus,
+      workingDrivers: workingDriversToday
     });
     
     return result;
     
   } catch (error) {
     console.error('❌ Error in getDashboardData:', error);
+    throw error;
+  }
+}
+
+// ฟังก์ชันเสริมอื่นๆ
+async function getDailyIncome(driverId: string, date: string) {
+  try {
+    const startOfDay = new Date(date + 'T00:00:00.000Z');
+    const endOfDay = new Date(date + 'T23:59:59.999Z');
+    
+    const result = await Ticket.aggregate([
+      {
+        $match: {
+          soldAt: { $gte: startOfDay, $lte: endOfDay }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$price' },
+          ticketCount: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    const totalRevenue = result.length > 0 ? result[0].totalRevenue : 0;
+    const ticketCount = result.length > 0 ? result[0].ticketCount : 0;
+    
+    // คำนวณส่วนแบ่งคนขับ
+    const driversShare = Math.round(totalRevenue * 0.85);
+    const totalDrivers = await User.countDocuments({ role: 'driver' });
+    const myShare = totalDrivers > 0 ? Math.round(driversShare / totalDrivers) : 0;
+    
+    return {
+      date,
+      totalRevenue,
+      ticketCount,
+      myShare,
+      driversShare,
+      totalDrivers
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in getDailyIncome:', error);
+    throw error;
+  }
+}
+
+async function getMonthlyIncome(driverId: string, year: number, month: number) {
+  try {
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    
+    const dailyResults = await Ticket.aggregate([
+      {
+        $match: {
+          soldAt: { $gte: startOfMonth, $lte: endOfMonth }
+        }
+      },
+      {
+        $group: {
+          _id: { 
+            year: { $year: '$soldAt' },
+            month: { $month: '$soldAt' },
+            day: { $dayOfMonth: '$soldAt' }
+          },
+          date: { $first: '$soldAt' },
+          totalRevenue: { $sum: '$price' },
+          ticketCount: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { '_id.day': 1 }
+      }
+    ]);
+    
+    const totalDrivers = await User.countDocuments({ role: 'driver' });
+    
+    return dailyResults.map(item => ({
+      date: item.date,
+      totalRevenue: item.totalRevenue,
+      ticketCount: item.ticketCount,
+      myShare: totalDrivers > 0 ? Math.round((item.totalRevenue * 0.85) / totalDrivers) : 0
+    }));
+    
+  } catch (error) {
+    console.error('❌ Error in getMonthlyIncome:', error);
+    throw error;
+  }
+}
+
+async function getSummaryIncome(driverId: string, startDate: Date, endDate: Date) {
+  try {
+    const summaryResult = await Ticket.aggregate([
+      {
+        $match: {
+          soldAt: { $gte: startDate, $lte: endDate }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$price' },
+          totalTickets: { $sum: 1 },
+          avgTicketPrice: { $avg: '$price' }
+        }
+      }
+    ]);
+    
+    if (summaryResult.length === 0) {
+      return {
+        totalRevenue: 0,
+        totalTickets: 0,
+        myTotalShare: 0,
+        avgTicketPrice: 0
+      };
+    }
+    
+    const data = summaryResult[0];
+    const driversShare = Math.round(data.totalRevenue * 0.85);
+    const totalDrivers = await User.countDocuments({ role: 'driver' });
+    const myTotalShare = totalDrivers > 0 ? Math.round(driversShare / totalDrivers) : 0;
+    
+    return {
+      totalRevenue: data.totalRevenue,
+      totalTickets: data.totalTickets,
+      myTotalShare: myTotalShare,
+      avgTicketPrice: Math.round(data.avgTicketPrice)
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in getSummaryIncome:', error);
     throw error;
   }
 }

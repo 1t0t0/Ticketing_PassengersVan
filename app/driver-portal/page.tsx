@@ -11,17 +11,34 @@ import {
   FiRefreshCw,
   FiDownload,
   FiAlertCircle,
-  FiCheckCircle
+  FiCheckCircle,
+  FiClock,
+  FiBarChart,
+  FiInfo
 } from 'react-icons/fi';
-import { Doughnut } from 'react-chartjs-2';
+import { Doughnut, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   ArcElement,
   Tooltip,
   Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
 } from 'chart.js';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(
+  ArcElement, 
+  Tooltip, 
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title
+);
 
 interface DashboardData {
   driver: {
@@ -56,6 +73,7 @@ interface DashboardData {
     driversPercent: number;
     workingDrivers: number;
     sharePerDriver: number;
+    method: string;
   };
   dateRange?: {
     startDate: string;
@@ -64,11 +82,19 @@ interface DashboardData {
   };
 }
 
-export default function DriverPortalPage() {
+interface HistoricalData {
+  date: string;
+  income: number;
+  tickets: number;
+  workingDrivers: number;
+}
+
+export default function EnhancedDriverPortalPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +103,7 @@ export default function DriverPortalPage() {
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [pdfLibraryLoaded, setPdfLibraryLoaded] = useState(false);
+  const [showHistoricalChart, setShowHistoricalChart] = useState(false);
 
   // Authentication check
   useEffect(() => {
@@ -90,378 +117,43 @@ export default function DriverPortalPage() {
   // Format currency
   const formatCurrency = (amount: number) => `₭${amount.toLocaleString()}`;
 
-  // Export PDF function
-  const handleExportPDF = async () => {
-    if (!dashboardData) {
-      toast.error('ບໍ່ມີຂໍ້ມູນສຳລັບສົ່ງອອກ PDF', {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
-      return;
-    }
-
-    if (!pdfLibraryLoaded) {
-      toast.warn('ກຳລັງໂຫລດ PDF library, ກະລຸນາລໍຖ້າ...', {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
-      return;
-    }
-
-    // แสดง loading toast
-    const loadingToast = toast.loading('ກຳລັງສ້າງ PDF... 📄', {
-      position: "top-right",
-    });
-
+  // Fetch historical income data
+  const fetchHistoricalData = async (days: number = 30) => {
     try {
-      // Import jsPDF และ html2canvas
-      const { default: jsPDF } = await import('jspdf');
-      const { default: html2canvas } = await import('html2canvas');
-
-      // สร้างเนื้อหา HTML สำหรับ PDF
-      const htmlContent = generateDriverPDFContent(dashboardData, selectedPeriod, startDate, endDate);
-      
-      // สร้าง element ชั่วคราวสำหรับ render
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = htmlContent;
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      tempDiv.style.top = '0';
-      tempDiv.style.width = '794px';
-      tempDiv.style.backgroundColor = 'white';
-      tempDiv.style.padding = '40px';
-      tempDiv.style.fontFamily = 'Arial, sans-serif';
-      
-      document.body.appendChild(tempDiv);
-
-      // รอให้ fonts โหลดเสร็จ
-      await document.fonts.ready;
-
-      // แปลงเป็น canvas
-      const canvas = await html2canvas(tempDiv, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        width: 794,
-        height: tempDiv.scrollHeight + 80
-      });
-
-      // สร้าง PDF
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const imgWidth = 210;
-      const pageHeight = 297;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      // เพิ่มหน้าแรก
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      // เพิ่มหน้าถัดไปถ้าเนื้อหายาว
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      // ตั้งชื่อไฟล์
+      const promises = [];
       const today = new Date();
-      const dateStr = today.toLocaleDateString('lo-LA').replace(/\//g, '-');
-      const fileName = `ລາຍງານລາຍຮັບຄົນຂັບ_${session?.user?.name}_${dateStr}.pdf`;
-
-      // ดาวน์โหลด PDF
-      pdf.save(fileName);
-
-      // ลบ element ชั่วคราว
-      document.body.removeChild(tempDiv);
       
-      // แสดงข้อความสำเร็จ
-      toast.update(loadingToast, {
-        render: 'ດາວໂຫຼດ PDF ສຳເລັດແລ້ວ! 🎉',
-        type: 'success',
-        isLoading: false,
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
-
+      for (let i = 0; i < days; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        promises.push(
+          fetch(`/api/driver/income?type=dashboard&date=${dateStr}`)
+            .then(res => res.json())
+            .then(result => ({
+              date: dateStr,
+              income: result.success ? result.data.myExpectedShare : 0,
+              tickets: result.success ? result.data.totalTickets : 0,
+              workingDrivers: result.success ? result.data.workingDriversCount : 0
+            }))
+            .catch(() => ({
+              date: dateStr,
+              income: 0,
+              tickets: 0,
+              workingDrivers: 0
+            }))
+        );
+      }
+      
+      const results = await Promise.all(promises);
+      setHistoricalData(results.reverse()); // เรียงจากเก่าไปใหม่
     } catch (error) {
-      console.error('PDF export error:', error);
-      toast.update(loadingToast, {
-        render: 'ເກີດຂໍ້ຜິດພາດໃນການສົ່ງອອກ PDF ❌',
-        type: 'error',
-        isLoading: false,
-        autoClose: 4000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
+      console.error('Error fetching historical data:', error);
     }
   };
 
-  // สร้างเนื้อหา PDF
-  const generateDriverPDFContent = (data: DashboardData, period: string, start: string, end: string) => {
-    const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('lo-LA');
-    const getDisplayPeriod = () => {
-      switch (period) {
-        case 'ວັນນີ້': return `ວັນນີ້ - ${formatDate(start)}`;
-        case 'ມື້ວານ': return `ມື້ວານ - ${formatDate(start)}`;
-        case 'ອາທິດນີ້': return `ອາທິດນີ້ - ${formatDate(start)} ຫາ ${formatDate(end)}`;
-        case 'ເດືອນນີ້': return `ເດືອນນີ້ - ${formatDate(start)} ຫາ ${formatDate(end)}`;
-        case 'ກຳໜົດເອງ': return `ຊ່ວງທີ່ເລືອກ - ${formatDate(start)} ຫາ ${formatDate(end)}`;
-        default: return formatDate(start);
-      }
-    };
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>ບົດລາຍງານລາຍຮັບຄົນຂັບ</title>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap');
-          
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          
-          body {
-            font-family: 'Noto Sans Lao', 'Arial', sans-serif;
-            font-size: 14px;
-            line-height: 1.6;
-            color: #333;
-            background: white;
-            padding: 20px;
-          }
-          
-          .report-container {
-            max-width: 100%;
-            margin: 0 auto;
-            background: white;
-          }
-          
-          .report-header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #2563EB;
-            padding-bottom: 20px;
-          }
-          
-          .report-title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #2563EB;
-          }
-          
-          .driver-info {
-            background: #f8f9fa;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            border: 2px solid #e9ecef;
-          }
-          
-          .period-info {
-            background: #e3f2fd;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: center;
-            border-radius: 8px;
-            border: 2px solid #2196f3;
-            font-size: 16px;
-            font-weight: bold;
-          }
-          
-          .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin: 20px 0;
-          }
-          
-          .stat-card {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-          }
-          
-          .stat-value {
-            font-size: 18px;
-            font-weight: bold;
-            color: #2563EB;
-            margin-bottom: 5px;
-          }
-          
-          .stat-label {
-            font-size: 12px;
-            color: #666;
-            font-weight: bold;
-          }
-          
-          .breakdown-section {
-            margin: 20px 0;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-          }
-          
-          .breakdown-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: #333;
-            border-bottom: 2px solid #ddd;
-            padding-bottom: 8px;
-          }
-          
-          .breakdown-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
-          }
-          
-          .my-share-highlight {
-            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-            border: 2px solid #2196f3;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-          }
-          
-          .currency {
-            font-weight: bold;
-            color: #2563EB;
-          }
-          
-          .text-center { text-align: center; }
-          .text-right { text-align: right; }
-          .text-success { color: #28a745; }
-          .text-danger { color: #dc3545; }
-          .text-primary { color: #2563EB; }
-          
-          .report-footer {
-            margin-top: 30px;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-            border-top: 2px solid #ddd;
-            padding-top: 15px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="report-container">
-          <div class="report-header">
-            <div class="report-title">ບົດລາຍງານລາຍຮັບຄົນຂັບ</div>
-            <div style="font-size: 16px; color: #666;">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງ</div>
-            <div style="font-size: 14px; color: #888;">ລົດໄຟ ລາວ-ຈີນ</div>
-          </div>
-          
-          <div class="driver-info">
-            <h3 style="margin-bottom: 10px;">ຂໍ້ມູນຄົນຂັບ</h3>
-            <p><strong>ຊື່:</strong> ${data.driver.name}</p>
-            <p><strong>ລະຫັດພະນັກງານ:</strong> ${data.driver.employeeId}</p>
-            <p><strong>ສະຖານະ:</strong> 
-              <span class="${data.driver.checkInStatus === 'checked-in' ? 'text-success' : 'text-danger'}">
-                ${data.driver.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
-              </span>
-            </p>
-          </div>
-          
-          <div class="period-info">
-            📅 <strong>ໄລຍະເວລາ:</strong> ${getDisplayPeriod()}
-          </div>
-          
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value">${formatCurrency(data.totalRevenue)}</div>
-              <div class="stat-label">💰 ລາຍຮັບລວມ</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">${data.totalTickets}</div>
-              <div class="stat-label">🎫 ຈຳນວນປີ້</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">${data.workingDriversCount}</div>
-              <div class="stat-label">👥 ຄົນຂັບທີ່ເຮັດວຽກ</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">${formatCurrency(data.averageDriverShare)}</div>
-              <div class="stat-label">📊 ເຉລ່ຍຕໍ່ຄົນ</div>
-            </div>
-          </div>
-          
-          <div class="breakdown-section">
-            <div class="breakdown-title">📋 ການແບ່ງລາຍຮັບ</div>
-            
-            <div class="breakdown-item">
-              <span><strong>🏢 ບໍລິສັດ (10%)</strong></span>
-              <span class="currency">${formatCurrency(data.companyRevenue)}</span>
-            </div>
-            
-            <div class="breakdown-item">
-              <span><strong>🚉 ສະຖານີ (5%)</strong></span>
-              <span class="currency">${formatCurrency(data.stationRevenue)}</span>
-            </div>
-            
-            <div class="breakdown-item">
-              <span><strong>👥 ຄົນຂັບລວມ (85%)</strong></span>
-              <span class="currency">${formatCurrency(data.driverRevenue)}</span>
-            </div>
-          </div>
-          
-          <div class="my-share-highlight">
-            <h3 style="margin-bottom: 15px; color: #1976d2;">💎 ລາຍຮັບຂອງທ່ານ</h3>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <span style="font-size: 16px;">ສ່ວນແບ່ງທີ່ຄາດວ່າຈະໄດ້ຮັບ:</span>
-              <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${formatCurrency(data.myExpectedShare)}</span>
-            </div>
-            <div style="font-size: 12px; color: #666; text-align: center; margin-top: 15px;">
-              💡 <strong>ວິທີຄິດໄລ່:</strong> ລາຍຮັບຄົນຂັບ ${formatCurrency(data.driverRevenue)} ÷ ${data.workingDriversCount} ຄົນ = ${formatCurrency(data.averageDriverShare)}
-            </div>
-          </div>
-          
-          ${data.driver.checkInStatus === 'checked-out' ? `
-          <div style="background: #ffebee; border: 2px solid #f44336; border-radius: 8px; padding: 15px; margin: 20px 0; color: #c62828;">
-            <strong>⚠️ ຂໍ້ສັງເກດ:</strong> ທ່ານຍັງບໍ່ໄດ້ເຊັກອິນເຂົ້າວຽກ ກະລຸນາເຊັກອິນເພື່ອນັບລາຍຮັບ
-          </div>
-          ` : ''}
-          
-          <div class="report-footer">
-            <p><strong>ສ້າງເມື່ອ:</strong> ${new Date().toLocaleString('lo-LA')}</p>
-            <p>🚌 ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງລົດໄຟ ລາວ-ຈີນ</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  };
-
-  // Fetch dashboard data
+  // Fetch dashboard data with enhanced error handling
   const fetchDashboardData = async (queryStartDate?: string, queryEndDate?: string) => {
     try {
       setError(null);
@@ -488,12 +180,17 @@ export default function DriverPortalPage() {
       
       if (result.success) {
         setDashboardData(result.data);
+        
+        // ดึงข้อมูลประวัติการทำงานเพิ่มเติม
+        if (showHistoricalChart) {
+          await fetchHistoricalData();
+        }
       } else {
         throw new Error(result.error || 'Failed to fetch data');
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      setError(error instanceof Error ? error.message : 'เกีดຂໍ້ຜິດພາດໃນການໂຫລດຂໍ້ມູນ');
+      setError(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -542,9 +239,12 @@ export default function DriverPortalPage() {
     };
   };
 
-  // Handle period change
+  // Handle period change with historical data
   const handlePeriodChange = async (period: string) => {
     setSelectedPeriod(period);
+    
+    // แสดงกราฟประวัติสำหรับช่วงยาวๆ (เดือนนี้เท่านั้น)
+    setShowHistoricalChart(['ເດືອນນີ້'].includes(period));
     
     if (period === 'ກຳໜົດເອງ') {
       return;
@@ -585,12 +285,266 @@ export default function DriverPortalPage() {
     await fetchDashboardData(startDate, endDate);
   };
 
+  // Export PDF function (keeping existing implementation)
+  const handleExportPDF = async () => {
+    if (!dashboardData) {
+      toast.error('ບໍ່ມີຂໍ້ມູນສຳລັບສົ່ງອອກ PDF');
+      return;
+    }
+
+    if (!pdfLibraryLoaded) {
+      toast.warn('ກຳລັງໂຫລດ PDF library, ກະລຸນາລໍຖ້າ...');
+      return;
+    }
+
+    const loadingToast = toast.loading('ກຳລັງສ້າງ PDF... 📄');
+
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
+      const htmlContent = generateDriverPDFContent(dashboardData, selectedPeriod, startDate, endDate);
+      
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlContent;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '0';
+      tempDiv.style.width = '794px';
+      tempDiv.style.backgroundColor = 'white';
+      tempDiv.style.padding = '40px';
+      tempDiv.style.fontFamily = 'Arial, sans-serif';
+      
+      document.body.appendChild(tempDiv);
+      await document.fonts.ready;
+
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: 794,
+        height: tempDiv.scrollHeight + 80
+      });
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('lo-LA').replace(/\//g, '-');
+      const fileName = `ລາຍງານລາຍຮັບຄົນຂັບ_${session?.user?.name}_${dateStr}.pdf`;
+
+      pdf.save(fileName);
+      document.body.removeChild(tempDiv);
+      
+      toast.update(loadingToast, {
+        render: 'ດາວໂຫຼດ PDF ສຳເລັດແລ້ວ! 🎉',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000,
+      });
+
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.update(loadingToast, {
+        render: 'ເກີດຂໍ້ຜິດພາດໃນການສົ່ງອອກ PDF ❌',
+        type: 'error',
+        isLoading: false,
+        autoClose: 4000,
+      });
+    }
+  };
+
+  // PDF content generator (enhanced)
+  const generateDriverPDFContent = (data: DashboardData, period: string, start: string, end: string) => {
+    const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('lo-LA');
+    const getDisplayPeriod = () => {
+      switch (period) {
+        case 'ວັນນີ້': return `ວັນນີ້ - ${formatDate(start)}`;
+        case 'ມື້ວານ': return `ມື້ວານ - ${formatDate(start)}`;
+        case 'ອາທິດນີ້': return `ອາທິດນີ້ - ${formatDate(start)} ຫາ ${formatDate(end)}`;
+        case 'ເດືອນນີ້': return `ເດືອນນີ້ - ${formatDate(start)} ຫາ ${formatDate(end)}`;
+        case 'ກຳໜົດເອງ': return `ຊ່ວງທີ່ເລືອກ - ${formatDate(start)} ຫາ ${formatDate(end)}`;
+        default: return formatDate(start);
+      }
+    };
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>ບົດລາຍງານລາຍຮັບຄົນຂັບ</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap');
+          
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          
+          body {
+            font-family: 'Noto Sans Lao', 'Arial', sans-serif;
+            font-size: 14px; line-height: 1.6; color: #333;
+            background: white; padding: 20px;
+          }
+          
+          .report-container { max-width: 100%; margin: 0 auto; background: white; }
+          
+          .report-header {
+            text-align: center; margin-bottom: 30px;
+            border-bottom: 3px solid #2563EB; padding-bottom: 20px;
+          }
+          
+          .report-title {
+            font-size: 24px; font-weight: bold;
+            margin-bottom: 8px; color: #2563EB;
+          }
+          
+          .driver-info {
+            background: #f8f9fa; padding: 15px; margin: 20px 0;
+            border-radius: 8px; border: 2px solid #e9ecef;
+          }
+          
+          .period-info {
+            background: #e3f2fd; padding: 15px; margin: 20px 0; text-align: center;
+            border-radius: 8px; border: 2px solid #2196f3; font-size: 16px; font-weight: bold;
+          }
+          
+          .stats-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 15px; margin: 20px 0;
+          }
+          
+          .stat-card {
+            background: #f8f9fa; border: 2px solid #e9ecef;
+            border-radius: 8px; padding: 15px; text-align: center;
+          }
+          
+          .stat-value {
+            font-size: 18px; font-weight: bold;
+            color: #2563EB; margin-bottom: 5px;
+          }
+          
+          .stat-label { font-size: 12px; color: #666; font-weight: bold; }
+          
+          .my-share-highlight {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 2px solid #2196f3; border-radius: 8px;
+            padding: 20px; margin: 20px 0;
+          }
+          
+          .currency { font-weight: bold; color: #2563EB; }
+          .text-center { text-align: center; }
+          .text-success { color: #28a745; }
+          .text-danger { color: #dc3545; }
+          
+          .report-footer {
+            margin-top: 30px; text-align: center; font-size: 12px; color: #666;
+            border-top: 2px solid #ddd; padding-top: 15px;
+          }
+          
+          .historical-note {
+            background: #fff3cd; border: 2px solid #ffeaa7;
+            border-radius: 8px; padding: 15px; margin: 20px 0; color: #856404;
+          }
+          
+        </style>
+      </head>
+      <body>
+        <div class="report-container">
+          <div class="report-header">
+            <div class="report-title">ບົດລາຍງານລາຍຮັບຄົນຂັບ</div>
+            <div style="font-size: 16px; color: #666;">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງ</div>
+            <div style="font-size: 14px; color: #888;">ລົດໄຟ ລາວ-ຈີນ</div>
+          </div>
+          
+          <div class="driver-info">
+            <h3 style="margin-bottom: 10px;">ຂໍ້ມູນຄົນຂັບ</h3>
+            <p><strong>ຊື່:</strong> ${data.driver.name}</p>
+            <p><strong>ລະຫັດພະນັກງານ:</strong> ${data.driver.employeeId}</p>
+            <p><strong>ສະຖານະປັດຈຸບັນ:</strong> 
+              <span class="${data.driver.checkInStatus === 'checked-in' ? 'text-success' : 'text-danger'}">
+                ${data.driver.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
+              </span>
+            </p>
+          </div>
+          
+          <div class="period-info">
+            📅 <strong>ໄລຍະເວລາທີ່ເບິ່ງ:</strong> ${getDisplayPeriod()}
+          </div>
+          
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">${formatCurrency(data.totalRevenue)}</div>
+              <div class="stat-label">💰 ລາຍຮັບລວມ</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${data.totalTickets}</div>
+              <div class="stat-label">🎫 ຈຳນວນປີ້</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${data.workingDriversCount}</div>
+              <div class="stat-label">👥 ຄົນຂັບທີ່ເຮັດວຽກ</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${formatCurrency(data.averageDriverShare)}</div>
+              <div class="stat-label">📊 ເຉລ່ຍຕໍ່ຄົນ</div>
+            </div>
+          </div>
+          
+          <div class="my-share-highlight">
+            <h3 style="margin-bottom: 15px; color: #1976d2;">💎 ລາຍຮັບຂອງທ່ານ</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span style="font-size: 16px;">ສ່ວນແບ່ງທີ່ຄາດວ່າຈະໄດ້ຮັບ:</span>
+              <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${formatCurrency(data.myExpectedShare)}</span>
+            </div>
+            <div style="font-size: 12px; color: #666; text-align: center; margin-top: 15px;">
+              💡 <strong>ວິທີຄິດໄລ່:</strong> ລາຍຮັບຄົນຂັບ ${formatCurrency(data.driverRevenue)} ÷ ${data.workingDriversCount} ຄົນ = ${formatCurrency(data.averageDriverShare)}
+            </div>
+            ${data.dateRange ? `
+            <div style="font-size: 11px; color: #666; text-align: center; margin-top: 10px;">
+              📅 <strong>ໄລຍະເວລາ:</strong> ${data.dateRange.totalDays} ວັນ
+            </div>
+            ` : ''}
+          </div>
+          
+          <div class="report-footer">
+            <p><strong>ສ້າງເມື່ອ:</strong> ${new Date().toLocaleString('lo-LA')}</p>
+            <p>🚌 ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງລົດໄຟ ລາວ-ຈີນ</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
   // Initial load
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.role === 'driver') {
       fetchDashboardData();
     }
   }, [status, session]);
+
+  // Load historical data when enabled
+  useEffect(() => {
+    if (showHistoricalChart && dashboardData) {
+      fetchHistoricalData();
+    }
+  }, [showHistoricalChart, dashboardData]);
 
   // Format date for Lao display
   const formatDateLao = (dateString: string) => {
@@ -635,6 +589,24 @@ export default function DriverPortalPage() {
     ],
   } : null;
 
+  // Prepare historical chart data
+  const historicalChartData = historicalData.length > 0 ? {
+    labels: historicalData.map(item => {
+      const date = new Date(item.date);
+      return `${date.getDate()}/${date.getMonth() + 1}`;
+    }),
+    datasets: [
+      {
+        label: 'ລາຍຮັບ (KIP)',
+        data: historicalData.map(item => item.income),
+        borderColor: '#3B82F6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        fill: true,
+        tension: 0.3,
+      },
+    ],
+  } : null;
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -650,6 +622,33 @@ export default function DriverPortalPage() {
         callbacks: {
           label: function(context: any) {
             return context.label + ': ' + formatCurrency(context.parsed);
+          }
+        }
+      }
+    }
+  };
+
+  const historyChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            return 'ລາຍຮັບ: ' + formatCurrency(context.parsed.y);
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value: any) {
+            return formatCurrency(value);
           }
         }
       }
@@ -673,16 +672,10 @@ export default function DriverPortalPage() {
 
   return (
     <>
-      {/* โหลด html2pdf.js library */}
       <Script
         src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
-        onLoad={() => {
-          setPdfLibraryLoaded(true);
-          console.log('html2pdf library loaded successfully');
-        }}
-        onError={() => {
-          console.error('Failed to load html2pdf library');
-        }}
+        onLoad={() => setPdfLibraryLoaded(true)}
+        onError={() => console.error('Failed to load html2pdf library')}
       />
 
       <div className="min-h-screen bg-gray-50">
@@ -707,8 +700,8 @@ export default function DriverPortalPage() {
                         </>
                       ) : (
                         <>
-                          <FiAlertCircle className="mr-1" />
-                          ຍັງບໍ່ເຂົ້າວຽກ
+                          <FiClock className="mr-1" />
+                          ເບິ່ງຂໍ້ມູນຍ້ອນຫລັງ
                         </>
                       )}
                     </span>
@@ -739,7 +732,6 @@ export default function DriverPortalPage() {
           </div>
         </div>
 
-        {/* แสดงสถานะการโหลด PDF library */}
         {!pdfLibraryLoaded && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
             <div className="bg-yellow-100 border border-yellow-300 rounded text-sm text-yellow-700 p-2 text-center">
@@ -765,20 +757,36 @@ export default function DriverPortalPage() {
             </div>
           )}
 
-          {/* Period Selector */}
+          {/* ข้อความอธิบายสำหรับสถานะ checked-out */}
+          {dashboardData && dashboardData.driver.checkInStatus === 'checked-out' && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <FiInfo className="text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                <div className="text-blue-700">
+                  <p className="font-medium">ການເບິ່ງຂໍ້ມູນແບບຍ້ອນຫລັງ</p>
+                  <p className="text-sm mt-1">
+                    ທ່ານສາມາດເບິ່ງລາຍຮັບຂອງຕົນແບບຍ້ອນຫລັງໄດ້ເຖິງແມ່ນວ່າຈະບໍ່ໄດ້ເຂົ້າວຽກກໍຕາມ 
+                    ລາຍຮັບທີ່ສະແດງແມ່ນການຄິດໄລ່ຈາກການຂາຍປີ້ໃນໄລຍະເວລາທີ່ທ່ານເລືອກ
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Period Selector - Enhanced */}
           <div className="mb-6">
             <div className="flex items-center mb-4">
               <FiCalendar className="mr-2 text-gray-600" />
               <h2 className="text-lg font-semibold text-gray-900">ເລືອກຊ່ວງເວລາ</h2>
             </div>
             
-            {/* Period Buttons */}
+            {/* Period Buttons - Removed 7 days and 30 days options */}
             <div className="flex flex-wrap gap-2 mb-4">
               {[
                 'ວັນນີ້', 
                 'ມື້ວານ', 
                 'ອາທິດນີ້', 
-                'ເດືອນນີ້', 
+                'ເດືອນນີ້',
                 'ກຳໜົດເອງ'
               ].map((period) => (
                 <button
@@ -792,6 +800,9 @@ export default function DriverPortalPage() {
                   }`}
                 >
                   {period}
+                  {['ເດືອນນີ້'].includes(period) && (
+                    <FiBarChart className="ml-1 inline h-3 w-3" />
+                  )}
                 </button>
               ))}
             </div>
@@ -893,87 +904,112 @@ export default function DriverPortalPage() {
                   )}
                 </div>
 
-                {/* Revenue Breakdown */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">ລາຍຮັບລວມ</h3>
-                  <div className="space-y-4">
-                    <RevenueBreakdownItem
-                      label="ບໍລິສັດ (10%)"
-                      amount={dashboardData.companyRevenue}
-                      transactions={dashboardData.totalTickets > 0 ? 1 : 0}
-                      color="blue"
-                    />
-                    <RevenueBreakdownItem
-                      label="ສະຖານີ (5%)"
-                      amount={dashboardData.stationRevenue}
-                      transactions={dashboardData.totalTickets > 0 ? 1 : 0}
-                      color="green"
-                    />
-                    <RevenueBreakdownItem
-                      label="ຄົນຂັບ (85%)"
-                      amount={dashboardData.driverRevenue}
-                      transactions={dashboardData.totalTickets > 0 ? 1 : 0}
-                      color="orange"
-                    />
+                {/* Historical Chart */}
+                {showHistoricalChart && historicalChartData ? (
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <FiBarChart className="mr-2" />
+                      ກາຟລາຍຮັບຍ້ອນຫລັງ
+                    </h3>
+                    <div className="h-80">
+                      <Line data={historicalChartData} options={historyChartOptions} />
+                    </div>
                   </div>
+                ) : (
+                  /* Revenue Breakdown */
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">ລາຍຮັບລວມ</h3>
+                    <div className="space-y-4">
+                      <RevenueBreakdownItem
+                        label="ບໍລິສັດ (10%)"
+                        amount={dashboardData.companyRevenue}
+                        transactions={dashboardData.totalTickets > 0 ? 1 : 0}
+                        color="blue"
+                      />
+                      <RevenueBreakdownItem
+                        label="ສະຖານີ (5%)"
+                        amount={dashboardData.stationRevenue}
+                        transactions={dashboardData.totalTickets > 0 ? 1 : 0}
+                        color="green"
+                      />
+                      <RevenueBreakdownItem
+                        label="ຄົນຂັບ (85%)"
+                        amount={dashboardData.driverRevenue}
+                        transactions={dashboardData.totalTickets > 0 ? 1 : 0}
+                        color="orange"
+                      />
+                    </div>
 
-                  {/* รายรับต่อคน */}
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <h4 className="text-md font-semibold text-gray-900 mb-4">ລາຍຮັບຕໍ່ຄົນ</h4>
-                    
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-blue-600 font-medium">ລາຍຮັບຂອງທ່ານ</p>
-                          <p className="text-2xl font-bold text-blue-900">
-                            {formatCurrency(dashboardData.myExpectedShare)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-blue-600">ຈາກ {dashboardData.totalTickets} ໃບ</p>
-                          <p className="text-xs text-blue-600">ແບ່ງກັບ {dashboardData.workingDriversCount} ຄົນ</p>
+                    {/* รายรับต่อคน */}
+                    <div className="mt-8 pt-6 border-t border-gray-200">
+                      <h4 className="text-md font-semibold text-gray-900 mb-4">ລາຍຮັບຕໍ່ຄົນ</h4>
+                      
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-blue-600 font-medium">
+                              ລາຍຮັບຂອງທ່ານ
+                              {dashboardData.driver.checkInStatus === 'checked-out' && (
+                                <span className="ml-1 text-xs text-gray-500">(ຄິດໄລ່ຍ້ອນຫລັງ)</span>
+                              )}
+                            </p>
+                            <p className="text-2xl font-bold text-blue-900">
+                              {formatCurrency(dashboardData.myExpectedShare)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-blue-600">ຈາກ {dashboardData.totalTickets} ໃບ</p>
+                            <p className="text-xs text-blue-600">ແບ່ງກັບ {dashboardData.workingDriversCount} ຄົນ</p>
+                            {dashboardData.dateRange && (
+                              <p className="text-xs text-blue-600">{dashboardData.dateRange.totalDays} ວັນ</p>
+                            )}
+                            {dashboardData.driver.checkInStatus === 'checked-out' && (
+                              <div className="mt-1">
+                                <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
+                                  <FiClock className="mr-1 h-3 w-3" />
+                                  ຂໍ້ມູນຍ້ອນຫລັງ
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-3">
-                      <div className="text-sm text-gray-600">
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span>ຄົນຂັບທີ່ເຮັດວຽກ:</span>
-                          <span className="font-medium">{dashboardData.workingDriversCount} ຄົນ</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span>ລາຍຮັບສ່ວນຄົນຂັບລວມ:</span>
-                          <span className="font-medium text-orange-600">{formatCurrency(dashboardData.driverRevenue)}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span>ລາຍຮັບເຉລ່ຍຕໍ່ຄົນ:</span>
-                          <span className="font-medium text-green-600">{formatCurrency(dashboardData.averageDriverShare)}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2">
-                          <span className="text-blue-700 font-medium">ສ່ວນແບ່ງຂອງທ່ານ:</span>
-                          <span className="font-bold text-blue-700 text-lg">{formatCurrency(dashboardData.myExpectedShare)}</span>
+                      <div className="space-y-3">
+                        <div className="text-sm text-gray-600">
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span>ຄົນຂັບທີ່ມີສິດແບ່ງ:</span>
+                            <span className="font-medium">{dashboardData.workingDriversCount} ຄົນ</span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span>ລາຍຮັບສ່ວນຄົນຂັບລວມ:</span>
+                            <span className="font-medium text-orange-600">{formatCurrency(dashboardData.driverRevenue)}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span>ລາຍຮັບເຉລ່ຍຕໍ່ຄົນ:</span>
+                            <span className="font-medium text-green-600">{formatCurrency(dashboardData.averageDriverShare)}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-blue-700 font-medium">ສ່ວນແບ່ງຂອງທ່ານ:</span>
+                            <span className="font-bold text-blue-700 text-lg">{formatCurrency(dashboardData.myExpectedShare)}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* คำอธิบายการคิดไล่ */}
-                    <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <p className="text-xs text-yellow-800">
-                        <strong>💡 ວິທີຄິດໄລ່:</strong> ລາຍຮັບ 85% ({formatCurrency(dashboardData.driverRevenue)}) ÷ {dashboardData.workingDriversCount} ຄົນຂັບ = {formatCurrency(dashboardData.averageDriverShare)} ຕໍ່ຄົນ
-                      </p>
-                    </div>
-
-                    {/* สถานะการเข้าทำงาน */}
-                    {dashboardData.driver.checkInStatus === 'checked-out' && (
-                      <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                        <p className="text-xs text-red-800">
-                          <strong>⚠️ ຂໍ້ສັງເກດ:</strong> ທ່ານຍັງບໍ່ໄດ້ເຊັກອິນເຂົ້າວຽກ ກະລຸນາເຊັກອິນເພື່ອນັບລາຍຮັບ
+                      {/* คำอธิบายการคิดไล่ */}
+                      <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p className="text-xs text-yellow-800">
+                          <strong>💡 ວິທີຄິດໄລ່:</strong> ລາຍຮັບ 85% ({formatCurrency(dashboardData.driverRevenue)}) ÷ {dashboardData.workingDriversCount} ຄົນຂັບ = {formatCurrency(dashboardData.averageDriverShare)} ຕໍ່ຄົນ
                         </p>
+                        {dashboardData.driver.checkInStatus === 'checked-out' && (
+                          <p className="text-xs text-amber-700 mt-1">
+                            <strong>📊 ການຄິດໄລ່ຍ້ອນຫລັງ:</strong> ແມ່ນວ່າທ່ານບໍ່ໄດ້ເຂົ້າວຽກປັດຈຸບັນ ແຕ່ສາມາດເບິ່ງຄ່າປະມານລາຍຮັບໄດ້ຈາກຂໍ້ມູນການຂາຍຕົວຈິງ
+                          </p>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </>
           ) : (
