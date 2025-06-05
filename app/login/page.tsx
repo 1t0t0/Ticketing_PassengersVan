@@ -3,99 +3,160 @@
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import NeoButton from '@/components/ui/NotionButton';
-import NeoCard from '@/components/ui/NotionCard';
 import { getSession } from 'next-auth/react';
-import { TbBus } from "react-icons/tb";
-
+import { TbBus, TbUser, TbLock } from "react-icons/tb";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // app/login/page.tsx
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  try {
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
 
-    console.log('Login result:', result); // เพิ่ม log
+      console.log('Login result:', result);
 
-    if (result?.error) {
-      setError(result.error);
-    } else {
-      // Get session to check role
-      const session = await getSession();
-      console.log('Session after login:', session); // เพิ่ม log
-      
-      if (session?.user?.role === 'driver') {
-        router.push('/driver-portal');
+      if (result?.error) {
+        setError(result.error);
       } else {
-        router.push('/dashboard');
+        const session = await getSession();
+        console.log('Session after login:', session);
+        
+        if (session?.user?.role === 'driver') {
+          router.push('/driver-portal');
+        } else {
+          router.push('/dashboard');
+        }
       }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Login error:', error);
-    setError('An error occurred');
-  }
-};
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#5294ff] p-4">
-      <NeoCard className="w-full max-w-md p-8">
-        <h1 className="text-4xl font-black text-center mb-2">ຍິນດີຕ້ອນຮັບ</h1>
-        <div className='flex justify-center mb-4'>
-        <TbBus className='top-[20rem] text-8xl opacity-80' />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Header Card */}
+        <div className="bg-white rounded-t-xl shadow-lg border border-gray-200 p-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
+            <TbBus className="text-3xl text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+            ລະບົບຂາຍປີ້ລົດຕູ້ໂດຍສານ
+          </h1>
+          <p className="text-sm text-gray-600">
+            ປະຈຳທາງລົດໄຟ ລາວ-ຈີນ
+          </p>
         </div>
-        <h2 className="text-2xl font-bold text-center mb-8">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານ<br/>ປະຈຳທາງລົດໄຟ ລາວ-ຈີນ</h2>
-        
-        
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="text-red-500 text-center font-bold">{error}</div>
-          )}
-          
-          <div>
-            <label className="block text-sm font-bold mb-2">ອີເມວ</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 border-2 border-black focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="admin@busticketing.com"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-bold mb-2">ລະຫັດ</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border-2 border-black focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="********"
-              required
-            />
-          </div>
-          
-          <NeoButton type="submit" className="w-full">
-            ເຂົ້າສູ່ລະບົບ
-          </NeoButton>
-        </form>
 
-        <div className="mt-6 text-sm text-center">
-          <p className="font-bold">DEMO ACCOUNTS:</p>
-          <p>admin@busticketing.com</p>
-          <p>Password: password123</p>
+        {/* Login Form Card */}
+        <div className="bg-white rounded-b-xl shadow-lg border-t-0 border border-gray-200 p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm text-center">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ອີເມວ
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <TbUser className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="admin@busticketing.com"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ລະຫັດຜ່ານ
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <TbLock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="••••••••"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
+            >
+              {isLoading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                  ກຳລັງເຂົ້າສູ່ລະບົບ...
+                </div>
+              ) : (
+                'ເຂົ້າສູ່ລະບົບ'
+              )}
+            </button>
+          </form>
+
+          {/* Demo Account Info */}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-xs font-medium text-gray-700 mb-2 text-center">
+                ບັນຊີທົດລອງ
+              </p>
+              <div className="text-xs text-gray-600 space-y-1">
+                <div className="flex justify-between">
+                  <span>ອີເມວ:</span>
+                  <span className="font-mono">admin@busticketing.com</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ລະຫັດ:</span>
+                  <span className="font-mono">password123</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </NeoCard>
+
+        {/* Footer */}
+        <div className="text-center mt-6">
+          <p className="text-xs text-gray-500">
+            © 2024 ລະບົບຂາຍປີ້ລົດຕູ້ໂດຍສານ ປະຈຳທາງລົດໄຟ ລາວ-ຈີນ
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
