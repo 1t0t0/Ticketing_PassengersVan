@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Script from 'next/script';
+import { toast } from 'react-toastify';
 import { 
   FiDollarSign, 
   FiCalendar, 
@@ -74,6 +76,7 @@ export default function DriverPortalPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pdfLibraryLoaded, setPdfLibraryLoaded] = useState(false);
 
   // Authentication check
   useEffect(() => {
@@ -87,7 +90,378 @@ export default function DriverPortalPage() {
   // Format currency
   const formatCurrency = (amount: number) => `₭${amount.toLocaleString()}`;
 
-  // Fetch dashboard data - แก้ไขให้รองรับ date range
+  // Export PDF function
+  const handleExportPDF = async () => {
+    if (!dashboardData) {
+      toast.error('ບໍ່ມີຂໍ້ມູນສຳລັບສົ່ງອອກ PDF', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      return;
+    }
+
+    if (!pdfLibraryLoaded) {
+      toast.warn('ກຳລັງໂຫລດ PDF library, ກະລຸນາລໍຖ້າ...', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      return;
+    }
+
+    // แสดง loading toast
+    const loadingToast = toast.loading('ກຳລັງສ້າງ PDF... 📄', {
+      position: "top-right",
+    });
+
+    try {
+      // Import jsPDF และ html2canvas
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
+      // สร้างเนื้อหา HTML สำหรับ PDF
+      const htmlContent = generateDriverPDFContent(dashboardData, selectedPeriod, startDate, endDate);
+      
+      // สร้าง element ชั่วคราวสำหรับ render
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlContent;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '0';
+      tempDiv.style.width = '794px';
+      tempDiv.style.backgroundColor = 'white';
+      tempDiv.style.padding = '40px';
+      tempDiv.style.fontFamily = 'Arial, sans-serif';
+      
+      document.body.appendChild(tempDiv);
+
+      // รอให้ fonts โหลดเสร็จ
+      await document.fonts.ready;
+
+      // แปลงเป็น canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: 794,
+        height: tempDiv.scrollHeight + 80
+      });
+
+      // สร้าง PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // เพิ่มหน้าแรก
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // เพิ่มหน้าถัดไปถ้าเนื้อหายาว
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // ตั้งชื่อไฟล์
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('lo-LA').replace(/\//g, '-');
+      const fileName = `ລາຍງານລາຍຮັບຄົນຂັບ_${session?.user?.name}_${dateStr}.pdf`;
+
+      // ดาวน์โหลด PDF
+      pdf.save(fileName);
+
+      // ลบ element ชั่วคราว
+      document.body.removeChild(tempDiv);
+      
+      // แสดงข้อความสำเร็จ
+      toast.update(loadingToast, {
+        render: 'ດາວໂຫຼດ PDF ສຳເລັດແລ້ວ! 🎉',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.update(loadingToast, {
+        render: 'ເກີດຂໍ້ຜິດພາດໃນການສົ່ງອອກ PDF ❌',
+        type: 'error',
+        isLoading: false,
+        autoClose: 4000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    }
+  };
+
+  // สร้างเนื้อหา PDF
+  const generateDriverPDFContent = (data: DashboardData, period: string, start: string, end: string) => {
+    const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('lo-LA');
+    const getDisplayPeriod = () => {
+      switch (period) {
+        case 'ວັນນີ້': return `ວັນນີ້ - ${formatDate(start)}`;
+        case 'ມື້ວານ': return `ມື້ວານ - ${formatDate(start)}`;
+        case 'ອາທິດນີ້': return `ອາທິດນີ້ - ${formatDate(start)} ຫາ ${formatDate(end)}`;
+        case 'ເດືອນນີ້': return `ເດືອນນີ້ - ${formatDate(start)} ຫາ ${formatDate(end)}`;
+        case 'ກຳໜົດເອງ': return `ຊ່ວງທີ່ເລືອກ - ${formatDate(start)} ຫາ ${formatDate(end)}`;
+        default: return formatDate(start);
+      }
+    };
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>ບົດລາຍງານລາຍຮັບຄົນຂັບ</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap');
+          
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            font-family: 'Noto Sans Lao', 'Arial', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            background: white;
+            padding: 20px;
+          }
+          
+          .report-container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+          }
+          
+          .report-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #2563EB;
+            padding-bottom: 20px;
+          }
+          
+          .report-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #2563EB;
+          }
+          
+          .driver-info {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+          }
+          
+          .period-info {
+            background: #e3f2fd;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 8px;
+            border: 2px solid #2196f3;
+            font-size: 16px;
+            font-weight: bold;
+          }
+          
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+          }
+          
+          .stat-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+          }
+          
+          .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2563EB;
+            margin-bottom: 5px;
+          }
+          
+          .stat-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: bold;
+          }
+          
+          .breakdown-section {
+            margin: 20px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+          }
+          
+          .breakdown-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 8px;
+          }
+          
+          .breakdown-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+          }
+          
+          .my-share-highlight {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 2px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+          }
+          
+          .currency {
+            font-weight: bold;
+            color: #2563EB;
+          }
+          
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .text-success { color: #28a745; }
+          .text-danger { color: #dc3545; }
+          .text-primary { color: #2563EB; }
+          
+          .report-footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 2px solid #ddd;
+            padding-top: 15px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="report-container">
+          <div class="report-header">
+            <div class="report-title">ບົດລາຍງານລາຍຮັບຄົນຂັບ</div>
+            <div style="font-size: 16px; color: #666;">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງ</div>
+            <div style="font-size: 14px; color: #888;">ລົດໄຟ ລາວ-ຈີນ</div>
+          </div>
+          
+          <div class="driver-info">
+            <h3 style="margin-bottom: 10px;">ຂໍ້ມູນຄົນຂັບ</h3>
+            <p><strong>ຊື່:</strong> ${data.driver.name}</p>
+            <p><strong>ລະຫັດພະນັກງານ:</strong> ${data.driver.employeeId}</p>
+            <p><strong>ສະຖານະ:</strong> 
+              <span class="${data.driver.checkInStatus === 'checked-in' ? 'text-success' : 'text-danger'}">
+                ${data.driver.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
+              </span>
+            </p>
+          </div>
+          
+          <div class="period-info">
+            📅 <strong>ໄລຍະເວລາ:</strong> ${getDisplayPeriod()}
+          </div>
+          
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">${formatCurrency(data.totalRevenue)}</div>
+              <div class="stat-label">💰 ລາຍຮັບລວມ</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${data.totalTickets}</div>
+              <div class="stat-label">🎫 ຈຳນວນປີ້</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${data.workingDriversCount}</div>
+              <div class="stat-label">👥 ຄົນຂັບທີ່ເຮັດວຽກ</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${formatCurrency(data.averageDriverShare)}</div>
+              <div class="stat-label">📊 ເຉລ່ຍຕໍ່ຄົນ</div>
+            </div>
+          </div>
+          
+          <div class="breakdown-section">
+            <div class="breakdown-title">📋 ການແບ່ງລາຍຮັບ</div>
+            
+            <div class="breakdown-item">
+              <span><strong>🏢 ບໍລິສັດ (10%)</strong></span>
+              <span class="currency">${formatCurrency(data.companyRevenue)}</span>
+            </div>
+            
+            <div class="breakdown-item">
+              <span><strong>🚉 ສະຖານີ (5%)</strong></span>
+              <span class="currency">${formatCurrency(data.stationRevenue)}</span>
+            </div>
+            
+            <div class="breakdown-item">
+              <span><strong>👥 ຄົນຂັບລວມ (85%)</strong></span>
+              <span class="currency">${formatCurrency(data.driverRevenue)}</span>
+            </div>
+          </div>
+          
+          <div class="my-share-highlight">
+            <h3 style="margin-bottom: 15px; color: #1976d2;">💎 ລາຍຮັບຂອງທ່ານ</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span style="font-size: 16px;">ສ່ວນແບ່ງທີ່ຄາດວ່າຈະໄດ້ຮັບ:</span>
+              <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${formatCurrency(data.myExpectedShare)}</span>
+            </div>
+            <div style="font-size: 12px; color: #666; text-align: center; margin-top: 15px;">
+              💡 <strong>ວິທີຄິດໄລ່:</strong> ລາຍຮັບຄົນຂັບ ${formatCurrency(data.driverRevenue)} ÷ ${data.workingDriversCount} ຄົນ = ${formatCurrency(data.averageDriverShare)}
+            </div>
+          </div>
+          
+          ${data.driver.checkInStatus === 'checked-out' ? `
+          <div style="background: #ffebee; border: 2px solid #f44336; border-radius: 8px; padding: 15px; margin: 20px 0; color: #c62828;">
+            <strong>⚠️ ຂໍ້ສັງເກດ:</strong> ທ່ານຍັງບໍ່ໄດ້ເຊັກອິນເຂົ້າວຽກ ກະລຸນາເຊັກອິນເພື່ອນັບລາຍຮັບ
+          </div>
+          ` : ''}
+          
+          <div class="report-footer">
+            <p><strong>ສ້າງເມື່ອ:</strong> ${new Date().toLocaleString('lo-LA')}</p>
+            <p>🚌 ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງລົດໄຟ ລາວ-ຈີນ</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
+  // Fetch dashboard data
   const fetchDashboardData = async (queryStartDate?: string, queryEndDate?: string) => {
     try {
       setError(null);
@@ -95,20 +469,13 @@ export default function DriverPortalPage() {
       
       let url = `/api/driver/income?type=dashboard`;
       
-      // ถ้ามี date range
       if (queryStartDate && queryEndDate) {
         url += `&startDate=${queryStartDate}&endDate=${queryEndDate}`;
-      } 
-      // ถ้ามีแค่วันเดียว
-      else if (queryStartDate) {
+      } else if (queryStartDate) {
         url += `&date=${queryStartDate}`;
-      }
-      // default ใช้ selectedDate
-      else {
+      } else {
         url += `&date=${selectedDate}`;
       }
-      
-      console.log('Fetching dashboard data from:', url);
       
       const response = await fetch(url);
       
@@ -118,7 +485,6 @@ export default function DriverPortalPage() {
       }
       
       const result = await response.json();
-      console.log('API Response:', result);
       
       if (result.success) {
         setDashboardData(result.data);
@@ -127,7 +493,7 @@ export default function DriverPortalPage() {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      setError(error instanceof Error ? error.message : 'เກີດຂໍ້ຜິດພາດໃນການໂຫລດຂໍ້ມູນ');
+      setError(error instanceof Error ? error.message : 'เกีดຂໍ້ຜິດພາດໃນການໂຫລດຂໍ້ມູນ');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -138,7 +504,6 @@ export default function DriverPortalPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     
-    // ใช้ช่วงเวลาที่เลือกปัจจุบัน
     if (selectedPeriod === 'ກຳໜົດເອງ') {
       await fetchDashboardData(startDate, endDate);
     } else {
@@ -154,26 +519,21 @@ export default function DriverPortalPage() {
     
     switch (period) {
       case 'ວັນນີ້':
-        // Same day
         break;
       case 'ມື້ວານ':
         newStartDate.setDate(today.getDate() - 1);
         newEndDate.setDate(today.getDate() - 1);
         break;
       case 'ອາທິດນີ້':
-        // Get start of this week (Monday) to today
         const dayOfWeek = today.getDay();
         const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
         newStartDate.setDate(today.getDate() - daysToMonday);
-        // End date stays today
         break;
       case 'ເດືອນນີ້':
-        // Get first day of current month to today
         newStartDate.setDate(1);
-        // End date stays today
         break;
       default:
-        return null; // สำหรับ 'ກຳໜົດເອງ'
+        return null;
     }
     
     return {
@@ -182,12 +542,11 @@ export default function DriverPortalPage() {
     };
   };
 
-  // Handle period change - แก้ไขให้ทำงานถูกต้อง
+  // Handle period change
   const handlePeriodChange = async (period: string) => {
     setSelectedPeriod(period);
     
     if (period === 'ກຳໜົດເອງ') {
-      // ไม่ต้องเปลี่ยนวันที่ ให้ผู้ใช้เลือกเอง
       return;
     }
     
@@ -197,12 +556,9 @@ export default function DriverPortalPage() {
       setEndDate(dateRange.endDate);
       setSelectedDate(dateRange.startDate);
       
-      // ถ้าเป็นวันเดียว (วันนี้, มื้วาน)
       if (dateRange.startDate === dateRange.endDate) {
         await fetchDashboardData(dateRange.startDate);
-      } 
-      // ถ้าเป็นช่วงวันที่ (อาทิตนี้, เดือนนี้)
-      else {
+      } else {
         await fetchDashboardData(dateRange.startDate, dateRange.endDate);
       }
     }
@@ -211,12 +567,18 @@ export default function DriverPortalPage() {
   // Handle custom date range update
   const handleCustomDateUpdate = async () => {
     if (!startDate || !endDate) {
-      setError('กรุณาเลือกวันที่เริ่มต้นและวันที่สิ้นสุด');
+      toast.error('กรุณาเลือกวันที่เริ่มต้นและวันที่สิ้นสุด', {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
     
     if (new Date(startDate) > new Date(endDate)) {
-      setError('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด');
+      toast.error('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด', {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
     
@@ -230,7 +592,7 @@ export default function DriverPortalPage() {
     }
   }, [status, session]);
 
-  // Format date for Lao display (DD/MM/YYYY)
+  // Format date for Lao display
   const formatDateLao = (dateString: string) => {
     const date = new Date(dateString);
     const day = date.getDate().toString().padStart(2, '0');
@@ -310,289 +672,318 @@ export default function DriverPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">ລາຍຮັບຄົນຂັບ</h1>
-              <p className="text-gray-600">ສະບາຍດີ, {session?.user?.name}</p>
-              {dashboardData && (
-                <div className="mt-1">
-                  <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                    dashboardData.driver.checkInStatus === 'checked-in' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {dashboardData.driver.checkInStatus === 'checked-in' ? (
-                      <>
-                        <FiCheckCircle className="mr-1" />
-                        ເຂົ້າວຽກແລ້ວ
-                      </>
-                    ) : (
-                      <>
-                        <FiAlertCircle className="mr-1" />
-                        ຍັງບໍ່ເຂົ້າວຽກ
-                      </>
-                    )}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-              >
-                <FiRefreshCw className={`mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                ອັບເດດ
-              </button>
-              <button className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                <FiDownload className="mr-2" />
-                PDF
-              </button>
+    <>
+      {/* โหลด html2pdf.js library */}
+      <Script
+        src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+        onLoad={() => {
+          setPdfLibraryLoaded(true);
+          console.log('html2pdf library loaded successfully');
+        }}
+        onError={() => {
+          console.error('Failed to load html2pdf library');
+        }}
+      />
+
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-6">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">ລາຍຮັບຄົນຂັບ</h1>
+                <p className="text-gray-600">ສະບາຍດີ, {session?.user?.name}</p>
+                {dashboardData && (
+                  <div className="mt-1">
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                      dashboardData.driver.checkInStatus === 'checked-in' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {dashboardData.driver.checkInStatus === 'checked-in' ? (
+                        <>
+                          <FiCheckCircle className="mr-1" />
+                          ເຂົ້າວຽກແລ້ວ
+                        </>
+                      ) : (
+                        <>
+                          <FiAlertCircle className="mr-1" />
+                          ຍັງບໍ່ເຂົ້າວຽກ
+                        </>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                >
+                  <FiRefreshCw className={`mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  ອັບເດດ
+                </button>
+                
+                <button 
+                  onClick={handleExportPDF}
+                  disabled={!dashboardData || !pdfLibraryLoaded}
+                  className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                  title={!pdfLibraryLoaded ? 'ກຳລັງໂຫລດ PDF library...' : 'ດາວໂຫຼດ PDF'}
+                >
+                  <FiDownload className="mr-2" />
+                  PDF {!pdfLibraryLoaded && <span className="ml-1 text-xs">(ໂຫລດ...)</span>}
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <FiAlertCircle className="text-red-500 mr-2" />
-              <span className="text-red-700">{error}</span>
-              <button 
-                onClick={handleRefresh}
-                className="ml-auto text-red-600 hover:text-red-800 underline"
-              >
-                ລອງໃໝ່
-              </button>
+        {/* แสดงสถานะการโหลด PDF library */}
+        {!pdfLibraryLoaded && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+            <div className="bg-yellow-100 border border-yellow-300 rounded text-sm text-yellow-700 p-2 text-center">
+              ⏳ ກຳລັງໂຫລດ PDF library... ກະລຸນາລໍຖ້າ
             </div>
           </div>
         )}
 
-        {/* Period Selector - แก้ไขให้ทำงานถูกต้อง */}
-        <div className="mb-6">
-          <div className="flex items-center mb-4">
-            <FiCalendar className="mr-2 text-gray-600" />
-            <h2 className="text-lg font-semibold text-gray-900">ເລືອກຊ່ວງເວລາ</h2>
-          </div>
-          
-          {/* Period Buttons */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {[
-              'ວັນນີ້', 
-              'ມື້ວານ', 
-              'ອາທິດນີ້', 
-              'ເດືອນນີ້', 
-              'ກຳໜົດເອງ'
-            ].map((period) => (
-              <button
-                key={period}
-                onClick={() => handlePeriodChange(period)}
-                disabled={loading}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                  selectedPeriod === period
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-300'
-                }`}
-              >
-                {period}
-              </button>
-            ))}
-          </div>
-
-          {/* Custom Date Range Selector */}
-          {selectedPeriod === 'ກຳໜົດເອງ' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">ຈາກ:</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">ຫາ:</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                
-                <button
-                  onClick={handleCustomDateUpdate}
-                  disabled={loading}
-                  className="px-4 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50"
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <FiAlertCircle className="text-red-500 mr-2" />
+                <span className="text-red-700">{error}</span>
+                <button 
+                  onClick={handleRefresh}
+                  className="ml-auto text-red-600 hover:text-red-800 underline"
                 >
-                  {loading ? 'ກຳລັງໂຫລດ...' : 'ອັບເດດ'}
+                  ລອງໃໝ່
                 </button>
               </div>
             </div>
           )}
 
-          {/* Current Period Display */}
-          <div className="mt-3 text-sm text-gray-600">
-            <strong>ຊ່ວງເວລາປັດຈຸບັນ:</strong> {getDisplayPeriod()}
-            {dashboardData && dashboardData.totalTickets > 0 && (
-              <span className="ml-2">({dashboardData.totalTickets} ໃບ)</span>
-            )}
-          </div>
-        </div>
-
-        {loading && !dashboardData ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
-            <span className="text-gray-600">ກຳລັງໂຫລດຂໍ້ມູນ...</span>
-          </div>
-        ) : dashboardData ? (
-          <>
-            {/* Revenue Summary Cards */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">ລາຍຮັບລວມ</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <RevenueCard
-                  title="ລາຍຮັບລວມ"
-                  amount={dashboardData.totalRevenue}
-                  color="blue"
-                />
-                <RevenueCard
-                  title="ບໍລິສັດ (10%)"
-                  amount={dashboardData.companyRevenue}
-                  color="purple"
-                />
-                <RevenueCard
-                  title="ສະຖານີ (5%)"
-                  amount={dashboardData.stationRevenue}
-                  color="green"
-                />
-                <RevenueCard
-                  title="ຄົນຂັບ (85%)"
-                  amount={dashboardData.driverRevenue}
-                  color="orange"
-                />
-              </div>
+          {/* Period Selector */}
+          <div className="mb-6">
+            <div className="flex items-center mb-4">
+              <FiCalendar className="mr-2 text-gray-600" />
+              <h2 className="text-lg font-semibold text-gray-900">ເລືອກຊ່ວງເວລາ</h2>
+            </div>
+            
+            {/* Period Buttons */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {[
+                'ວັນນີ້', 
+                'ມື້ວານ', 
+                'ອາທິດນີ້', 
+                'ເດືອນນີ້', 
+                'ກຳໜົດເອງ'
+              ].map((period) => (
+                <button
+                  key={period}
+                  onClick={() => handlePeriodChange(period)}
+                  disabled={loading}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                    selectedPeriod === period
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-300'
+                  }`}
+                >
+                  {period}
+                </button>
+              ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Revenue Distribution Chart */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">ການແບ່ງລາຍຮັບ</h3>
-                {chartData && dashboardData.totalRevenue > 0 ? (
-                  <div className="h-80">
-                    <Doughnut data={chartData} options={chartOptions} />
+            {/* Custom Date Range Selector */}
+            {selectedPeriod === 'ກຳໜົດເອງ' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm font-medium text-gray-700">ຈາກ:</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
-                ) : (
-                  <div className="h-80 flex items-center justify-center text-gray-500">
-                    <div className="text-center">
-                      <FiDollarSign className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                      <p>ຍັງບໍ່ມີຂໍ້ມູນລາຍຮັບ</p>
-                    </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm font-medium text-gray-700">ຫາ:</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
-                )}
+                  
+                  <button
+                    onClick={handleCustomDateUpdate}
+                    disabled={loading}
+                    className="px-4 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'ກຳລັງໂຫລດ...' : 'ອັບເດດ'}
+                  </button>
+                </div>
               </div>
+            )}
 
-              {/* Revenue Breakdown */}
-              <div className="bg-white rounded-lg shadow p-6">
+            {/* Current Period Display */}
+            <div className="mt-3 text-sm text-gray-600">
+              <strong>ຊ່ວງເວລາປັດຈຸບັນ:</strong> {getDisplayPeriod()}
+              {dashboardData && dashboardData.totalTickets > 0 && (
+                <span className="ml-2">({dashboardData.totalTickets} ໃບ)</span>
+              )}
+            </div>
+          </div>
+
+          {loading && !dashboardData ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
+              <span className="text-gray-600">ກຳລັງໂຫລດຂໍ້ມູນ...</span>
+            </div>
+          ) : dashboardData ? (
+            <>
+              {/* Revenue Summary Cards */}
+              <div className="mb-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">ລາຍຮັບລວມ</h3>
-                <div className="space-y-4">
-                  <RevenueBreakdownItem
-                    label="ບໍລິສັດ (10%)"
-                    amount={dashboardData.companyRevenue}
-                    transactions={dashboardData.totalTickets > 0 ? 1 : 0}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <RevenueCard
+                    title="ລາຍຮັບລວມ"
+                    amount={dashboardData.totalRevenue}
                     color="blue"
                   />
-                  <RevenueBreakdownItem
-                    label="ສະຖານີ (5%)"
+                  <RevenueCard
+                    title="ບໍລິສັດ (10%)"
+                    amount={dashboardData.companyRevenue}
+                    color="purple"
+                  />
+                  <RevenueCard
+                    title="ສະຖານີ (5%)"
                     amount={dashboardData.stationRevenue}
-                    transactions={dashboardData.totalTickets > 0 ? 1 : 0}
                     color="green"
                   />
-                  <RevenueBreakdownItem
-                    label="ຄົນຂັບ (85%)"
+                  <RevenueCard
+                    title="ຄົນຂັບ (85%)"
                     amount={dashboardData.driverRevenue}
-                    transactions={dashboardData.totalTickets > 0 ? 1 : 0}
                     color="orange"
                   />
                 </div>
+              </div>
 
-                {/* รายรับต่อคน */}
-                <div className="mt-8 pt-6 border-t border-gray-200">
-                  <h4 className="text-md font-semibold text-gray-900 mb-4">ລາຍຮັບຕໍ່ຄົນ</h4>
-                  
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-blue-600 font-medium">ລາຍຮັບຂອງທ່ານ</p>
-                        <p className="text-2xl font-bold text-blue-900">
-                          {formatCurrency(dashboardData.myExpectedShare)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-blue-600">ຈາກ {dashboardData.totalTickets} ໃບ</p>
-                        <p className="text-xs text-blue-600">ແບ່ງກັບ {dashboardData.workingDriversCount} ຄົນ</p>
-                      </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Revenue Distribution Chart */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">ການແບ່ງລາຍຮັບ</h3>
+                  {chartData && dashboardData.totalRevenue > 0 ? (
+                    <div className="h-80">
+                      <Doughnut data={chartData} options={chartOptions} />
                     </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="text-sm text-gray-600">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span>ຄົນຂັບທີ່ເຮັດວຽກ:</span>
-                        <span className="font-medium">{dashboardData.workingDriversCount} ຄົນ</span>
+                  ) : (
+                    <div className="h-80 flex items-center justify-center text-gray-500">
+                      <div className="text-center">
+                        <FiDollarSign className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                        <p>ຍັງບໍ່ມີຂໍ້ມູນລາຍຮັບ</p>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span>ລາຍຮັບສ່ວນຄົນຂັບລວມ:</span>
-                        <span className="font-medium text-orange-600">{formatCurrency(dashboardData.driverRevenue)}</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span>ລາຍຮັບເຉລ່ຍຕໍ່ຄົນ:</span>
-                        <span className="font-medium text-green-600">{formatCurrency(dashboardData.averageDriverShare)}</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-blue-700 font-medium">ສ່ວນແບ່ງຂອງທ່ານ:</span>
-                        <span className="font-bold text-blue-700 text-lg">{formatCurrency(dashboardData.myExpectedShare)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* คำอธิบายการคิดไล่ */}
-                  <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <p className="text-xs text-yellow-800">
-                      <strong>💡 ວິທີຄິດໄລ່:</strong> ລາຍຮັບ 85% ({formatCurrency(dashboardData.driverRevenue)}) ÷ {dashboardData.workingDriversCount} ຄົນຂັບ = {formatCurrency(dashboardData.averageDriverShare)} ຕໍ່ຄົນ
-                    </p>
-                  </div>
-
-                  {/* สถานะการเข้าทำงาน */}
-                  {dashboardData.driver.checkInStatus === 'checked-out' && (
-                    <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-                      <p className="text-xs text-red-800">
-                        <strong>⚠️ ຂໍ້ສັງເກດ:</strong> ທ່ານຍັງບໍ່ໄດ້ເຊັກອິນເຂົ້າວຽກ ກະລຸນາເຊັກອິນເພື່ອນັບລາຍຮັບ
-                      </p>
                     </div>
                   )}
                 </div>
+
+                {/* Revenue Breakdown */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">ລາຍຮັບລວມ</h3>
+                  <div className="space-y-4">
+                    <RevenueBreakdownItem
+                      label="ບໍລິສັດ (10%)"
+                      amount={dashboardData.companyRevenue}
+                      transactions={dashboardData.totalTickets > 0 ? 1 : 0}
+                      color="blue"
+                    />
+                    <RevenueBreakdownItem
+                      label="ສະຖານີ (5%)"
+                      amount={dashboardData.stationRevenue}
+                      transactions={dashboardData.totalTickets > 0 ? 1 : 0}
+                      color="green"
+                    />
+                    <RevenueBreakdownItem
+                      label="ຄົນຂັບ (85%)"
+                      amount={dashboardData.driverRevenue}
+                      transactions={dashboardData.totalTickets > 0 ? 1 : 0}
+                      color="orange"
+                    />
+                  </div>
+
+                  {/* รายรับต่อคน */}
+                  <div className="mt-8 pt-6 border-t border-gray-200">
+                    <h4 className="text-md font-semibold text-gray-900 mb-4">ລາຍຮັບຕໍ່ຄົນ</h4>
+                    
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-blue-600 font-medium">ລາຍຮັບຂອງທ່ານ</p>
+                          <p className="text-2xl font-bold text-blue-900">
+                            {formatCurrency(dashboardData.myExpectedShare)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-blue-600">ຈາກ {dashboardData.totalTickets} ໃບ</p>
+                          <p className="text-xs text-blue-600">ແບ່ງກັບ {dashboardData.workingDriversCount} ຄົນ</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="text-sm text-gray-600">
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span>ຄົນຂັບທີ່ເຮັດວຽກ:</span>
+                          <span className="font-medium">{dashboardData.workingDriversCount} ຄົນ</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span>ລາຍຮັບສ່ວນຄົນຂັບລວມ:</span>
+                          <span className="font-medium text-orange-600">{formatCurrency(dashboardData.driverRevenue)}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span>ລາຍຮັບເຉລ່ຍຕໍ່ຄົນ:</span>
+                          <span className="font-medium text-green-600">{formatCurrency(dashboardData.averageDriverShare)}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-blue-700 font-medium">ສ່ວນແບ່ງຂອງທ່ານ:</span>
+                          <span className="font-bold text-blue-700 text-lg">{formatCurrency(dashboardData.myExpectedShare)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* คำอธิบายการคิดไล่ */}
+                    <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <p className="text-xs text-yellow-800">
+                        <strong>💡 ວິທີຄິດໄລ່:</strong> ລາຍຮັບ 85% ({formatCurrency(dashboardData.driverRevenue)}) ÷ {dashboardData.workingDriversCount} ຄົນຂັບ = {formatCurrency(dashboardData.averageDriverShare)} ຕໍ່ຄົນ
+                      </p>
+                    </div>
+
+                    {/* สถานะการเข้าทำงาน */}
+                    {dashboardData.driver.checkInStatus === 'checked-out' && (
+                      <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                        <p className="text-xs text-red-800">
+                          <strong>⚠️ ຂໍ້ສັງເກດ:</strong> ທ່ານຍັງບໍ່ໄດ້ເຊັກອິນເຂົ້າວຽກ ກະລຸນາເຊັກອິນເພື່ອນັບລາຍຮັບ
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">ບໍ່ສາມາດໂຫລດຂໍ້ມູນໄດ້</p>
             </div>
-          </>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-500">ບໍ່ສາມາດໂຫລດຂໍ້ມູນໄດ້</p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
