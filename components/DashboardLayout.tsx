@@ -21,6 +21,7 @@ import {
 import { TbBus } from "react-icons/tb";
 import GoogleAlphabetIcon from '@/components/GoogleAlphabetIcon';
 import notificationService from '@/lib/notificationService';
+import { Ticket } from 'lucide-react';
 
 interface MenuItem {
   name: string;
@@ -41,7 +42,7 @@ const menuItems: MenuItem[] = [
   {
     name: 'ອອກປີ້',
     href: '/dashboard/tickets',
-    icon: FiCreditCard,
+    icon: Ticket,
     roles: ['admin', 'staff'],
     description: 'ຂາຍແລະຈັດການປີ້'
   },

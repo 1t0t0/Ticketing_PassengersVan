@@ -120,14 +120,12 @@ export default function UserManagementPage() {
     <div className="p-4 max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">User Management</h1>
-        <p className="text-gray-600">Manage all system users</p>
+        <h1 className="text-2xl font-bold mb-2">ໜ້າຈັດການຜູ້ໃຊ້</h1>
       </div>
 
       {/* Control Panel */}
       <div className="bg-white border border-gray-300 rounded p-4 mb-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold">User Management System</h2>
           <div className="space-x-2">
             {/* ปุ่ม Auto Checkout - แสดงเฉพาะ Admin */}
             {isAdmin() && (

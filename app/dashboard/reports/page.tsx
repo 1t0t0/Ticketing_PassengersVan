@@ -176,7 +176,7 @@ export default function ReportsPage() {
       <div className="p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">📊 ລະບົບບົດລາຍງານ</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">ລະບົບບົດລາຍງານ</h1>
           <p className="text-gray-600">ຈັດການແລະສ້າງບົດລາຍງານສຳລັບທຸລະກິດຂາຍປີ້ລົດໂດຍສານ</p>
           
           {/* แสดงสถานะการโหลด PDF library */}

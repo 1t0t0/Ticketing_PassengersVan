@@ -17,6 +17,18 @@ import {
   Legend,
   Filler
 } from 'chart.js';
+import {
+  BarChart3,
+  DollarSign,
+  Ticket,
+  Users,
+  Car,
+  CreditCard,
+  TrendingUp,
+  Building2,
+  Smartphone,
+  Banknote
+} from 'lucide-react';
 
 ChartJS.register(
   CategoryScale, 
@@ -70,7 +82,7 @@ export default function EnhancedDashboardPage() {
   
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState('today');
   
   const [stats, setStats] = useState<DashboardStats>({
@@ -95,7 +107,6 @@ export default function EnhancedDashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
       const response = await fetch(`/api/dashboard/stats?startDate=${startDate}&endDate=${endDate}`);
       
       if (!response.ok) {
@@ -106,8 +117,6 @@ export default function EnhancedDashboardPage() {
       setStats(data);
     } catch (error) {
       console.error('Dashboard Error:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -190,8 +199,8 @@ export default function EnhancedDashboardPage() {
   const stationRevenue = Math.round(stats.totalRevenue * 0.05);
   const driverRevenue = Math.round(stats.totalRevenue * 0.85);
 
-  const MetricCard = ({ icon, title, value, subtitle, trend, color = "blue" }: {
-    icon: string;
+  const MetricCard = ({ icon: Icon, title, value, subtitle, trend, color = "blue" }: {
+    icon: React.ComponentType<{ className?: string }>;
     title: string;
     value: string | number;
     subtitle?: string;
@@ -205,12 +214,19 @@ export default function EnhancedDashboardPage() {
       orange: "bg-orange-50 border-orange-200 text-orange-900"
     };
 
+    const iconColorClasses = {
+      blue: "text-blue-600",
+      green: "text-green-600",
+      purple: "text-purple-600", 
+      orange: "text-orange-600"
+    };
+
     return (
       <NeoCard className={`p-6 ${colorClasses[color]}`}>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center mb-2">
-              <span className="text-2xl mr-2">{icon}</span>
+              <Icon className={`w-6 h-6 mr-3 ${iconColorClasses[color]}`} />
               <h3 className="text-sm font-semibold uppercase tracking-wide opacity-80">{title}</h3>
             </div>
             <p className="text-3xl font-bold">{value}</p>
@@ -226,23 +242,16 @@ export default function EnhancedDashboardPage() {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 max-w-7xl mx-auto bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="mb-8">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div className="mb-4 lg:mb-0">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">📊 ໜ້າຫຼັກລະບົບຂາຍປີ້</h1>
+            <div className="flex items-center mb-2">
+              <BarChart3 className="w-8 h-8 text-blue-600 mr-3" />
+              <h1 className="text-3xl font-bold text-gray-900">ໜ້າຫຼັກລະບົບຂາຍປີ້</h1>
+            </div>
             <p className="text-gray-600">ພາບລວມການດຳເນີນງານ ແລະ ສະຖິຕິການຂາຍປະຈຳວັນ</p>
           </div>
           
@@ -253,7 +262,7 @@ export default function EnhancedDashboardPage() {
                 <button
                   key={range}
                   onClick={() => handleDateRangeChange(range)}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors border border-gray-300 ${
                     dateRange === range 
                       ? 'bg-blue-600 text-white' 
                       : 'bg-white text-gray-600 hover:bg-gray-100'
@@ -286,7 +295,7 @@ export default function EnhancedDashboardPage() {
       {/* Main Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard
-          icon="🎫"
+          icon={Ticket}
           title="ຈຳນວນປີ້ທີ່ຂາຍ"
           value={stats.totalTicketsSold.toLocaleString()}
           subtitle={`ລາຄາເຉລີ່ຍ: ₭${averageTicketPrice.toLocaleString()}`}
@@ -294,7 +303,7 @@ export default function EnhancedDashboardPage() {
         />
         
         <MetricCard
-          icon="💰"
+          icon={DollarSign}
           title="ລາຍຮັບລວມ"
           value={`₭${stats.totalRevenue.toLocaleString()}`}
           subtitle="ໃນຊ່ວງເວລາທີ່ເລືອກ"
@@ -302,7 +311,7 @@ export default function EnhancedDashboardPage() {
         />
         
         <MetricCard
-          icon="🚗"
+          icon={Car}
           title="ພະນັກງານຂັບລົດ"
           value={`${stats.checkedInDrivers}/${stats.totalDrivers}`}
           subtitle={`${driverUtilization}% ເຂົ້າວຽກ`}
@@ -310,7 +319,7 @@ export default function EnhancedDashboardPage() {
         />
         
         <MetricCard
-          icon="👥"
+          icon={Users}
           title="ພະນັກງານຂາຍປີ້"
           value={`${stats.checkedInStaff}/${stats.totalStaff}`}
           subtitle={`${staffUtilization}% ເຂົ້າວຽກ`}
@@ -321,7 +330,10 @@ export default function EnhancedDashboardPage() {
       {/* Revenue Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <NeoCard className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <h3 className="text-lg font-semibold text-blue-900 mb-4">💼 ການແບ່ງປັນລາຍຮັບ</h3>
+          <div className="flex items-center mb-4">
+            <Building2 className="w-6 h-6 text-blue-600 mr-2" />
+            <h3 className="text-lg font-semibold text-blue-900">ການແບ່ງປັນລາຍຮັບ</h3>
+          </div>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-blue-700">ລາຍຮັບບໍລິສັດ (10%)</span>
@@ -339,7 +351,10 @@ export default function EnhancedDashboardPage() {
         </NeoCard>
 
         <NeoCard className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">💳 ປະເພດການຊຳລະ</h3>
+          <div className="flex items-center mb-4">
+            <CreditCard className="w-6 h-6 text-gray-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">ປະເພດການຊຳລະ</h3>
+          </div>
           <div className="flex items-center justify-center">
             <div className="w-32 h-32">
               <Doughnut 
@@ -366,7 +381,7 @@ export default function EnhancedDashboardPage() {
                 <p className="text-sm font-medium text-green-700">ເງິນສົດ</p>
                 <p className="text-2xl font-bold text-green-900">{stats.paymentMethodStats.cash}%</p>
               </div>
-              <div className="text-3xl">💵</div>
+              <Banknote className="w-8 h-8 text-green-600" />
             </div>
           </NeoCard>
           
@@ -376,7 +391,7 @@ export default function EnhancedDashboardPage() {
                 <p className="text-sm font-medium text-blue-700">ເງິນໂອນ</p>
                 <p className="text-2xl font-bold text-blue-900">{stats.paymentMethodStats.qr}%</p>
               </div>
-              <div className="text-3xl">📱</div>
+              <Smartphone className="w-8 h-8 text-blue-600" />
             </div>
           </NeoCard>
         </div>
@@ -385,7 +400,10 @@ export default function EnhancedDashboardPage() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <NeoCard className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 ການຂາຍປີ້ຕໍ່ຊົວໂມງ</h3>
+          <div className="flex items-center mb-4">
+            <TrendingUp className="w-6 h-6 text-blue-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">ການຂາຍປີ້ຕໍ່ຊົວໂມງ</h3>
+          </div>
           <div className="h-80">
             <Line 
               data={hourlyTicketsData}
@@ -424,7 +442,10 @@ export default function EnhancedDashboardPage() {
         </NeoCard>
 
         <NeoCard className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">💰 ລາຍຮັບຕໍ່ຊົວໂມງ</h3>
+          <div className="flex items-center mb-4">
+            <DollarSign className="w-6 h-6 text-green-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">ລາຍຮັບຕໍ່ຊົວໂມງ</h3>
+          </div>
           <div className="h-80">
             <Bar 
               data={hourlyRevenueData}
