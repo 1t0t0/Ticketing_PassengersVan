@@ -1,7 +1,7 @@
 // app/dashboard/reports/components/VehiclesReportComponent.tsx
 import React from 'react';
 import { FiTruck, FiTag, FiUser, FiCheck, FiX } from 'react-icons/fi';
-import { Doughnut, Bar } from 'react-chartjs-2';
+import { Doughnut } from 'react-chartjs-2';
 
 interface VehiclesReportComponentProps {
   reportData: any;

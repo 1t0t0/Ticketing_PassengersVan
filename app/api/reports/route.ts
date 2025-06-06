@@ -1,4 +1,4 @@
-// app/api/reports/route.ts - Complete file with all updates
+// app/api/reports/route.ts - Complete file with TypeScript fixes
 
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
@@ -9,6 +9,83 @@ import CarType from '@/models/CarType';
 import WorkLog from '@/models/WorkLog';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { Types } from 'mongoose';
+
+// ===== TYPE DEFINITIONS =====
+interface UserDoc {
+  _id: Types.ObjectId;
+  name: string;
+  email: string;
+  employeeId: string;
+  checkInStatus?: 'checked-in' | 'checked-out';
+  lastCheckIn?: Date;
+  lastCheckOut?: Date;
+  role: string;
+}
+
+interface CarTypeDoc {
+  _id: Types.ObjectId;
+  carType_name: string;
+}
+
+interface CarDoc {
+  _id: Types.ObjectId;
+  car_id?: string;
+  car_name?: string;
+  car_registration?: string;
+  car_capacity?: number;
+  car_type_id?: CarTypeDoc;
+  user_id?: UserDoc;
+}
+
+interface WorkLogDoc {
+  _id: Types.ObjectId;
+  user_id: UserDoc | Types.ObjectId;
+  date: string;
+  action: 'check-in' | 'check-out';
+  timestamp: Date;
+}
+
+interface WorkLogsByUser {
+  [key: string]: WorkLogDoc[];
+}
+
+interface TicketSalesData {
+  _id: string | Types.ObjectId | null;
+  ticketsSold: number;
+  totalRevenue: number;
+}
+
+interface StaffMember {
+  id: Types.ObjectId;
+  name: string;
+  employeeId: string;
+  email: string;
+  checkInStatus: 'checked-in' | 'checked-out';
+  lastCheckIn: Date | null;
+  lastCheckOut: Date | null;
+  ticketsSold: number;
+  totalRevenue: number;
+  workDays: number;
+}
+
+interface DriverMember {
+  id: Types.ObjectId;
+  name: string;
+  employeeId: string;
+  checkInStatus: 'checked-in' | 'checked-out';
+  workDays: number;
+  totalIncome: number;
+  performance: 'Active' | 'Inactive';
+  lastCheckIn: Date | null;
+  lastCheckOut: Date | null;
+}
+
+interface LatestActionResult {
+  timestamp: Date;
+  date: string;
+  action: 'check-in' | 'check-out';
+}
 
 export async function GET(request: Request) {
   try {
@@ -79,25 +156,25 @@ async function getVehiclesReport(startDate: Date, endDate: Date) {
   try {
     // ดึงข้อมูลรถทั้งหมด
     const allCars = await Car.find()
-      .populate('user_id', 'name employeeId checkInStatus')
-      .populate('car_type_id', 'carType_name');
+      .populate<{ user_id: UserDoc }>('user_id', 'name employeeId checkInStatus')
+      .populate<{ car_type_id: CarTypeDoc }>('car_type_id', 'carType_name');
 
     // ดึงข้อมูลประเภทรถทั้งหมด
     const allCarTypes = await CarType.find();
 
     // คำนวณสถิติ
     const totalCars = allCars.length;
-    const activeCars = allCars.filter(car => 
+    const activeCars = allCars.filter((car: any) => 
       car.user_id && car.user_id.checkInStatus === 'checked-in'
     ).length;
-    const driversWithCars = allCars.filter(car => car.user_id).length;
+    const driversWithCars = allCars.filter((car: any) => car.user_id).length;
 
     // สรุปประเภทรถ
     const carTypesStats = allCarTypes.map(type => {
-      const carsOfType = allCars.filter(car => 
+      const carsOfType = allCars.filter((car: any) => 
         car.car_type_id && car.car_type_id._id.toString() === type._id.toString()
       );
-      const activeCarsOfType = carsOfType.filter(car => 
+      const activeCarsOfType = carsOfType.filter((car: any) => 
         car.user_id && car.user_id.checkInStatus === 'checked-in'
       );
 
@@ -110,7 +187,7 @@ async function getVehiclesReport(startDate: Date, endDate: Date) {
     });
 
     // เตรียมข้อมูลรถสำหรับตาราง (แปลง populate data)
-    const carsData = allCars.map(car => ({
+    const carsData = allCars.map((car: any) => ({
       _id: car._id,
       car_id: car.car_id,
       car_name: car.car_name,
@@ -166,7 +243,7 @@ async function getStaffReport(startDate: Date, endDate: Date) {
     // ดึงข้อมูลพนักงานทั้งหมด (staff + admin)
     const allStaff = await User.find({ 
       role: { $in: ['staff', 'admin'] } 
-    }).select('name email employeeId checkInStatus lastCheckIn lastCheckOut');
+    }).select('name email employeeId checkInStatus lastCheckIn lastCheckOut') as UserDoc[];
 
     console.log(`Found ${allStaff.length} staff members`);
 
@@ -177,13 +254,13 @@ async function getStaffReport(startDate: Date, endDate: Date) {
         $gte: startDate.toISOString().split('T')[0],
         $lte: endDate.toISOString().split('T')[0]
       }
-    }).populate('user_id', 'name employeeId email');
+    }).populate<{ user_id: UserDoc }>('user_id', 'name employeeId email') as WorkLogDoc[];
 
     console.log(`Found ${workLogsInRange.length} work logs in date range`);
 
     // จัดกลุ่ม Work Logs ตาม user_id
-    const workLogsByUser = workLogsInRange.reduce((acc, log) => {
-      const userId = log.user_id._id.toString();
+    const workLogsByUser: WorkLogsByUser = workLogsInRange.reduce((acc: WorkLogsByUser, log: WorkLogDoc) => {
+      const userId = (log.user_id as UserDoc)._id.toString();
       if (!acc[userId]) {
         acc[userId] = [];
       }
@@ -208,7 +285,7 @@ async function getStaffReport(startDate: Date, endDate: Date) {
           totalRevenue: { $sum: '$price' }
         }
       }
-    ]);
+    ]) as TicketSalesData[];
 
     console.log('Tickets grouped by soldBy:', ticketsByEmail);
 
@@ -227,9 +304,9 @@ async function getStaffReport(startDate: Date, endDate: Date) {
                 role: { $in: ['staff', 'admin'] },
                 $expr: {
                   $or: [
-                    { $eq: ['$email', '$soldBy'] },
-                    { $eq: ['$name', '$soldBy'] },
-                    { $eq: [{ $toString: '$_id' }, '$soldBy'] }
+                    { $eq: ['$email', '$$soldBy'] },
+                    { $eq: ['$name', '$$soldBy'] },
+                    { $eq: [{ $toString: '$_id' }, '$$soldBy'] }
                   ]
                 }
               }
@@ -252,12 +329,12 @@ async function getStaffReport(startDate: Date, endDate: Date) {
           totalRevenue: { $sum: '$price' }
         }
       }
-    ]);
+    ]) as TicketSalesData[];
 
     console.log('Tickets by staff with lookup:', ticketsByStaffLookup);
 
     // รวมข้อมูลพนักงานกับยอดขายและวันทำงาน
-    const staffWithWorkData = allStaff.map(staff => {
+    const staffWithWorkData: StaffMember[] = allStaff.map(staff => {
       const userId = staff._id.toString();
       
       // หา sales data
@@ -265,14 +342,15 @@ async function getStaffReport(startDate: Date, endDate: Date) {
         ticket._id && ticket._id.toString() === userId
       );
 
-      let fallbackSalesData = null;
+      let fallbackSalesData: TicketSalesData | undefined = undefined;
       if (!salesData) {
         fallbackSalesData = ticketsByEmail.find(ticket => {
           if (!ticket._id) return false;
+          const ticketId = ticket._id.toString();
           return (
-            ticket._id === staff.email || 
-            ticket._id === staff.name ||
-            ticket._id === userId
+            ticketId === staff.email || 
+            ticketId === staff.name ||
+            ticketId === userId
           );
         });
       }
@@ -281,21 +359,21 @@ async function getStaffReport(startDate: Date, endDate: Date) {
 
       // คำนวณวันทำงานจาก Work Logs ในช่วงเวลาที่เลือก
       const userWorkLogs = workLogsByUser[userId] || [];
-      const workDays = calculateWorkDaysFromLogs(userWorkLogs, startDate, endDate);
+      const workDays = calculateWorkDaysFromLogs(userWorkLogs);
 
       // ดึงข้อมูลการเข้า-ออกงานล่าสุดในช่วงเวลา
       const latestCheckIn = getLatestActionInRange(userWorkLogs, 'check-in');
       const latestCheckOut = getLatestActionInRange(userWorkLogs, 'check-out');
 
       // กำหนดสถานะปัจจุบันโดยดูจาก Work Logs ในช่วงเวลา
-      let currentStatus = 'checked-out'; // default
+      let currentStatus: 'checked-in' | 'checked-out' = 'checked-out'; // default
       if (latestCheckIn && latestCheckOut) {
         currentStatus = latestCheckIn.timestamp > latestCheckOut.timestamp ? 'checked-in' : 'checked-out';
       } else if (latestCheckIn && !latestCheckOut) {
         currentStatus = 'checked-in';
       }
 
-      const result = {
+      const result: StaffMember = {
         id: staff._id,
         name: staff.name,
         employeeId: staff.employeeId,
@@ -419,7 +497,7 @@ async function getDriverReport(startDate: Date, endDate: Date) {
   
   try {
     const allDrivers = await User.find({ role: 'driver' })
-      .select('name employeeId checkInStatus lastCheckIn lastCheckOut');
+      .select('name employeeId checkInStatus lastCheckIn lastCheckOut') as UserDoc[];
 
     // ดึงข้อมูล Work Logs ในช่วงเวลาที่เลือกสำหรับคนขับ
     const workLogsInRange = await WorkLog.find({
@@ -428,11 +506,11 @@ async function getDriverReport(startDate: Date, endDate: Date) {
         $gte: startDate.toISOString().split('T')[0],
         $lte: endDate.toISOString().split('T')[0]
       }
-    }).populate('user_id', 'name employeeId');
+    }).populate<{ user_id: UserDoc }>('user_id', 'name employeeId') as WorkLogDoc[];
 
     // จัดกลุ่ม Work Logs ตาม user_id
-    const workLogsByUser = workLogsInRange.reduce((acc, log) => {
-      const userId = log.user_id._id.toString();
+    const workLogsByUser: WorkLogsByUser = workLogsInRange.reduce((acc: WorkLogsByUser, log: WorkLogDoc) => {
+      const userId = (log.user_id as UserDoc)._id.toString();
       if (!acc[userId]) {
         acc[userId] = [];
       }
@@ -440,7 +518,7 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       return acc;
     }, {});
     
-    const dateArray = [];
+    const dateArray: string[] = [];
     const currentDate = new Date(startDate);
     const endDateOnly = new Date(endDate);
     
@@ -450,7 +528,7 @@ async function getDriverReport(startDate: Date, endDate: Date) {
     }
     
     const dailyRevenueAndDrivers = await Promise.all(
-      dateArray.map(async (dateString) => {
+      dateArray.map(async (dateString: string) => {
         const dayStart = new Date(dateString + 'T00:00:00.000Z');
         const dayEnd = new Date(dateString + 'T23:59:59.999Z');
         
@@ -527,24 +605,24 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       })
     );
     
-    const driverIncomeMap = new Map();
+    const driverIncomeMap = new Map<string, DriverMember>();
     let totalRevenue = 0;
     let totalWorkDays = 0;
-    const totalWorkingDriversInPeriod = new Set();
+    const totalWorkingDriversInPeriod = new Set<string>();
     
     allDrivers.forEach(driver => {
       // ดึงข้อมูล Work Logs สำหรับคนขับนี้
       const userWorkLogs = workLogsByUser[driver._id.toString()] || [];
       
       // คำนวณวันทำงาน
-      const workDays = calculateWorkDaysFromLogs(userWorkLogs, startDate, endDate);
+      const workDays = calculateWorkDaysFromLogs(userWorkLogs);
       
       // หาเวลาเข้า-ออกงานล่าสุดในช่วงเวลา
       const latestCheckIn = getLatestActionInRange(userWorkLogs, 'check-in');
       const latestCheckOut = getLatestActionInRange(userWorkLogs, 'check-out');
       
       // กำหนดสถานะปัจจุบันโดยดูจาก Work Logs ในช่วงเวลา
-      let currentStatus = 'checked-out'; // default
+      let currentStatus: 'checked-in' | 'checked-out' = 'checked-out'; // default
       if (latestCheckIn && latestCheckOut) {
         currentStatus = latestCheckIn.timestamp > latestCheckOut.timestamp ? 'checked-in' : 'checked-out';
       } else if (latestCheckIn && !latestCheckOut) {
@@ -570,12 +648,12 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       if (dayData.workingDriversCount > 0) {
         totalWorkDays += dayData.workingDriversCount;
         
-        dayData.workingDrivers.forEach(driver => {
+        dayData.workingDrivers.forEach((driver: any) => {
           const driverId = driver.driverId.toString();
           totalWorkingDriversInPeriod.add(driverId);
           
           if (driverIncomeMap.has(driverId)) {
-            const existing = driverIncomeMap.get(driverId);
+            const existing = driverIncomeMap.get(driverId)!;
             existing.totalIncome += dayData.revenuePerDriver;
             existing.performance = 'Active';
             driverIncomeMap.set(driverId, existing);
@@ -618,13 +696,13 @@ async function getDriverReport(startDate: Date, endDate: Date) {
     console.error('Driver Report Error:', error);
     
     const allDrivers = await User.find({ role: 'driver' })
-      .select('name employeeId checkInStatus');
+      .select('name employeeId checkInStatus') as UserDoc[];
     
-    const basicStats = allDrivers.map(driver => ({
+    const basicStats: DriverMember[] = allDrivers.map(driver => ({
       id: driver._id,
       name: driver.name,
       employeeId: driver.employeeId,
-      checkInStatus: driver.checkInStatus,
+      checkInStatus: driver.checkInStatus || 'checked-out',
       workDays: 0,
       totalIncome: 0,
       performance: 'Inactive',
@@ -847,11 +925,11 @@ async function getSummaryReport(startDate: Date, endDate: Date) {
 }
 
 // Helper functions สำหรับคำนวณวันทำงานและเวลาเข้า-ออกงาน
-function calculateWorkDaysFromLogs(workLogs: any[], startDate: Date, endDate: Date) {
+function calculateWorkDaysFromLogs(workLogs: WorkLogDoc[]): number {
   if (!workLogs || workLogs.length === 0) return 0;
 
   // จัดกลุ่ม logs ตามวันที่
-  const logsByDate = workLogs.reduce((acc, log) => {
+  const logsByDate = workLogs.reduce((acc: { [key: string]: WorkLogDoc[] }, log: WorkLogDoc) => {
     const date = log.date; // YYYY-MM-DD format
     if (!acc[date]) {
       acc[date] = [];
@@ -863,13 +941,13 @@ function calculateWorkDaysFromLogs(workLogs: any[], startDate: Date, endDate: Da
   // นับวันที่มีการ check-in
   const workDates = Object.keys(logsByDate).filter(date => {
     const logsForDate = logsByDate[date];
-    return logsForDate.some((log: any) => log.action === 'check-in');
+    return logsForDate.some((log: WorkLogDoc) => log.action === 'check-in');
   });
 
   return workDates.length;
 }
 
-function getLatestActionInRange(workLogs: any[], action: 'check-in' | 'check-out') {
+function getLatestActionInRange(workLogs: WorkLogDoc[], action: 'check-in' | 'check-out'): LatestActionResult | null {
   const actionsOfType = workLogs.filter(log => log.action === action);
   if (actionsOfType.length === 0) return null;
   

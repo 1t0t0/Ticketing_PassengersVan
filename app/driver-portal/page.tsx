@@ -13,7 +13,6 @@ import {
   FiAlertCircle,
   FiCheckCircle,
   FiClock,
-  FiInfo
 } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
 import {
