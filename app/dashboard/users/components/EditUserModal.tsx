@@ -1,4 +1,4 @@
-// app/dashboard/users/components/EditUserModal.tsx - แก้ไขให้ดึงข้อมูลรถได้
+// app/dashboard/users/components/EditUserModal.tsx - Fixed for hydration
 import React, { useState, useEffect } from 'react';
 import { fetchUserDetailed } from '../api/user';
 import notificationService from '@/lib/notificationService';
@@ -10,7 +10,6 @@ import StaffForm from './forms/StaffForm';
 import AdminForm from './forms/AdminForm';
 import StationForm from './forms/StationForm';
 
-// เพิ่ม interface สำหรับข้อมูลรถ
 interface CarData {
   car_name: string;
   car_capacity: number;
@@ -32,6 +31,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [mounted, setMounted] = useState(false);
   
   // State for form data
   const [userData, setUserData] = useState<Partial<User>>(initialUser);
@@ -45,23 +45,23 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   const [userImageFile, setUserImageFile] = useState<File | null>(null);
   const [idCardImagePreview, setIdCardImagePreview] = useState<string | null>(null);
   const [userImagePreview, setUserImagePreview] = useState<string | null>(null);
+
+  // Fix hydration by ensuring component is mounted
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // ฟังก์ชันดึงข้อมูลรถของ Driver
   const fetchDriverCarData = async (driverId: string) => {
     try {
       setLoadingCarData(true);
-      console.log('Fetching car data for driver:', driverId);
-      
       const response = await fetch(`/api/cars/by-driver/${driverId}`);
       if (response.ok) {
         const cars = await response.json();
-        console.log('Driver cars:', cars);
         
         if (cars && cars.length > 0) {
-          // เอารถคันแรก (สมมติว่า driver มีรถคันเดียว)
           const firstCar = cars[0];
           
-          // ตรวจสอบว่า car_type_id เป็น Object หรือ string
           let carTypeId = '';
           if (firstCar.car_type_id) {
             if (typeof firstCar.car_type_id === 'object' && firstCar.car_type_id._id) {
@@ -78,11 +78,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
             car_type_id: carTypeId
           };
           
-          console.log('Setting car data:', carInfo);
           setCarData(carInfo);
         } else {
-          console.log('No cars found for driver');
-          // ตั้งค่าเริ่มต้นสำหรับรถใหม่
           setCarData({
             car_name: '',
             car_capacity: 10,
@@ -91,7 +88,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
           });
         }
       } else {
-        console.log('Failed to fetch car data, response not ok');
         setCarData({
           car_name: '',
           car_capacity: 10,
@@ -113,6 +109,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   };
   
 useEffect(() => {
+  if (!mounted) return;
+  
   const loadUserDetails = async () => {
     try {
       setLoadingUser(true);
@@ -122,23 +120,14 @@ useEffect(() => {
         // จัดการวันที่ให้แสดงในรูปแบบที่ถูกต้อง
         if (detailedUser.birthDate) {
           try {
-            // ตัวแปรสำหรับเก็บวันที่ที่จัดรูปแบบแล้ว
             let formattedDate = '';
             
-            console.log('Original birthDate from API:', detailedUser.birthDate);
-            
-            // ถ้าเป็น Date object
             if (detailedUser.birthDate instanceof Date) {
               formattedDate = detailedUser.birthDate.toISOString().split('T')[0];
-            } 
-            // ถ้าเป็น string
-            else if (typeof detailedUser.birthDate === 'string') {
-              // ถ้าเป็นรูปแบบ YYYY-MM-DD อยู่แล้ว
+            } else if (typeof detailedUser.birthDate === 'string') {
               if (/^\d{4}-\d{2}-\d{2}$/.test(detailedUser.birthDate)) {
                 formattedDate = detailedUser.birthDate;
-              } 
-              // ถ้าเป็น ISO string หรือรูปแบบอื่น
-              else {
+              } else {
                 const date = new Date(detailedUser.birthDate);
                 if (!isNaN(date.getTime())) {
                   formattedDate = date.toISOString().split('T')[0];
@@ -149,7 +138,6 @@ useEffect(() => {
               }
             }
             
-            console.log('Formatted date for input:', formattedDate);
             detailedUser.birthDate = formattedDate;
           } catch (dateError) {
             console.error('Error formatting birthDate in modal:', dateError);
@@ -181,11 +169,10 @@ useEffect(() => {
   };
   
   loadUserDetails();
-}, [initialUser._id]);
+}, [initialUser._id, mounted]);
   
   // จัดการการเปลี่ยนแปลงข้อมูลรถ
   const handleCarDataChange = (newCarData: CarData | null) => {
-    console.log('Car data changed:', newCarData);
     setCarData(newCarData);
   };
   
@@ -196,15 +183,28 @@ useEffect(() => {
       
       if (type === 'idCard') {
         setIdCardImageFile(file);
-        // สร้าง URL ชั่วคราวสำหรับแสดงพรีวิว
         const previewUrl = URL.createObjectURL(file);
         setIdCardImagePreview(previewUrl);
       } else {
         setUserImageFile(file);
-        // สร้าง URL ชั่วคราวสำหรับแสดงพรีวิว
         const previewUrl = URL.createObjectURL(file);
         setUserImagePreview(previewUrl);
       }
+    }
+  };
+
+  // ฟังก์ชันลบรูปภาพ
+  const handleRemoveImage = (type: 'idCard' | 'user') => {
+    if (type === 'idCard') {
+      setIdCardImageFile(null);
+      setIdCardImagePreview(null);
+      // ลบรูปเดิมออกจาก userData ด้วย
+      setUserData(prev => ({ ...prev, idCardImage: '' }));
+    } else {
+      setUserImageFile(null);
+      setUserImagePreview(null);
+      // ลบรูปเดิมออกจาก userData ด้วย
+      setUserData(prev => ({ ...prev, userImage: '' }));
     }
   };
   
@@ -213,7 +213,6 @@ useEffect(() => {
     try {
       setUploadProgress(10);
       
-      // สร้าง FormData สำหรับส่งไปยัง API
       const formData = new FormData();
       formData.append('image', file);
       formData.append('type', type);
@@ -249,21 +248,15 @@ useEffect(() => {
   // ฟังก์ชันอัปเดตข้อมูลรถ
   const updateCarData = async (carData: CarData) => {
     try {
-      console.log('Updating car data:', carData);
-      
-      // หาข้อมูลรถของ driver นี้ก่อน
       const carsResponse = await fetch(`/api/cars/by-driver/${initialUser._id}`);
       if (!carsResponse.ok) {
         throw new Error('Failed to fetch existing car data');
       }
       
       const existingCars = await carsResponse.json();
-      console.log('Existing cars:', existingCars);
       
       if (existingCars && existingCars.length > 0) {
-        // อัปเดตรถคันแรก
         const carId = existingCars[0]._id;
-        console.log('Updating car ID:', carId);
         
         const updatePayload = {
           car_name: carData.car_name,
@@ -271,8 +264,6 @@ useEffect(() => {
           car_registration: carData.car_registration,
           car_type_id: carData.car_type_id
         };
-        
-        console.log('Update payload:', updatePayload);
         
         const updateResponse = await fetch(`/api/cars/${carId}`, {
           method: 'PUT',
@@ -282,16 +273,9 @@ useEffect(() => {
         
         if (!updateResponse.ok) {
           const errorData = await updateResponse.json();
-          console.error('Car update failed:', errorData);
           throw new Error(errorData.error || 'Failed to update car');
         }
-        
-        const updatedCar = await updateResponse.json();
-        console.log('Car updated successfully:', updatedCar);
       } else {
-        // สร้างรถใหม่ถ้าไม่มี
-        console.log('Creating new car for driver');
-        
         const createPayload = {
           car_name: carData.car_name,
           car_capacity: carData.car_capacity,
@@ -299,8 +283,6 @@ useEffect(() => {
           car_type_id: carData.car_type_id,
           user_id: initialUser._id
         };
-        
-        console.log('Create payload:', createPayload);
         
         const createResponse = await fetch('/api/cars', {
           method: 'POST',
@@ -310,12 +292,8 @@ useEffect(() => {
         
         if (!createResponse.ok) {
           const errorData = await createResponse.json();
-          console.error('Car creation failed:', errorData);
           throw new Error(errorData.error || 'Failed to create car');
         }
-        
-        const newCar = await createResponse.json();
-        console.log('Car created successfully:', newCar);
       }
     } catch (error) {
       console.error('Error updating car data:', error);
@@ -351,9 +329,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     // จัดการวันที่ก่อนส่ง API
     if (updateData.birthDate) {
       try {
-        // ตรวจสอบว่าเป็นรูปแบบ YYYY-MM-DD หรือไม่
         if (typeof updateData.birthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(updateData.birthDate)) {
-          // แปลงเป็น ISO string สำหรับบันทึกในฐานข้อมูล
           const date = new Date(updateData.birthDate + 'T00:00:00.000Z');
           if (!isNaN(date.getTime())) {
             updateData.birthDate = date.toISOString();
@@ -361,7 +337,6 @@ const handleSubmit = async (e: React.FormEvent) => {
         }
       } catch (dateError) {
         console.error('Error processing birthDate:', dateError);
-        // ถ้าแปลงวันที่ไม่ได้ ให้ลบออก
         delete updateData.birthDate;
       }
     }
@@ -377,7 +352,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (userData.password && userData.password !== '********') {
       // ไม่ต้องแฮชรหัสผ่านที่นี่ เพราะจะทำในฝั่ง API
     } else {
-      // ไม่มีการเปลี่ยนรหัสผ่าน
       delete updateData.password;
     }
     
@@ -443,6 +417,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             userImagePreview={userImagePreview}
             isEditing={true}
             handleFileChange={handleFileChange}
+            handleRemoveImage={handleRemoveImage}
             onCarDataChange={handleCarDataChange}
             carData={carData}
           />
@@ -461,6 +436,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             userImagePreview={userImagePreview}
             isEditing={true}
             handleFileChange={handleFileChange}
+            handleRemoveImage={handleRemoveImage}
           />
         );
       case 'admin':
@@ -471,6 +447,11 @@ const handleSubmit = async (e: React.FormEvent) => {
         return null;
     }
   };
+
+  // Don't render until mounted to prevent hydration issues
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center z-50">

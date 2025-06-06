@@ -1,4 +1,4 @@
-// app/dashboard/users/components/ViewUserModal.tsx - Fixed Version
+// app/dashboard/users/components/ViewUserModal.tsx - Fixed HTML structure
 import React, { useState, useEffect } from 'react';
 import { FiX, FiUser, FiMail, FiPhone, FiCalendar, FiCreditCard, FiMapPin, FiClock, FiActivity, FiTruck, FiInfo } from 'react-icons/fi';
 import { User } from '../types';
@@ -37,7 +37,7 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({ user, onClose }) => {
   useEffect(() => {
     if (user.role === 'driver' && user._id) {
       fetchAssignedCars();
-      fetchWorkTimeStats(); // เพิ่มสำหรับ driver
+      fetchWorkTimeStats();
     }
     
     if ((user.role === 'staff' || user.role === 'admin') && user._id) {
@@ -45,7 +45,6 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({ user, onClose }) => {
     }
   }, [user._id, user.role]);
 
-  // ดึงข้อมูลรถที่มอบหมายให้คนขับ
   const fetchAssignedCars = async () => {
     try {
       setLoadingCars(true);
@@ -61,20 +60,16 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({ user, onClose }) => {
     }
   };
 
-  // ดึงข้อมูลเวลาทำงาน
   const fetchWorkTimeStats = async () => {
     try {
-      // ดึงประวัติการเข้าทำงานล่าสุด
       const response = await fetch(`/api/work-logs/user/${user._id}?limit=30`);
       
       if (response.ok) {
         const workLogs = await response.json();
         
-        // คำนวณสถิติ
         const uniqueDates = new Set(workLogs.map((log: any) => log.date));
         const totalWorkDays = uniqueDates.size;
         
-        // คำนวณชั่วโมงเฉลี่ย (ถ้ามีข้อมูล check-in และ check-out)
         let totalHours = 0;
         let daysWithCompleteData = 0;
         
@@ -122,29 +117,23 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({ user, onClose }) => {
     }
   };
 
-const formatDate = (dateString: string | undefined) => {
+  const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '';
     
     try {
-      // ลองแปลงวันที่ในรูปแบบต่างๆ
       let date: Date;
       
-      // ถ้าเป็นรูปแบบ YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
         date = new Date(dateString + 'T00:00:00.000Z');
-      }
-      // ถ้าเป็น ISO string หรือรูปแบบอื่นๆ
-      else {
+      } else {
         date = new Date(dateString);
       }
       
-      // ตรวจสอบว่าวันที่ถูกต้องหรือไม่
       if (isNaN(date.getTime())) {
         console.warn('Invalid date:', dateString);
         return '';
       }
       
-      // แปลงเป็นรูปแบบที่แสดงผล (DD/MM/YYYY)
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
       const year = date.getFullYear();
@@ -155,6 +144,7 @@ const formatDate = (dateString: string | undefined) => {
       return '';
     }
   };
+
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl w-full max-w-4xl mx-4 max-h-[95vh] overflow-y-auto shadow-2xl">
@@ -180,7 +170,7 @@ const formatDate = (dateString: string | undefined) => {
         <div className="p-6">
           {/* Profile Section */}
           <div className="flex items-center mb-8 bg-gray-50 p-6 rounded-lg">
-            <div className="mr-4">
+            <div className="mr-4 flex-shrink-0">
               {user.userImage ? (
                 <img 
                   src={user.userImage} 
@@ -196,9 +186,9 @@ const formatDate = (dateString: string | undefined) => {
               )}
             </div>
             
-            <div className="flex-1">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">{user.name}</h3>
-              <div className="flex items-center mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-2xl font-bold text-gray-900 mb-2 truncate">{user.name}</h3>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                   user.role === 'driver' ? 'bg-blue-100 text-blue-800' :
                   user.role === 'station' ? 'bg-green-100 text-green-800' :
@@ -208,7 +198,7 @@ const formatDate = (dateString: string | undefined) => {
                   {getRoleText()}
                 </span>
                 {user.employeeId && (
-                  <span className="ml-3 text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                  <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
                     ID: {user.employeeId}
                   </span>
                 )}
@@ -230,8 +220,8 @@ const formatDate = (dateString: string | undefined) => {
           </div>
           
           {/* Main Information Grid */}
-          <div className="grid grid-cols-1 gap-8 mb-8">
-            {/* Personal Information - Full Width */}
+          <div className="space-y-8">
+            {/* Personal Information */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
               <h4 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
                 <FiInfo className="mr-2 text-blue-500" />
@@ -239,99 +229,94 @@ const formatDate = (dateString: string | undefined) => {
               </h4>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="flex items-start space-x-3">
-                  <FiMail className="mt-1 text-gray-400" size={18} />
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-600 mb-1">ອີເມວ</label>
-                    <p className="text-gray-900 break-words">{user.email}</p>
+                <div className="space-y-1">
+                  <div className="flex items-center text-gray-600 text-sm">
+                    <FiMail className="mr-2" size={16} />
+                    <span className="font-medium">ອີເມວ</span>
                   </div>
+                  <p className="text-gray-900 break-words text-sm pl-6">{user.email}</p>
                 </div>
                 
                 {user.phone && (
-                  <div className="flex items-start space-x-3">
-                    <FiPhone className="mt-1 text-gray-400" size={18} />
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">ເບີໂທ</label>
-                      <p className="text-gray-900">{user.phone}</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <FiPhone className="mr-2" size={16} />
+                      <span className="font-medium">ເບີໂທ</span>
                     </div>
+                    <p className="text-gray-900 text-sm pl-6">{user.phone}</p>
                   </div>
                 )}
                 
-                {/* แสดงวันเกิดเสมอสำหรับ staff และ driver */}
                 {(user.role === 'staff' || user.role === 'driver' || user.birthDate) && (
-                  <div className="flex items-start space-x-3">
-                    <FiCalendar className="mt-1 text-gray-400" size={18} />
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">ວັນເກີດ</label>
-                      <p className="text-gray-900">
-                        {user.birthDate ? formatDate(user.birthDate) : 'ບໍ່ມີຂໍ້ມູນ'}
-                      </p>
-                      {/* Debug info - แสดงเฉพาะในโหมด development */}
-                      {process.env.NODE_ENV === 'development' && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          Raw: {user.birthDate || 'undefined'}
-                        </p>
-                      )}
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <FiCalendar className="mr-2" size={16} />
+                      <span className="font-medium">ວັນເກີດ</span>
                     </div>
+                    <p className="text-gray-900 text-sm pl-6">
+                      {user.birthDate ? formatDate(user.birthDate) : 'ບໍ່ມີຂໍ້ມູນ'}
+                    </p>
                   </div>
                 )}
                 
                 {user.idCardNumber && (
-                  <div className="flex items-start space-x-3">
-                    <FiCreditCard className="mt-1 text-gray-400" size={18} />
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">ເລກບັດປະຊາຊົນ</label>
-                      <p className="text-gray-900">{user.idCardNumber}</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <FiCreditCard className="mr-2" size={16} />
+                      <span className="font-medium">ເລກບັດປະຊາຊົນ</span>
                     </div>
+                    <p className="text-gray-900 text-sm pl-6">{user.idCardNumber}</p>
                   </div>
                 )}
                 
                 {user.location && (
-                  <div className="flex items-start space-x-3">
-                    <FiMapPin className="mt-1 text-gray-400" size={18} />
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">ທີ່ຢູ່</label>
-                      <p className="text-gray-900">{user.location}</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <FiMapPin className="mr-2" size={16} />
+                      <span className="font-medium">ທີ່ຢູ່</span>
                     </div>
+                    <p className="text-gray-900 text-sm pl-6">{user.location}</p>
                   </div>
                 )}
 
                 {user.employeeId && (
-                  <div className="flex items-start space-x-3">
-                    <FiUser className="mt-1 text-gray-400" size={18} />
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">ລະຫັດພະນັກງານ</label>
-                      <p className="text-gray-900 font-mono text-lg">{user.employeeId}</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <FiUser className="mr-2" size={16} />
+                      <span className="font-medium">ລະຫັດພະນັກງານ</span>
                     </div>
+                    <p className="text-gray-900 font-mono text-sm pl-6">{user.employeeId}</p>
                   </div>
                 )}
 
                 {user.stationId && (
-                  <div className="flex items-start space-x-3">
-                    <FiMapPin className="mt-1 text-gray-400" size={18} />
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">ລະຫັດສະຖານີ</label>
-                      <p className="text-gray-900 font-mono text-lg">{user.stationId}</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <FiMapPin className="mr-2" size={16} />
+                      <span className="font-medium">ລະຫັດສະຖານີ</span>
                     </div>
+                    <p className="text-gray-900 font-mono text-sm pl-6">{user.stationId}</p>
                   </div>
                 )}
 
                 {user.stationName && (
-                  <div className="flex items-start space-x-3">
-                    <FiMapPin className="mt-1 text-gray-400" size={18} />
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">ຊື່ສະຖານີ</label>
-                      <p className="text-gray-900">{user.stationName}</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <FiMapPin className="mr-2" size={16} />
+                      <span className="font-medium">ຊື່ສະຖານີ</span>
                     </div>
+                    <p className="text-gray-900 text-sm pl-6">{user.stationName}</p>
                   </div>
                 )}
 
                 {(user.role === 'driver' || user.role === 'staff') && (
-                  <div className="flex items-start space-x-3">
-                    <FiClock className="mt-1 text-gray-400" size={18} />
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">ສະຖານະການເຮັດວຽກ</label>
-                      <span className={`inline-flex items-center px-3 py-1 text-sm font-medium rounded-full ${
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <FiClock className="mr-2" size={16} />
+                      <span className="font-medium">ສະຖານະການເຮັດວຽກ</span>
+                    </div>
+                    <div className="pl-6">
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
                         user.checkInStatus === 'checked-in' 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-red-100 text-red-800'
@@ -343,11 +328,13 @@ const formatDate = (dateString: string | undefined) => {
                 )}
 
                 {user.status && (
-                  <div className="flex items-start space-x-3">
-                    <FiActivity className="mt-1 text-gray-400" size={18} />
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-600 mb-1">ສະຖານະບັນຊີ</label>
-                      <span className={`inline-flex items-center px-3 py-1 text-sm font-medium rounded-full ${
+                  <div className="space-y-1">
+                    <div className="flex items-center text-gray-600 text-sm">
+                      <FiActivity className="mr-2" size={16} />
+                      <span className="font-medium">ສະຖານະບັນຊີ</span>
+                    </div>
+                    <div className="pl-6">
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
                         user.status === 'active' 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-gray-100 text-gray-800'
@@ -360,7 +347,7 @@ const formatDate = (dateString: string | undefined) => {
               </div>
             </div>
 
-            {/* Work Statistics - เหมือนเดิม */}
+            {/* Work Statistics */}
             {(user.role === 'staff' || user.role === 'admin' || user.role === 'driver') && (
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
@@ -394,13 +381,13 @@ const formatDate = (dateString: string | undefined) => {
                     </div>
                     
                     <div className="space-y-2 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-600">ເຂົ້າວຽກຄັ້ງສຸດທ້າຍ:</span>
-                        <span className="ml-2 text-gray-900">{workStats.lastCheckIn}</span>
+                      <div className="flex flex-wrap">
+                        <span className="font-medium text-gray-600 mr-2">ເຂົ້າວຽກຄັ້ງສຸດທ້າຍ:</span>
+                        <span className="text-gray-900">{workStats.lastCheckIn}</span>
                       </div>
-                      <div>
-                        <span className="font-medium text-gray-600">ອອກວຽກຄັ້ງສຸດທ້າຍ:</span>
-                        <span className="ml-2 text-gray-900">{workStats.lastCheckOut}</span>
+                      <div className="flex flex-wrap">
+                        <span className="font-medium text-gray-600 mr-2">ອອກວຽກຄັ້ງສຸດທ້າຍ:</span>
+                        <span className="text-gray-900">{workStats.lastCheckOut}</span>
                       </div>
                     </div>
                   </div>
@@ -409,34 +396,71 @@ const formatDate = (dateString: string | undefined) => {
                 )}
               </div>
             )}
-          </div>
 
-          {/* Car Information for Driver - เหมือนเดิม */}
-          {user.role === 'driver' && (
-            <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
-              {/* เนื้อหาเหมือนเดิม */}
-            </div>
-          )}
-
-          {/* ID Card Image */}
-          {user.idCardImage && (
-            <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
-              <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                <FiCreditCard className="mr-2 text-gray-500" />
-                ຮູບບັດປະຊາຊົນ
-              </h4>
-              <div className="flex justify-center">
-                <img 
-                  src={user.idCardImage} 
-                  alt="ID Card" 
-                  className="max-w-full max-h-96 object-contain rounded-lg border"
-                />
+            {/* Car Information for Driver */}
+            {user.role === 'driver' && (
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                  <FiTruck className="mr-2 text-blue-500" />
+                  ຂໍ້ມູນລົດທີ່ມອບໝາຍ
+                </h4>
+                
+                {loadingCars ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <span className="ml-3 text-gray-600">ກຳລັງໂຫລດ...</span>
+                  </div>
+                ) : assignedCars.length > 0 ? (
+                  <div className="space-y-4">
+                    {assignedCars.map((car) => (
+                      <div key={car._id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div>
+                            <span className="text-sm font-medium text-gray-600">ຊື່ລົດ</span>
+                            <p className="text-gray-900">{car.car_name}</p>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-600">ທະບຽນລົດ</span>
+                            <p className="text-gray-900 font-mono">{car.car_registration}</p>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-600">ຄວາມຈຸ</span>
+                            <p className="text-gray-900">{car.car_capacity} ທີ່ນັ່ງ</p>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-600">ປະເພດລົດ</span>
+                            <p className="text-gray-900">{car.carType?.carType_name || 'ບໍ່ລະບຸ'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">ຍັງບໍ່ມີລົດທີ່ມອບໝາຍ</p>
+                )}
               </div>
-            </div>
-          )}
+            )}
+
+            {/* ID Card Image */}
+            {user.idCardImage && (
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                  <FiCreditCard className="mr-2 text-gray-500" />
+                  ຮູບບັດປະຊາຊົນ
+                </h4>
+                <div className="flex justify-center">
+                  <img 
+                    src={user.idCardImage} 
+                    alt="ID Card" 
+                    className="max-w-full max-h-96 object-contain rounded-lg border"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Footer */}
-          <div className="flex justify-end pt-6 border-t border-gray-200">
+          <div className="flex justify-end pt-6 border-t border-gray-200 mt-8">
             <button
               className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
               onClick={onClose}
