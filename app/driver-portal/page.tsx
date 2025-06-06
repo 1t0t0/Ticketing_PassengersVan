@@ -13,6 +13,7 @@ import {
   FiAlertCircle,
   FiCheckCircle,
   FiClock,
+  
 } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
 import {
@@ -230,7 +231,7 @@ export default function EnhancedDriverPortalPage() {
     await fetchDashboardData(startDate, endDate);
   };
 
-  // Export PDF function (keeping existing implementation)
+  // Export PDF function (แก้ไข html2canvas options)
   const handleExportPDF = async () => {
     if (!dashboardData) {
       toast.error('ບໍ່ມີຂໍ້ມູນສຳລັບສົ່ງອອກ PDF');
@@ -263,11 +264,11 @@ export default function EnhancedDriverPortalPage() {
       document.body.appendChild(tempDiv);
       await document.fonts.ready;
 
+      // แก้ไข html2canvas options - เอา scale ออก
       const canvas = await html2canvas(tempDiv, {
-        scale: 2,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
+        background: '#ffffff',
         width: 794,
         height: tempDiv.scrollHeight + 80
       });
