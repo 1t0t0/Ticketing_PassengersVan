@@ -1,4 +1,4 @@
-// app/dashboard/users/components/ViewUserModal.tsx - Fixed HTML structure
+// app/dashboard/users/components/ViewUserModal.tsx - Fixed TypeScript types
 import React, { useState, useEffect } from 'react';
 import { FiX, FiUser, FiMail, FiPhone, FiCalendar, FiCreditCard, FiMapPin, FiClock, FiActivity, FiTruck, FiInfo } from 'react-icons/fi';
 import { User } from '../types';
@@ -23,6 +23,12 @@ interface WorkTimeStats {
   currentStatus: string;
 }
 
+interface WorkLog {
+  date: string;
+  action: 'check-in' | 'check-out';
+  timestamp: string;
+}
+
 interface ViewUserModalProps {
   user: User;
   onClose: () => void;
@@ -30,9 +36,9 @@ interface ViewUserModalProps {
 
 const ViewUserModal: React.FC<ViewUserModalProps> = ({ user, onClose }) => {
   const [assignedCars, setAssignedCars] = useState<Car[]>([]);
-  const [loadingCars, setLoadingCars] = useState(false);
+  const [loadingCars, setLoadingCars] = useState<boolean>(false);
   const [workStats, setWorkStats] = useState<WorkTimeStats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingStats, setLoadingStats] = useState<boolean>(false);
 
   useEffect(() => {
     if (user.role === 'driver' && user._id) {
@@ -45,12 +51,12 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({ user, onClose }) => {
     }
   }, [user._id, user.role]);
 
-  const fetchAssignedCars = async () => {
+  const fetchAssignedCars = async (): Promise<void> => {
     try {
       setLoadingCars(true);
       const response = await fetch(`/api/cars?user_id=${user._id}`);
       if (response.ok) {
-        const carsData = await response.json();
+        const carsData: Car[] = await response.json();
         setAssignedCars(carsData);
       }
     } catch (error) {
@@ -60,23 +66,24 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({ user, onClose }) => {
     }
   };
 
-  const fetchWorkTimeStats = async () => {
+  const fetchWorkTimeStats = async (): Promise<void> => {
     try {
+      setLoadingStats(true);
       const response = await fetch(`/api/work-logs/user/${user._id}?limit=30`);
       
       if (response.ok) {
-        const workLogs = await response.json();
+        const workLogs: WorkLog[] = await response.json();
         
-        const uniqueDates = new Set(workLogs.map((log: any) => log.date));
+        const uniqueDates = new Set(workLogs.map((log: WorkLog) => log.date));
         const totalWorkDays = uniqueDates.size;
         
         let totalHours = 0;
         let daysWithCompleteData = 0;
         
-        Array.from(uniqueDates).forEach(date => {
-          const dayLogs = workLogs.filter((log: any) => log.date === date);
-          const checkIn = dayLogs.find((log: any) => log.action === 'check-in');
-          const checkOut = dayLogs.find((log: any) => log.action === 'check-out');
+        Array.from(uniqueDates).forEach((date: string) => {
+          const dayLogs = workLogs.filter((log: WorkLog) => log.date === date);
+          const checkIn = dayLogs.find((log: WorkLog) => log.action === 'check-in');
+          const checkOut = dayLogs.find((log: WorkLog) => log.action === 'check-out');
           
           if (checkIn && checkOut) {
             const hours = (new Date(checkOut.timestamp).getTime() - new Date(checkIn.timestamp).getTime()) / (1000 * 60 * 60);
@@ -104,10 +111,12 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({ user, onClose }) => {
         lastCheckOut: 'ບໍ່ສາມາດໂຫລດຂໍ້ມູນໄດ້',
         currentStatus: 'ບໍ່ຮູ້ສະຖານະ'
       });
+    } finally {
+      setLoadingStats(false);
     }
   };
 
-  const getRoleText = () => {
+  const getRoleText = (): string => {
     switch(user.role) {
       case 'driver': return 'ຄົນຂັບລົດ';
       case 'staff': return 'ພະນັກງານຂາຍປີ້';
@@ -117,7 +126,7 @@ const ViewUserModal: React.FC<ViewUserModalProps> = ({ user, onClose }) => {
     }
   };
 
-  const formatDate = (dateString: string | undefined) => {
+  const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return '';
     
     try {

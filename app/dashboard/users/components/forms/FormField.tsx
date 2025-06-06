@@ -1,6 +1,8 @@
-// FormField.tsx - ปรับปรุงให้รองรับ select และ textarea
-import React from 'react';
+// FormField.tsx - Fixed TypeScript types and properly structured
+import React, { useState } from 'react';
+import { FiRefreshCw, FiCamera, FiX } from 'react-icons/fi';
 
+// Main FormField Component
 interface FormFieldProps {
   label: string;
   type?: string;
@@ -34,7 +36,7 @@ const FormField: React.FC<FormFieldProps> = ({
 }) => {
   const baseClasses = `w-full border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none ${icon ? 'pl-10' : ''} ${className}`;
 
-  const renderInput = () => {
+  const renderInput = (): JSX.Element => {
     if (as === 'select') {
       return (
         <select className={baseClasses} value={value} onChange={onChange} required={required} disabled={disabled}>
@@ -88,17 +90,58 @@ const FormField: React.FC<FormFieldProps> = ({
   );
 };
 
-// Shared Password Reset Hook
-import { useState } from 'react';
-import { resetUserPassword } from '../../api/user';
-import notificationService from '@/lib/notificationService';
+// Password Reset API Function Type
+interface PasswordResetResponse {
+  temporaryPassword: string;
+  message?: string;
+}
 
-export const usePasswordReset = (userId: string | undefined, updateUser: (field: string, value: string) => void) => {
-  const [showTempPassword, setShowTempPassword] = useState(false);
-  const [tempPassword, setTempPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+// Mock API function - replace with actual implementation
+const resetUserPassword = async (userId: string): Promise<PasswordResetResponse> => {
+  // This should be imported from your actual API module
+  const response = await fetch(`/api/users/${userId}/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to reset password');
+  }
+  
+  return response.json();
+};
 
-  const handleReset = async () => {
+// Mock notification service - replace with actual implementation
+const notificationService = {
+  success: (message: string): void => {
+    console.log('Success:', message);
+    // Replace with your actual notification implementation
+  },
+  error: (message: string): void => {
+    console.error('Error:', message);
+    // Replace with your actual notification implementation
+  }
+};
+
+// Password Reset Hook
+interface UsePasswordResetReturn {
+  showTempPassword: boolean;
+  tempPassword: string;
+  loading: boolean;
+  handleReset: () => Promise<void>;
+}
+
+export const usePasswordReset = (
+  userId: string | undefined, 
+  updateUser: (field: string, value: string) => void
+): UsePasswordResetReturn => {
+  const [showTempPassword, setShowTempPassword] = useState<boolean>(false);
+  const [tempPassword, setTempPassword] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const handleReset = async (): Promise<void> => {
     if (!userId) return;
     
     try {
@@ -108,9 +151,10 @@ export const usePasswordReset = (userId: string | undefined, updateUser: (field:
       setShowTempPassword(true);
       updateUser('password', response.temporaryPassword);
       notificationService.success('ລີເຊັດລະຫັດຜ່ານສຳເລັດ');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error resetting password:', error);
-      notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      notificationService.error(`ເກີດຂໍ້ຜິດພາດ: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -119,9 +163,7 @@ export const usePasswordReset = (userId: string | undefined, updateUser: (field:
   return { showTempPassword, tempPassword, loading, handleReset };
 };
 
-// Shared Password Field Component
-import { FiRefreshCw } from 'react-icons/fi';
-
+// Password Field Component
 interface PasswordFieldProps {
   value: string;
   onChange: (value: string) => void;
@@ -132,8 +174,14 @@ interface PasswordFieldProps {
   tempPassword?: string;
 }
 
-const PasswordField: React.FC<PasswordFieldProps> = ({
-  value, onChange, isEditing, onReset, loading, showTempPassword, tempPassword
+export const PasswordField: React.FC<PasswordFieldProps> = ({
+  value, 
+  onChange, 
+  isEditing = false, 
+  onReset, 
+  loading = false, 
+  showTempPassword = false, 
+  tempPassword = ''
 }) => (
   <div>
     <label className="block text-sm font-bold mb-2">ລະຫັດຜ່ານ</label>
@@ -167,8 +215,6 @@ const PasswordField: React.FC<PasswordFieldProps> = ({
 );
 
 // Image Upload Component
-import { FiCamera, FiX } from 'react-icons/fi';
-
 interface ImageUploadProps {
   label: string;
   file: File | null;
@@ -178,37 +224,64 @@ interface ImageUploadProps {
   id: string;
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({
-  label, file, preview, onFileChange, onRemove, id
-}) => (
-  <div>
-    <label className="block text-sm font-bold mb-2">{label}</label>
-    <input type="file" accept="image/*" className="hidden" id={id} onChange={onFileChange} />
-    <label
-      htmlFor={id}
-      className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors"
-    >
-      {file || preview ? (
-        <div className="relative w-full h-full">
-          <img 
-            src={file ? URL.createObjectURL(file) : preview || ''}
-            alt={`${label} Preview`} 
-            className="w-full h-full object-contain p-2 rounded"
-          />
-          <button 
-            type="button"
-            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-            onClick={(e) => { e.preventDefault(); onRemove(); }}
-          >
-            <FiX size={14} />
-          </button>
-        </div>
-      ) : (
-        <div className="text-center">
-          <FiCamera className="mx-auto text-3xl text-gray-400 mb-2" />
-          <p className="text-sm text-gray-600">{label}</p>
-        </div>
-      )}
-    </label>
-  </div>
-);
+export const ImageUpload: React.FC<ImageUploadProps> = ({
+  label, 
+  file, 
+  preview, 
+  onFileChange, 
+  onRemove, 
+  id
+}) => {
+  const getImageSrc = (): string => {
+    if (file) {
+      return URL.createObjectURL(file);
+    }
+    return preview || '';
+  };
+
+  const handleRemoveClick = (e: React.MouseEvent<HTMLButtonElement>): void => {
+    e.preventDefault();
+    onRemove();
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-bold mb-2">{label}</label>
+      <input 
+        type="file" 
+        accept="image/*" 
+        className="hidden" 
+        id={id} 
+        onChange={onFileChange} 
+      />
+      <label
+        htmlFor={id}
+        className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors"
+      >
+        {file || preview ? (
+          <div className="relative w-full h-full">
+            <img 
+              src={getImageSrc()}
+              alt={`${label} Preview`} 
+              className="w-full h-full object-contain p-2 rounded"
+            />
+            <button 
+              type="button"
+              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+              onClick={handleRemoveClick}
+            >
+              <FiX size={14} />
+            </button>
+          </div>
+        ) : (
+          <div className="text-center">
+            <FiCamera className="mx-auto text-3xl text-gray-400 mb-2" />
+            <p className="text-sm text-gray-600">{label}</p>
+          </div>
+        )}
+      </label>
+    </div>
+  );
+};
+
+export default FormField;
