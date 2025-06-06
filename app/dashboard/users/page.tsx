@@ -129,14 +129,15 @@ export default function UserManagementPage() {
           <div className="space-x-2">
             {/* ปุ่ม Auto Checkout - แสดงเฉพาะ Admin */}
             {isAdmin() && (
+              
               <button 
                 onClick={() => setShowAutoCheckoutModal(true)}
                 className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
                 title="ຕັ້ງຄ່າ Auto Checkout"
               >
-                <FiClock className="inline mr-1" size={16} />
                 ຕັ້ງເວລາ Checkout
               </button>
+              
             )}
             
             {canAddUser() && (

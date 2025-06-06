@@ -467,8 +467,8 @@ export default function StationPortalPage() {
   // Calculate date range based on period
   const calculateDateRange = (period: string) => {
     const today = new Date();
-    let newStartDate = new Date(today);
-    let newEndDate = new Date(today);
+    const newStartDate = new Date(today);
+    const newEndDate = new Date(today);
     
     switch (period) {
       case 'ວັນນີ້':

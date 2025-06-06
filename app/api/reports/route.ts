@@ -441,7 +441,7 @@ async function getDriverReport(startDate: Date, endDate: Date) {
     }, {});
     
     const dateArray = [];
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
     const endDateOnly = new Date(endDate);
     
     while (currentDate <= endDateOnly) {
@@ -530,7 +530,7 @@ async function getDriverReport(startDate: Date, endDate: Date) {
     const driverIncomeMap = new Map();
     let totalRevenue = 0;
     let totalWorkDays = 0;
-    let totalWorkingDriversInPeriod = new Set();
+    const totalWorkingDriversInPeriod = new Set();
     
     allDrivers.forEach(driver => {
       // ดึงข้อมูล Work Logs สำหรับคนขับนี้

@@ -88,7 +88,7 @@ export async function POST(
     }
     
     // Update check in status
-    let updateData: any = {
+    const updateData: any = {
       checkInStatus
     };
     

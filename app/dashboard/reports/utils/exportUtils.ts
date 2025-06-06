@@ -1,7 +1,117 @@
-// app/dashboard/reports/utils/exportUtils.ts - แก้ไขให้สร้าง PDF จริง
+// app/dashboard/reports/utils/exportUtils.ts - แก้ไข TypeScript errors
+
+// ===== TYPE DEFINITIONS =====
+interface Period {
+  startDate: string;
+  endDate: string;
+}
+
+interface QuickStats {
+  totalTickets?: number;
+  totalRevenue?: number;
+  activeDrivers?: number;
+  avgTicketPrice?: number;
+}
+
+interface PaymentMethod {
+  _id: string;
+  count: number;
+  revenue: number;
+}
+
+interface CarType {
+  carType_name: string;
+  count: number;
+  activeCars?: number;
+}
+
+interface User {
+  name: string;
+  employeeId: string;
+  checkInStatus?: 'checked-in' | 'checked-out';
+}
+
+interface Car {
+  car_id?: string;
+  car_name?: string;
+  car_registration?: string;
+  carType?: CarType;
+  car_capacity?: number;
+  user_id?: User;
+}
+
+interface Driver {
+  name?: string;
+  employeeId?: string;
+  workDays?: number;
+  totalIncome?: number;
+  performance?: string;
+  lastCheckIn?: string;
+  lastCheckOut?: string;
+}
+
+interface Staff {
+  name?: string;
+  employeeId?: string;
+  checkInStatus?: 'checked-in' | 'checked-out';
+  ticketsSold?: number;
+  workDays?: number;
+  lastCheckIn?: string;
+  lastCheckOut?: string;
+}
+
+interface FinancialBreakdownItem {
+  totalAmount?: number;
+  transactionCount?: number;
+}
+
+interface FinancialBreakdown {
+  company?: FinancialBreakdownItem;
+  station?: FinancialBreakdownItem;
+  driver?: FinancialBreakdownItem;
+}
+
+interface SummaryData {
+  totalTickets?: number;
+  totalRevenue?: number;
+  averagePrice?: number;
+  totalDrivers?: number;
+  workingDriversInPeriod?: number;
+  revenuePerDriver?: number;
+  totalIncome?: number;
+  activeDrivers?: number;
+  totalCars?: number;
+  activeCars?: number;
+  totalCarTypes?: number;
+  driversWithCars?: number;
+  totalStaff?: number;
+  activeStaff?: number;
+  totalTicketsSold?: number;
+  totalWorkDays?: number;
+}
+
+interface ReportData {
+  period: Period;
+  quickStats?: QuickStats;
+  summary?: SummaryData;
+  paymentMethods?: PaymentMethod[];
+  carTypes?: CarType[];
+  cars?: Car[];
+  drivers?: Driver[];
+  staff?: Staff[];
+  breakdown?: FinancialBreakdown;
+  sales?: SummaryData;
+  financial?: FinancialBreakdown;
+}
+
+type ReportType = 'summary' | 'sales' | 'drivers' | 'financial' | 'vehicles' | 'staff';
+
+type FormatCurrencyFunction = (amount: number) => string;
+
+// ===== MAIN EXPORT FUNCTIONS =====
 
 // ฟังก์ชันสร้าง PDF จริงโดยใช้ jsPDF
-export const exportToPDF = async (reportData: any, reportType: string) => {
+export const exportToPDF = async (reportData: ReportData, reportType: ReportType): Promise<void> => {
   try {
     // Import jsPDF และ html2canvas
     const { default: jsPDF } = await import('jspdf');
@@ -26,12 +136,11 @@ export const exportToPDF = async (reportData: any, reportType: string) => {
     // รอให้ fonts โหลดเสร็จ
     await document.fonts.ready;
 
-    // แปลงเป็น canvas
+    // แปลงเป็น canvas - เอา scale ออกและปรับ options
     const canvas = await html2canvas(tempDiv, {
-      scale: 2,
       useCORS: true,
       allowTaint: true,
-      backgroundColor: '#ffffff',
+      background: '#ffffff',
       width: 794,
       height: tempDiv.scrollHeight + 80
     });
@@ -87,7 +196,7 @@ export const exportToPDF = async (reportData: any, reportType: string) => {
 };
 
 // ฟังก์ชัน fallback ใช้ browser print
-const exportToPDFBrowserFallback = async (reportData: any, reportType: string) => {
+const exportToPDFBrowserFallback = async (reportData: ReportData, reportType: ReportType): Promise<void> => {
   const htmlContent = generatePDFContent(reportData, reportType);
   
   const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -111,7 +220,7 @@ const exportToPDFBrowserFallback = async (reportData: any, reportType: string) =
 };
 
 // ฟังก์ชันพิมพ์เหมือนเดิม
-export const printReport = (reportData: any, reportType: string) => {
+export const printReport = (reportData: ReportData, reportType: ReportType): void => {
   try {
     const htmlContent = generatePDFContent(reportData, reportType);
     
@@ -161,12 +270,14 @@ export const printReport = (reportData: any, reportType: string) => {
   }
 };
 
+// ===== HELPER FUNCTIONS =====
+
 // ฟังก์ชันสร้างเนื้อหา HTML ที่เหมาะสำหรับ PDF
-const generatePDFContent = (reportData: any, reportType: string) => {
-  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('lo-LA');
-  const formatCurrency = (amount: number) => `₭${amount.toLocaleString()}`;
-  const getReportTitle = (type: string) => {
-    const titles = {
+const generatePDFContent = (reportData: ReportData, reportType: ReportType): string => {
+  const formatDate = (dateStr: string): string => new Date(dateStr).toLocaleDateString('lo-LA');
+  const formatCurrency = (amount: number): string => `₭${amount.toLocaleString()}`;
+  const getReportTitle = (type: ReportType): string => {
+    const titles: Record<ReportType, string> = {
       'summary': 'ສະຫຼຸບລວມ',
       'sales': 'ລາຍງານຍອດຂາຍ', 
       'drivers': 'ລາຍງານພະນັກງານຂັບລົດ',
@@ -174,7 +285,7 @@ const generatePDFContent = (reportData: any, reportType: string) => {
       'vehicles': 'ລາຍງານຂໍ້ມູນລົດ',
       'staff': 'ລາຍງານພະນັກງານຂາຍປີ້'
     };
-    return titles[type as keyof typeof titles] || 'ລາຍງານ';
+    return titles[type];
   };
 
   return `
@@ -369,7 +480,7 @@ const generatePDFContent = (reportData: any, reportType: string) => {
   `;
 };
 
-const generateContentByType = (reportData: any, reportType: string, formatCurrency: any) => {
+const generateContentByType = (reportData: ReportData, reportType: ReportType, formatCurrency: FormatCurrencyFunction): string => {
   switch (reportType) {
     case 'summary':
       return generateSummaryContent(reportData, formatCurrency);
@@ -380,23 +491,24 @@ const generateContentByType = (reportData: any, reportType: string, formatCurren
     case 'financial':
       return generateFinancialContent(reportData, formatCurrency);
     case 'vehicles':
-      return generateVehiclesContent(reportData, formatCurrency);
+      return generateVehiclesContent(reportData);
     case 'staff':
-      return generateStaffContent(reportData, formatCurrency);
+      return generateStaffContent(reportData);
     default:
       return '<div class="content-section">ບໍ່ມີຂໍ້ມູນ</div>';
   }
 };
 
-// เพิ่มฟังก์ชันสำหรับรายงานรถ
-const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
+// ===== CONTENT GENERATORS =====
+
+const generateVehiclesContent = (reportData: ReportData, ): string => {
   const summary = reportData.summary || {};
   const carTypes = reportData.carTypes || [];
   const cars = reportData.cars || [];
   
   let carTypesTable = '';
   if (carTypes.length > 0) {
-    const carTypeRows = carTypes.map((type: any) => `
+    const carTypeRows = carTypes.map((type: CarType) => `
       <tr>
         <td><strong>${type.carType_name}</strong></td>
         <td class="text-center">${type.count}</td>
@@ -422,7 +534,7 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
 
   let carsTable = '';
   if (cars.length > 0) {
-    const carRows = cars.slice(0, 15).map((car: any, index: number) => `
+    const carRows = cars.slice(0, 15).map((car: Car, index: number) => `
       <tr>
         <td class="text-center">${index + 1}</td>
         <td class="text-primary"><strong>${car.car_id || 'N/A'}</strong></td>
@@ -493,10 +605,7 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
   `;
 };
 
-
-
-
-const generateSummaryContent = (reportData: any, formatCurrency: any) => {
+const generateSummaryContent = (reportData: ReportData, formatCurrency: FormatCurrencyFunction): string => {
   const stats = reportData.quickStats || {};
   
   return `
@@ -533,14 +642,14 @@ const generateSummaryContent = (reportData: any, formatCurrency: any) => {
         </tr>
         <tr>
           <td><strong>🚗 ພະນັກງານຂັບລົດ</strong></td>
-          <td>${reportData.drivers?.totalDrivers || 0} ຄົນທັງໝົດ, <span class="text-success">${reportData.drivers?.activeDrivers || 0} ຄົນເຂົ້າວຽກ</span></td>
+          <td>${reportData.drivers?.length || 0} ຄົນທັງໝົດ, <span class="text-success">${reportData.summary?.activeDrivers || 0} ຄົນເຂົ້າວຽກ</span></td>
         </tr>
         <tr>
           <td><strong>💼 ການເງິນ</strong></td>
           <td>
-            ບໍລິສັດ <span class="currency">${formatCurrency(reportData.financial?.companyShare || 0)}</span> | 
-            ສະຖານີ <span class="currency">${formatCurrency(reportData.financial?.stationShare || 0)}</span> | 
-            ພະນັກງານຂັບລົດ <span class="currency">${formatCurrency(reportData.financial?.driverShare || 0)}</span>
+            ບໍລິສັດ <span class="currency">${formatCurrency(reportData.financial?.company?.totalAmount || 0)}</span> | 
+            ສະຖານີ <span class="currency">${formatCurrency(reportData.financial?.station?.totalAmount || 0)}</span> | 
+            ພະນັກງານຂັບລົດ <span class="currency">${formatCurrency(reportData.financial?.driver?.totalAmount || 0)}</span>
           </td>
         </tr>
       </table>
@@ -548,17 +657,17 @@ const generateSummaryContent = (reportData: any, formatCurrency: any) => {
   `;
 };
 
-const generateSalesContent = (reportData: any, formatCurrency: any) => {
+const generateSalesContent = (reportData: ReportData, formatCurrency: FormatCurrencyFunction): string => {
   const summary = reportData.summary || {};
   let paymentTable = '';
   
   if (reportData.paymentMethods && reportData.paymentMethods.length > 0) {
-    const paymentRows = reportData.paymentMethods.map((pm: any) => `
+    const paymentRows = reportData.paymentMethods.map((pm: PaymentMethod) => `
       <tr>
         <td><strong>${pm._id === 'cash' ? '💵 ເງິນສົດ' : '📱 ເງິນໂອນ'}</strong></td>
         <td class="text-center">${pm.count}</td>
         <td class="text-right currency">${formatCurrency(pm.revenue)}</td>
-        <td class="text-center">${Math.round((pm.count / summary.totalTickets) * 100)}%</td>
+        <td class="text-center">${summary.totalTickets ? Math.round((pm.count / summary.totalTickets) * 100) : 0}%</td>
       </tr>
     `).join('');
     
@@ -574,7 +683,7 @@ const generateSalesContent = (reportData: any, formatCurrency: any) => {
         <tr style="background: #f8f9fa; font-weight: bold;">
           <td><strong>📊 ລວມທັງໝົດ</strong></td>
           <td class="text-center">${summary.totalTickets}</td>
-          <td class="text-right currency">${formatCurrency(summary.totalRevenue)}</td>
+          <td class="text-right currency">${formatCurrency(summary.totalRevenue || 0)}</td>
           <td class="text-center">100%</td>
         </tr>
       </table>
@@ -605,15 +714,15 @@ const generateSalesContent = (reportData: any, formatCurrency: any) => {
   `;
 };
 
-const generateDriversContent = (reportData: any, formatCurrency: any) => {
+const generateDriversContent = (reportData: ReportData, formatCurrency: FormatCurrencyFunction): string => {
   const summary = reportData.summary || {};
   let driversTable = '';
   
   if (reportData.drivers && reportData.drivers.length > 0) {
-    const activeDrivers = reportData.drivers.filter((d: any) => d.totalIncome > 0).slice(0, 15);
+    const activeDrivers = reportData.drivers.filter((d: Driver) => (d.totalIncome || 0) > 0).slice(0, 15);
     
     if (activeDrivers.length > 0) {
-      const driverRows = activeDrivers.map((driver: any, index: number) => `
+      const driverRows = activeDrivers.map((driver: Driver, index: number) => `
         <tr>
           <td class="text-center">${index + 1}</td>
           <td><strong>${driver.name || 'ບໍ່ລະບຸ'}</strong></td>
@@ -700,7 +809,7 @@ const generateDriversContent = (reportData: any, formatCurrency: any) => {
   `;
 };
 
-const generateFinancialContent = (reportData: any, formatCurrency: any) => {
+const generateFinancialContent = (reportData: ReportData, formatCurrency: FormatCurrencyFunction): string => {
   const breakdown = reportData.breakdown || {};
   
   return `
@@ -750,32 +859,16 @@ const generateFinancialContent = (reportData: any, formatCurrency: any) => {
   `;
 };
 
-// Helper function to get report type name in Lao
-const getReportTypeName = (type: string) => {
-  const titles = {
-    'summary': 'ສະຫຼຸບລວມ',
-    'sales': 'ລາຍງານຍອດຂາຍ',
-    'drivers': 'ລາຍງານພະນັກງານຂັບລົດ',
-    'financial': 'ລາຍງານການເງິນ',
-    'vehicles': 'ລາຍງານຂໍ້ມູນລົດ',
-    'staff': 'ລາຍງານພະນັກງານຂາຍປີ້'
-  };
-  return titles[type as keyof typeof titles] || 'ລາຍງານ';
-};
-
-// app/dashboard/reports/utils/exportUtils.ts - เฉพาะส่วน Staff Report ที่แก้ไข
-
-// เพิ่มฟังก์ชันสำหรับรายงานพนักงาน - แก้ไขแล้ว
-const generateStaffContent = (reportData: any, formatCurrency: any) => {
+const generateStaffContent = (reportData: ReportData): string => {
   const summary = reportData.summary || {};
   const staff = reportData.staff || [];
   
   let staffTable = '';
   if (staff.length > 0) {
-    const activeStaff = staff.filter((s: any) => s.ticketsSold > 0 || s.checkInStatus === 'checked-in').slice(0, 15);
+    const activeStaff = staff.filter((s: Staff) => (s.ticketsSold || 0) > 0 || s.checkInStatus === 'checked-in').slice(0, 15);
     
     if (activeStaff.length > 0) {
-      const staffRows = activeStaff.map((member: any, index: number) => {
+      const staffRows = activeStaff.map((member: Staff, index: number) => {
         return `
           <tr>
             <td class="text-center">${index + 1}</td>
@@ -862,4 +955,17 @@ const generateStaffContent = (reportData: any, formatCurrency: any) => {
       </div>
     </div>
   `;
+};
+
+// Helper function to get report type name in Lao
+const getReportTypeName = (type: ReportType): string => {
+  const titles: Record<ReportType, string> = {
+    'summary': 'ສະຫຼຸບລວມ',
+    'sales': 'ລາຍງານຍອດຂາຍ',
+    'drivers': 'ລາຍງານພະນັກງານຂັບລົດ',
+    'financial': 'ລາຍງານການເງິນ',
+    'vehicles': 'ລາຍງານຂໍ້ມູນລົດ',
+    'staff': 'ລາຍງານພະນັກງານຂາຍປີ້'
+  };
+  return titles[type];
 };
