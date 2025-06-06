@@ -168,13 +168,13 @@ const generatePDFContent = (reportData: any, reportType: string) => {
   const getReportTitle = (type: string) => {
     const titles = {
       'summary': 'ສະຫຼຸບລວມ',
-      'sales': 'ບົດລາຍງານຍອດຂາຍ', 
-      'drivers': 'ບົດລາຍງານຄົນຂັບ',
-      'financial': 'ບົດລາຍງານການເງິນ',
-      'vehicles': 'ບົດລາຍງານຂໍ້ມູນລົດ',
-      'staff': 'ບົດລາຍງານພະນັກງານຂາຍປີ້'
+      'sales': 'ລາຍງານຍອດຂາຍ', 
+      'drivers': 'ລາຍງານພະນັກງານຂັບລົດ',
+      'financial': 'ລາຍງານການເງິນ',
+      'vehicles': 'ລາຍງານຂໍ້ມູນລົດ',
+      'staff': 'ລາຍງານພະນັກງານຂາຍປີ້'
     };
-    return titles[type as keyof typeof titles] || 'ບົດລາຍງານ';
+    return titles[type as keyof typeof titles] || 'ລາຍງານ';
   };
 
   return `
@@ -182,7 +182,7 @@ const generatePDFContent = (reportData: any, reportType: string) => {
     <html>
     <head>
       <meta charset="utf-8">
-      <title>ບົດລາຍງານ - ${getReportTitle(reportType)}</title>
+      <title>ລາຍງານ - ${getReportTitle(reportType)}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap');
         
@@ -348,7 +348,7 @@ const generatePDFContent = (reportData: any, reportType: string) => {
     <body>
       <div class="report-container">
         <div class="report-header">
-          <div class="report-title">ລະບົບບົດລາຍງານ - ${getReportTitle(reportType)}</div>
+          <div class="report-title">ລະບົບລາຍງານ - ${getReportTitle(reportType)}</div>
           <div class="report-subtitle">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງ</div>
           <div class="system-name">ລົດໄຟ ລາວ-ຈີນ</div>
         </div>
@@ -434,7 +434,7 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
           ${car.user_id ? `
             <div><strong>${car.user_id.name}</strong></div>
             <div style="font-size: 10px; color: #666;">${car.user_id.employeeId}</div>
-          ` : '<span style="color: #999;">ບໍ່ມີຄົນຂັບ</span>'}
+          ` : '<span style="color: #999;">ບໍ່ມີພະນັກງານຂັບລົດ</span>'}
         </td>
         <td class="text-center">
           <span class="${car.user_id?.checkInStatus === 'checked-in' ? 'status-active' : 'status-inactive'}">
@@ -453,7 +453,7 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
           <th class="text-center">ປ້າຍທະບຽນ</th>
           <th>ປະເພດ</th>
           <th class="text-center">ຄວາມຈຸ</th>
-          <th>ຄົນຂັບ</th>
+          <th>ພະນັກງານຂັບລົດ</th>
           <th class="text-center">ສະຖານະ</th>
         </tr>
         ${carRows}
@@ -463,7 +463,7 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
   
   return `
     <div class="content-section">
-      <div class="section-title">🚗 ບົດລາຍງານຂໍ້ມູນລົດ</div>
+      <div class="section-title">🚗 ລາຍງານຂໍ້ມູນລົດ</div>
       
       <div class="stats-grid">
         <div class="stat-card">
@@ -479,7 +479,7 @@ const generateVehiclesContent = (reportData: any, formatCurrency: any) => {
           <div class="stat-value">${summary.totalCarTypes || 0}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">👨‍✈️ ຄົນຂັບທີ່ມີລົດ</div>
+          <div class="stat-label">👨‍✈️ ພະນັກງານຂັບລົດທີ່ມີລົດ</div>
           <div class="stat-value">${summary.driversWithCars || 0}</div>
         </div>
       </div>
@@ -513,7 +513,7 @@ const generateSummaryContent = (reportData: any, formatCurrency: any) => {
           <div class="stat-value currency">${formatCurrency(stats.totalRevenue || 0)}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">👥 ຄົນຂັບເຂົ້າວຽກ</div>
+          <div class="stat-label">👥 ພະນັກງານຂັບລົດເຂົ້າວຽກ</div>
           <div class="stat-value">${stats.activeDrivers || 0}</div>
         </div>
         <div class="stat-card">
@@ -532,7 +532,7 @@ const generateSummaryContent = (reportData: any, formatCurrency: any) => {
           <td>${reportData.sales?.totalTickets || 0} ໃບ (<span class="currency">${formatCurrency(reportData.sales?.totalRevenue || 0)}</span>)</td>
         </tr>
         <tr>
-          <td><strong>🚗 ຄົນຂັບ</strong></td>
+          <td><strong>🚗 ພະນັກງານຂັບລົດ</strong></td>
           <td>${reportData.drivers?.totalDrivers || 0} ຄົນທັງໝົດ, <span class="text-success">${reportData.drivers?.activeDrivers || 0} ຄົນເຂົ້າວຽກ</span></td>
         </tr>
         <tr>
@@ -540,7 +540,7 @@ const generateSummaryContent = (reportData: any, formatCurrency: any) => {
           <td>
             ບໍລິສັດ <span class="currency">${formatCurrency(reportData.financial?.companyShare || 0)}</span> | 
             ສະຖານີ <span class="currency">${formatCurrency(reportData.financial?.stationShare || 0)}</span> | 
-            ຄົນຂັບ <span class="currency">${formatCurrency(reportData.financial?.driverShare || 0)}</span>
+            ພະນັກງານຂັບລົດ <span class="currency">${formatCurrency(reportData.financial?.driverShare || 0)}</span>
           </td>
         </tr>
       </table>
@@ -583,7 +583,7 @@ const generateSalesContent = (reportData: any, formatCurrency: any) => {
   
   return `
     <div class="content-section">
-      <div class="section-title">🎯 ບົດລາຍງານຍອດຂາຍ</div>
+      <div class="section-title">🎯 ລາຍງານຍອດຂາຍ</div>
       
       <div class="stats-grid">
         <div class="stat-card">
@@ -668,15 +668,15 @@ const generateDriversContent = (reportData: any, formatCurrency: any) => {
   
   return `
     <div class="content-section">
-      <div class="section-title">👥 ບົດລາຍງານຄົນຂັບ</div>
+      <div class="section-title">👥 ລາຍງານພະນັກງານຂັບລົດ</div>
       
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-label">👥 ຄົນຂັບທັງໝົດ</div>
+          <div class="stat-label">👥 ພະນັກງານຂັບລົດທັງໝົດ</div>
           <div class="stat-value">${summary.totalDrivers || 0}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">🏃 ຄົນຂັບທີ່ທຳງານ</div>
+          <div class="stat-label">🏃 ພະນັກງານຂັບລົດທີ່ທຳງານ</div>
           <div class="stat-value">${summary.workingDriversInPeriod || 0}</div>
         </div>
         <div class="stat-card">
@@ -689,8 +689,8 @@ const generateDriversContent = (reportData: any, formatCurrency: any) => {
         </div>
       </div>
       
-      <div class="section-title">👤 ລາຍລະອຽດຄົນຂັບ</div>
-      ${driversTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນຄົນຂັບທີ່ມີລາຍຮັບໃນຊ່ວງນີ້</p>'}
+      <div class="section-title">👤 ລາຍລະອຽດພະນັກງານຂັບລົດ</div>
+      ${driversTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນພະນັກງານຂັບລົດທີ່ມີລາຍຮັບໃນຊ່ວງນີ້</p>'}
       
       <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px; font-size: 12px;">
         <strong>📝 ໝາຍເຫດ:</strong> ຂໍ້ມູນທີ່ສະແດງເປັນຂໍ້ມູນໃນຊ່ວງເວລາທີ່ເລືອກເທົ່ານັ້ນ 
@@ -705,7 +705,7 @@ const generateFinancialContent = (reportData: any, formatCurrency: any) => {
   
   return `
     <div class="content-section">
-      <div class="section-title">💼 ບົດລາຍງານການເງິນ</div>
+      <div class="section-title">💼 ລາຍງານການເງິນ</div>
       
       <div class="stats-grid">
         <div class="stat-card">
@@ -734,7 +734,7 @@ const generateFinancialContent = (reportData: any, formatCurrency: any) => {
           <td class="text-center">${breakdown.station?.transactionCount || 0} ລາຍການ</td>
         </tr>
         <tr>
-          <td><strong>👥 ຄົນຂັບ</strong></td>
+          <td><strong>👥 ພະນັກງານຂັບລົດ</strong></td>
           <td class="text-right currency">${formatCurrency(breakdown.driver?.totalAmount || 0)}</td>
           <td class="text-center text-primary"><strong>85%</strong></td>
           <td class="text-center">${breakdown.driver?.transactionCount || 0} ລາຍການ</td>
@@ -754,13 +754,13 @@ const generateFinancialContent = (reportData: any, formatCurrency: any) => {
 const getReportTypeName = (type: string) => {
   const titles = {
     'summary': 'ສະຫຼຸບລວມ',
-    'sales': 'ບົດລາຍງານຍອດຂາຍ',
-    'drivers': 'ບົດລາຍງານຄົນຂັບ',
-    'financial': 'ບົດລາຍງານການເງິນ',
-    'vehicles': 'ບົດລາຍງານຂໍ້ມູນລົດ',
-    'staff': 'ບົດລາຍງານພະນັກງານຂາຍປີ້'
+    'sales': 'ລາຍງານຍອດຂາຍ',
+    'drivers': 'ລາຍງານພະນັກງານຂັບລົດ',
+    'financial': 'ລາຍງານການເງິນ',
+    'vehicles': 'ລາຍງານຂໍ້ມູນລົດ',
+    'staff': 'ລາຍງານພະນັກງານຂາຍປີ້'
   };
-  return titles[type as keyof typeof titles] || 'ບົດລາຍງານ';
+  return titles[type as keyof typeof titles] || 'ລາຍງານ';
 };
 
 // app/dashboard/reports/utils/exportUtils.ts - เฉพาะส่วน Staff Report ที่แก้ไข
@@ -832,7 +832,7 @@ const generateStaffContent = (reportData: any, formatCurrency: any) => {
   
   return `
     <div class="content-section">
-      <div class="section-title">👥 ບົດລາຍງານພະນັກງານຂາຍປີ້</div>
+      <div class="section-title">👥 ລາຍງານພະນັກງານຂາຍປີ້</div>
       
       <div class="stats-grid">
         <div class="stat-card">

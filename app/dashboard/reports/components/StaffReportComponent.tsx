@@ -17,7 +17,7 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
   }
 
   if (!reportData) {
-    return <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນພະນັກງານ</div>;
+    return <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນພະນັກງານຂາຍປີ້</div>;
   }
 
   const summary = reportData.summary || {};
@@ -34,7 +34,7 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard 
           icon={<FiUsers />} 
-          title="ພະນັກງານທັງໝົດ" 
+          title="ພະນັກງານຂາຍປີ້ທັງໝົດ" 
           value={summary.totalStaff || 0} 
           color="blue" 
         />
@@ -63,7 +63,7 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
       {/* Staff Performance Table - แก้ไขแล้ว */}
       {staff.length > 0 && (
         <div className="bg-white border rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດການປະຕິບັດງານພະນັກງານ</h3>
+          <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດການປະຕິບັດງານພະນັກງານຂາຍປີ້</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

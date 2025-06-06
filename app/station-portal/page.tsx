@@ -198,7 +198,7 @@ export default function StationPortalPage() {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>ບົດລາຍງານລາຍຮັບສະຖານີ</title>
+        <title>ລາຍງານລາຍຮັບສະຖານີ</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap');
           
@@ -339,7 +339,7 @@ export default function StationPortalPage() {
       <body>
         <div class="report-container">
           <div class="report-header">
-            <div class="report-title">ບົດລາຍງານລາຍຮັບສະຖານີ</div>
+            <div class="report-title">ລາຍງານລາຍຮັບສະຖານີ</div>
             <div style="font-size: 16px; color: #666;">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງ</div>
             <div style="font-size: 14px; color: #888;">ລົດໄຟ ລາວ-ຈີນ</div>
           </div>
@@ -366,7 +366,7 @@ export default function StationPortalPage() {
             </div>
             <div class="stat-card">
               <div class="stat-value">${data.workingDriversCount}</div>
-              <div class="stat-label">👥 ຄົນຂັບທີ່ເຮັດວຽກ</div>
+              <div class="stat-label">👥 ພະນັກງານຂັບລົດທີ່ເຮັດວຽກ</div>
             </div>
             <div class="stat-card">
               <div class="stat-value">${formatCurrency(data.averagePerTicket)}</div>
@@ -388,7 +388,7 @@ export default function StationPortalPage() {
             </div>
             
             <div class="breakdown-item">
-              <span><strong>👥 ຄົນຂັບລວມ (85%)</strong></span>
+              <span><strong>👥 ພະນັກງານຂັບລົດລວມ (85%)</strong></span>
               <span class="currency">${formatCurrency(data.driverRevenue)}</span>
             </div>
           </div>
@@ -603,7 +603,7 @@ export default function StationPortalPage() {
 
   // Prepare chart data
   const chartData = dashboardData ? {
-    labels: ['ບໍລິສັດ (10%)', 'ສະຖານີ (5%)', 'ຄົນຂັບ (85%)'],
+    labels: ['ບໍລິສັດ (10%)', 'ສະຖານີ (5%)', 'ພະນັກງານຂັບລົດ (85%)'],
     datasets: [
       {
         data: [
@@ -837,7 +837,7 @@ export default function StationPortalPage() {
                     color="green"
                   />
                   <RevenueCard
-                    title="ຄົນຂັບ (85%)"
+                    title="ພະນັກງານຂັບລົດ (85%)"
                     amount={dashboardData.driverRevenue}
                     color="orange"
                   />
@@ -896,7 +896,7 @@ export default function StationPortalPage() {
                       color="green"
                     />
                     <RevenueBreakdownItem
-                      label="ຄົນຂັບ (85%)"
+                      label="ພະນັກງານຂັບລົດ (85%)"
                       amount={dashboardData.driverRevenue}
                       transactions={dashboardData.totalTickets > 0 ? 1 : 0}
                       color="orange"

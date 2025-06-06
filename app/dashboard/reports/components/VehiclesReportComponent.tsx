@@ -69,7 +69,7 @@ const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ repor
         />
         <StatCard 
           icon={<FiUser />} 
-          title="ຄົນຂັບທີ່ມີລົດ" 
+          title="ພະນັກງານຂັບລົດທີ່ມີລົດ" 
           value={summary.driversWithCars || 0} 
           color="orange" 
         />
@@ -170,7 +170,7 @@ const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ repor
                   <th className="text-left p-2">ປ້າຍທະບຽນ</th>
                   <th className="text-left p-2">ປະເພດ</th>
                   <th className="text-center p-2">ຄວາມຈຸ</th>
-                  <th className="text-left p-2">ຄົນຂັບ</th>
+                  <th className="text-left p-2">ພະນັກງານຂັບລົດ</th>
                   <th className="text-center p-2">ສະຖານະ</th>
                 </tr>
               </thead>
@@ -189,7 +189,7 @@ const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ repor
                           <div className="text-xs text-gray-500">{car.user_id.employeeId}</div>
                         </div>
                       ) : (
-                        <span className="text-gray-400">ບໍ່ມີຄົນຂັບ</span>
+                        <span className="text-gray-400">ບໍ່ມີພະນັກງານຂັບລົດ</span>
                       )}
                     </td>
                     <td className="p-2 text-center">

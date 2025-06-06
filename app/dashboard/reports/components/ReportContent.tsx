@@ -46,7 +46,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard icon={<FiCreditCard />} title="ປີ້ທີ່ຂາຍ" value={stats.totalTickets || 0} color="blue" />
           <StatCard icon={<FiDollarSign />} title="ລາຍຮັບລວມ" value={`₭${(stats.totalRevenue || 0).toLocaleString()}`} color="green" />
-          <StatCard icon={<FiUsers />} title="ຄົນຂັບເຂົ້າວຽກ" value={stats.activeDrivers || 0} color="purple" />
+          <StatCard icon={<FiUsers />} title="ພະນັກງານຂັບລົດເຂົ້າວຽກ" value={stats.activeDrivers || 0} color="purple" />
           <StatCard icon="📊" title="ລາຄາເຊລີ່ຍ" value={`₭${(stats.avgTicketPrice || 0).toLocaleString()}`} color="orange" />
         </div>
 
@@ -66,7 +66,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
           </div>
 
           <div className="bg-white border rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-3">ຄົນຂັບ</h3>
+            <h3 className="text-lg font-semibold mb-3">ພະນັກງານຂັບລົດ</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>ທັງໝົດ:</span>
@@ -87,7 +87,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
                 <span className="font-semibold">₭{(reportData.financial?.totalRevenue || 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span>ສ່ວນແບ່ງຄົນຂັບ:</span>
+                <span>ສ່ວນແບ່ງພະນັກງານຂັບລົດ:</span>
                 <span className="font-semibold">₭{(reportData.financial?.driverShare || 0).toLocaleString()}</span>
               </div>
             </div>
@@ -144,7 +144,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
 
 const renderDriverReport = () => {
   if (!reportData || !Array.isArray(reportData.drivers)) {
-    return <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບ</div>;
+    return <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນພະນັກງານຂັບລົດ</div>;
   }
 
   const summary = reportData.summary || {};
@@ -153,16 +153,16 @@ const renderDriverReport = () => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="ຄົນຂັບທັງໝົດ" value={summary.totalDrivers || 0} color="blue" />
-        <StatCard title="ຄົນຂັບທີ່ທຳງານ" value={summary.workingDriversInPeriod || 0} color="green" />
+        <StatCard title="ພະນັກງານຂັບລົດທັງໝົດ" value={summary.totalDrivers || 0} color="blue" />
+        <StatCard title="ພະນັກງານຂັບລົດທີ່ທຳງານ" value={summary.workingDriversInPeriod || 0} color="green" />
         <StatCard title="ວັນທຳວຽກລວມ" value={summary.totalWorkDays || 0} color="purple" />
         <StatCard title="ລາຍຮັບຕໍ່ຄົນ" value={`₭${(metadata.revenuePerDriver || 0).toLocaleString()}`} color="orange" />
       </div>
 
       <div className="bg-white border rounded-lg p-4">
-        <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດຄົນຂັບ</h3>
+        <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດພະນັກງານຂັບລົດ</h3>
         {reportData.drivers.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຄົນຂັບທີ່ມີລາຍຮັບໃນຊ່ວງເວລານີ້</div>
+          <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນພະນັກງານຂັບລົດທີ່ມີລາຍຮັບໃນຊ່ວງເວລານີ້</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -239,7 +239,7 @@ const renderDriverReport = () => {
 
     const breakdown = reportData.breakdown;
     const chartData = {
-      labels: ['ບໍລິສັດ (10%)', 'ສະຖານີ (5%)', 'ຄົນຂັບ (85%)'],
+      labels: ['ບໍລິສັດ (10%)', 'ສະຖານີ (5%)', 'ພະນັກງານຂັບລົດ (85%)'],
       datasets: [{
         data: [
           breakdown.company?.totalAmount || 0,
@@ -256,7 +256,7 @@ const renderDriverReport = () => {
           <StatCard title="ລາຍຮັບລວມ" value={`₭${(reportData.summary?.totalRevenue || 0).toLocaleString()}`} color="blue" />
           <StatCard title="ບໍລິສັດ" value={`₭${(reportData.summary?.companyShare || 0).toLocaleString()}`} color="green" />
           <StatCard title="ສະຖານີ" value={`₭${(reportData.summary?.stationShare || 0).toLocaleString()}`} color="purple" />
-          <StatCard title="ຄົນຂັບ" value={`₭${(reportData.summary?.driverShare || 0).toLocaleString()}`} color="orange" />
+          <StatCard title="ພະນັກງານຂັບລົດ" value={`₭${(reportData.summary?.driverShare || 0).toLocaleString()}`} color="orange" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -288,7 +288,7 @@ const renderDriverReport = () => {
               
               <div className="flex justify-between items-center p-2 bg-orange-50 rounded">
                 <div>
-                  <p className="font-medium text-orange-900">ຄົນຂັບ (85%)</p>
+                  <p className="font-medium text-orange-900">ພະນັກງານຂັບລົດ (85%)</p>
                   <p className="text-sm text-orange-600">{breakdown.driver?.transactionCount || 0} ລາຍການ</p>
                 </div>
                 <p className="font-bold text-orange-600">₭{(breakdown.driver?.totalAmount || 0).toLocaleString()}</p>

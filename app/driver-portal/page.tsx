@@ -294,7 +294,7 @@ export default function EnhancedDriverPortalPage() {
 
       const today = new Date();
       const dateStr = today.toLocaleDateString('lo-LA').replace(/\//g, '-');
-      const fileName = `ລາຍງານລາຍຮັບຄົນຂັບ_${session?.user?.name}_${dateStr}.pdf`;
+      const fileName = `ລາຍງານລາຍຮັບພະນັກງານຂັບລົດ_${session?.user?.name}_${dateStr}.pdf`;
 
       pdf.save(fileName);
       document.body.removeChild(tempDiv);
@@ -336,7 +336,7 @@ export default function EnhancedDriverPortalPage() {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>ບົດລາຍງານລາຍຮັບຄົນຂັບ</title>
+        <title>ລາຍງານລາຍຮັບພະນັກງານພະນັກງານຂັບລົດ</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap');
           
@@ -413,13 +413,13 @@ export default function EnhancedDriverPortalPage() {
       <body>
         <div class="report-container">
           <div class="report-header">
-            <div class="report-title">ບົດລາຍງານລາຍຮັບຄົນຂັບ</div>
+            <div class="report-title">ລາຍງານລາຍຮັບພະນັກງານຂັບລົດ</div>
             <div style="font-size: 16px; color: #666;">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງ</div>
             <div style="font-size: 14px; color: #888;">ລົດໄຟ ລາວ-ຈີນ</div>
           </div>
           
           <div class="driver-info">
-            <h3 style="margin-bottom: 10px;">ຂໍ້ມູນຄົນຂັບ</h3>
+            <h3 style="margin-bottom: 10px;">ຂໍ້ມູນພະນັກງານຂັບລົດ</h3>
             <p><strong>ຊື່:</strong> ${data.driver.name}</p>
             <p><strong>ລະຫັດພະນັກງານ:</strong> ${data.driver.employeeId}</p>
             <p><strong>ສະຖານະປັດຈຸບັນ:</strong> 
@@ -444,7 +444,7 @@ export default function EnhancedDriverPortalPage() {
             </div>
             <div class="stat-card">
               <div class="stat-value">${data.workingDriversCount}</div>
-              <div class="stat-label">👥 ຄົນຂັບທີ່ເຮັດວຽກ</div>
+              <div class="stat-label">👥 ພະນັກງານຂັບລົດທີ່ເຮັດວຽກ</div>
             </div>
             <div class="stat-card">
               <div class="stat-value">${formatCurrency(data.averageDriverShare)}</div>
@@ -459,7 +459,7 @@ export default function EnhancedDriverPortalPage() {
               <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${formatCurrency(data.myExpectedShare)}</span>
             </div>
             <div style="font-size: 12px; color: #666; text-align: center; margin-top: 15px;">
-              💡 <strong>ວິທີຄິດໄລ່:</strong> ລາຍຮັບຄົນຂັບ ${formatCurrency(data.driverRevenue)} ÷ ${data.workingDriversCount} ຄົນ = ${formatCurrency(data.averageDriverShare)}
+              💡 <strong>ວິທີຄິດໄລ່:</strong> ລາຍຮັບພະນັກງານຂັບລົດ ${formatCurrency(data.driverRevenue)} ÷ ${data.workingDriversCount} ຄົນ = ${formatCurrency(data.averageDriverShare)}
             </div>
             ${data.dateRange ? `
             <div style="font-size: 11px; color: #666; text-align: center; margin-top: 10px;">
@@ -514,7 +514,7 @@ export default function EnhancedDriverPortalPage() {
 
   // Prepare chart data
   const chartData = dashboardData ? {
-    labels: ['ບໍລິສັດ (10%)', 'ສະຖານີ (5%)', 'ຄົນຂັບ (85%)'],
+    labels: ['ບໍລິສັດ (10%)', 'ສະຖານີ (5%)', 'ພະນັກງານຂັບລົດ (85%)'],
     datasets: [
       {
         data: [
@@ -578,7 +578,7 @@ export default function EnhancedDriverPortalPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-6">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">ລາຍຮັບຄົນຂັບ</h1>
+                <h1 className="text-2xl font-bold text-gray-900">ລາຍຮັບພະນັກງານຂັບລົດ</h1>
                 <p className="text-gray-600">ສະບາຍດີ, {session?.user?.name}</p>
                 {dashboardData && (
                   <div className="mt-1">
@@ -754,7 +754,7 @@ export default function EnhancedDriverPortalPage() {
                     color="green"
                   />
                   <RevenueCard
-                    title="ຄົນຂັບ (85%)"
+                    title="ພະນັກງານຂັບລົດ (85%)"
                     amount={dashboardData.driverRevenue}
                     color="orange"
                   />
@@ -796,7 +796,7 @@ export default function EnhancedDriverPortalPage() {
                       color="green"
                     />
                     <RevenueBreakdownItem
-                      label="ຄົນຂັບ (85%)"
+                      label="ພະນັກງານຂັບລົດ (85%)"
                       amount={dashboardData.driverRevenue}
                       transactions={dashboardData.totalTickets > 0 ? 1 : 0}
                       color="orange"
@@ -841,11 +841,11 @@ export default function EnhancedDriverPortalPage() {
                     <div className="space-y-3">
                       <div className="text-sm text-gray-600">
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span>ຄົນຂັບທີ່ມີສິດແບ່ງ:</span>
+                          <span>ພະນັກງານຂັບລົດທີ່ມີສິດແບ່ງ:</span>
                           <span className="font-medium">{dashboardData.workingDriversCount} ຄົນ</span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span>ລາຍຮັບສ່ວນຄົນຂັບລວມ:</span>
+                          <span>ລາຍຮັບສ່ວນພະນັກງານຂັບລົດລວມ:</span>
                           <span className="font-medium text-orange-600">{formatCurrency(dashboardData.driverRevenue)}</span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
@@ -862,7 +862,7 @@ export default function EnhancedDriverPortalPage() {
                     {/* คำอธิบายการคิดไล่ */}
                     <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                       <p className="text-xs text-yellow-800">
-                        <strong>💡 ວິທີຄິດໄລ່:</strong> ລາຍຮັບ 85% ({formatCurrency(dashboardData.driverRevenue)}) ÷ {dashboardData.workingDriversCount} ຄົນຂັບ = {formatCurrency(dashboardData.averageDriverShare)} ຕໍ່ຄົນ
+                        <strong>💡 ວິທີຄິດໄລ່:</strong> ລາຍຮັບ 85% ({formatCurrency(dashboardData.driverRevenue)}) ÷ {dashboardData.workingDriversCount} ພະນັກງານຂັບລົດ = {formatCurrency(dashboardData.averageDriverShare)} ຕໍ່ຄົນ
                       </p>
                       {dashboardData.driver.checkInStatus === 'checked-out' && (
                         <p className="text-xs text-amber-700 mt-1">

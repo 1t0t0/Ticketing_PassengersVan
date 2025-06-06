@@ -39,9 +39,9 @@ const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
     },
     { 
       id: 'drivers', 
-      title: 'ຄົນຂັບ', 
+      title: 'ພະນັກງານຂັບລົດ', 
       icon: <FiUsers />, 
-      description: 'ສະຖິຕິຄົນຂັບ',
+      description: 'ສະຖິຕິພະນັກງານຂັບລົດ',
       roles: ['admin', 'staff', 'station'] 
     },
     { 
@@ -60,7 +60,7 @@ const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
     },
     { 
       id: 'staff', 
-      title: 'ພະນັກງານ', 
+      title: 'ພະນັກງານຂາຍປີ້', 
       icon: <FiUserCheck />, 
       description: 'ລາຍງານພະນັກງານຂາຍປີ້',
       roles: ['admin', 'station'] // ❌ ลบ 'staff' ออก - เฉพาะ admin และ station เท่านั้น
