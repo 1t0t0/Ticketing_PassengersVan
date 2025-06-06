@@ -1,7 +1,7 @@
 // app/dashboard/reports/components/ReportContent.tsx
 import React from 'react';
 import { FiCreditCard, FiDollarSign, FiUsers } from 'react-icons/fi';
-import { Line, Doughnut } from 'react-chartjs-2';
+import { Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,

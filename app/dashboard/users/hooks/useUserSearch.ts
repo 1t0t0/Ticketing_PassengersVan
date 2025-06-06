@@ -49,25 +49,102 @@ export default function useUserSearch(
   // อ้างอิงไปยัง timeout เพื่อใช้ในการยกเลิก
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // เรียกใช้ API ค้นหาผู้ใช้
+  const searchUsers = useCallback(async (term: string) => {
+    try {
+      // ถ้า term เป็นค่าว่าง ให้แสดงข้อมูลทั้งหมด
+      if (!term.trim()) {
+        setSearchResults([]);
+        setHasSearched(false);
+        setIsSearching(false);
+        return;
+      }
+      
+      // สำหรับเวอร์ชันนี้ เราจะทำการค้นหาจากข้อมูลที่มีในหน้า
+      // ในอนาคตสามารถแก้ไขให้เรียกใช้ API search ได้
+      const filtered = usersRef.current.filter((user) => {
+        const searchableFields = [
+          user.name,
+          user.email,
+          user.phone,
+          user.employeeId,
+          user.stationId,
+        ];
+        
+        // ค้นหาใน field ต่างๆ แบบไม่สนใจตัวพิมพ์เล็ก/ใหญ่
+        return searchableFields.some((field) => 
+          field?.toString().toLowerCase().includes(term.toLowerCase())
+        );
+      });
+      
+      setSearchResults(filtered);
+      setHasSearched(true);
+      
+      // รีเซ็ต pagination ไปที่หน้าแรก
+      setPagination(prev => ({
+        ...prev,
+        currentPage: 1,
+        totalItems: filtered.length,
+        totalPages: Math.ceil(filtered.length / prev.itemsPerPage),
+      }));
+      
+    } catch (error) {
+      console.error('Error searching users:', error);
+      notificationService.error('ເກີດຂໍ້ຜິດພາດໃນການຄົ້ນຫາ');
+    } finally {
+      setIsSearching(false);
+    }
+  }, []); // ไม่มี dependencies เพราะใช้ usersRef
+
+  // ฟังก์ชันสำหรับการค้นหา
+  const handleSearch = useCallback((term?: string) => {
+    const termToSearch = term !== undefined ? term : searchTerm;
+    searchUsers(termToSearch);
+  }, [searchTerm, searchUsers]);
+
+  // ฟังก์ชันสำหรับล้างการค้นหา
+  const handleClearSearch = useCallback(() => {
+    setSearchTerm('');
+    setSearchResults([]);
+    setIsSearching(false);
+    setHasSearched(false);
+    
+    // รีเซ็ต pagination
+    setPagination(prev => ({
+      ...prev,
+      currentPage: 1,
+      totalItems: usersRef.current.length,
+      totalPages: Math.ceil(usersRef.current.length / prev.itemsPerPage),
+    }));
+  }, []); // ไม่มี dependencies เพราะใช้ usersRef
+
+  // ฟังก์ชันเปลี่ยนหน้า
+  const handlePageChange = useCallback((page: number) => {
+    setPagination(prev => ({
+      ...prev,
+      currentPage: page,
+    }));
+  }, []);
+
   // รีเซ็ต pagination เมื่อ users เปลี่ยน
   useEffect(() => {
     if (!hasSearched) {
-      setPagination({
-        ...pagination,
+      setPagination(prev => ({
+        ...prev,
         totalItems: users.length,
-        totalPages: Math.ceil(users.length / pagination.itemsPerPage),
-      });
+        totalPages: Math.ceil(users.length / prev.itemsPerPage),
+      }));
     }
-  }, [users, hasSearched, pagination.itemsPerPage]);
+  }, [users, hasSearched]);
 
   // อัพเดทผลลัพธ์ตาม pagination
   useEffect(() => {
     if (searchResults.length > 0) {
-      setPagination({
-        ...pagination,
+      setPagination(prev => ({
+        ...prev,
         totalItems: searchResults.length,
-        totalPages: Math.ceil(searchResults.length / pagination.itemsPerPage),
-      });
+        totalPages: Math.ceil(searchResults.length / prev.itemsPerPage),
+      }));
     }
   }, [searchResults]);
 
@@ -105,84 +182,7 @@ export default function useUserSearch(
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [searchTerm]);
-
-  // เรียกใช้ API ค้นหาผู้ใช้
-  const searchUsers = useCallback(async (term: string) => {
-    try {
-      // ถ้า term เป็นค่าว่าง ให้แสดงข้อมูลทั้งหมด
-      if (!term.trim()) {
-        setSearchResults([]);
-        setHasSearched(false);
-        setIsSearching(false);
-        return;
-      }
-      
-      // สำหรับเวอร์ชันนี้ เราจะทำการค้นหาจากข้อมูลที่มีในหน้า
-      // ในอนาคตสามารถแก้ไขให้เรียกใช้ API search ได้
-      const filtered = usersRef.current.filter((user) => {
-        const searchableFields = [
-          user.name,
-          user.email,
-          user.phone,
-          user.employeeId,
-          user.stationId,
-        ];
-        
-        // ค้นหาใน field ต่างๆ แบบไม่สนใจตัวพิมพ์เล็ก/ใหญ่
-        return searchableFields.some((field) => 
-          field?.toString().toLowerCase().includes(term.toLowerCase())
-        );
-      });
-      
-      setSearchResults(filtered);
-      setHasSearched(true);
-      
-      // รีเซ็ต pagination ไปที่หน้าแรก
-      setPagination({
-        ...pagination,
-        currentPage: 1,
-        totalItems: filtered.length,
-        totalPages: Math.ceil(filtered.length / pagination.itemsPerPage),
-      });
-      
-    } catch (error) {
-      console.error('Error searching users:', error);
-      notificationService.error('ເກີດຂໍ້ຜິດພາດໃນການຄົ້ນຫາ');
-    } finally {
-      setIsSearching(false);
-    }
-  }, [pagination.itemsPerPage]);
-
-  // ฟังก์ชันสำหรับการค้นหา
-  const handleSearch = useCallback((term?: string) => {
-    const termToSearch = term !== undefined ? term : searchTerm;
-    searchUsers(termToSearch);
-  }, [searchTerm, searchUsers]);
-
-  // ฟังก์ชันสำหรับล้างการค้นหา
-  const handleClearSearch = useCallback(() => {
-    setSearchTerm('');
-    setSearchResults([]);
-    setIsSearching(false);
-    setHasSearched(false);
-    
-    // รีเซ็ต pagination
-    setPagination({
-      ...pagination,
-      currentPage: 1,
-      totalItems: usersRef.current.length,
-      totalPages: Math.ceil(usersRef.current.length / pagination.itemsPerPage),
-    });
-  }, [pagination.itemsPerPage]);
-
-  // ฟังก์ชันเปลี่ยนหน้า
-  const handlePageChange = useCallback((page: number) => {
-    setPagination({
-      ...pagination,
-      currentPage: page,
-    });
-  }, [pagination]);
+  }, [searchTerm, hasSearched, handleSearch]);
 
   return {
     searchTerm,
