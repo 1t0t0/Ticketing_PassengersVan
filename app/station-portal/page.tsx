@@ -12,7 +12,6 @@ import {
   FiRefreshCw,
   FiDownload,
   FiAlertCircle,
-  FiCheckCircle,
   FiMapPin
 } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
@@ -21,6 +20,7 @@ import {
   ArcElement,
   Tooltip,
   Legend,
+  TooltipItem,
 } from 'chart.js';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -61,6 +61,36 @@ interface StationDashboardData {
   };
 }
 
+// Type for html2canvas options
+interface Html2CanvasOptions {
+  scale?: number;
+  useCORS?: boolean;
+  allowTaint?: boolean;
+  backgroundColor?: string;
+  width?: number;
+  height?: number;
+}
+
+// Type for jsPDF
+interface JSPDF {
+  addImage(
+    imageData: string,
+    format: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ): void;
+  addPage(): void;
+  save(filename: string): void;
+}
+
+// Type for html2canvas function
+type Html2Canvas = (
+  element: HTMLElement,
+  options?: Html2CanvasOptions
+) => Promise<HTMLCanvasElement>;
+
 export default function StationPortalPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -85,10 +115,10 @@ export default function StationPortalPage() {
   }, [status, session, router]);
 
   // Format currency
-  const formatCurrency = (amount: number) => `₭${amount.toLocaleString()}`;
+  const formatCurrency = (amount: number): string => `₭${amount.toLocaleString()}`;
 
   // Export PDF function
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (): Promise<void> => {
     if (!dashboardData) {
       toast.error('ບໍ່ມີຂໍ້ມູນສຳລັບສົ່ງອອກ PDF');
       return;
@@ -103,9 +133,12 @@ export default function StationPortalPage() {
     const loadingToastId = toast.loading('ກຳລັງສ້າງ PDF... 📄');
 
     try {
-      // Import jsPDF และ html2canvas
-      const { default: jsPDF } = await import('jspdf');
-      const { default: html2canvas } = await import('html2canvas');
+      // Import jsPDF และ html2canvas with proper typing
+      const jsPDFModule = await import('jspdf');
+      const html2canvasModule = await import('html2canvas');
+      
+      const jsPDF = jsPDFModule.default;
+      const html2canvas = html2canvasModule.default as Html2Canvas;
 
       // สร้างเนื้อหา HTML สำหรับ PDF
       const htmlContent = generateStationPDFContent(dashboardData, selectedPeriod, startDate, endDate);
@@ -137,7 +170,7 @@ export default function StationPortalPage() {
       });
 
       // สร้าง PDF
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdf = new jsPDF('p', 'mm', 'a4') as JSPDF;
       
       const imgData = canvas.toDataURL('image/png', 1.0);
       const imgWidth = 210;
@@ -176,13 +209,20 @@ export default function StationPortalPage() {
     } catch (error) {
       console.error('PDF export error:', error);
       toast.error('ເກີດຂໍ້ຜິດພາດໃນການສົ່ງອອກ PDF ❌');
+    } finally {
+      toast.dismiss(loadingToastId);
     }
   };
 
   // สร้างเนื้อหา PDF
-  const generateStationPDFContent = (data: StationDashboardData, period: string, start: string, end: string) => {
-    const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('lo-LA');
-    const getDisplayPeriod = () => {
+  const generateStationPDFContent = (
+    data: StationDashboardData, 
+    period: string, 
+    start: string, 
+    end: string
+  ): string => {
+    const formatDate = (dateStr: string): string => new Date(dateStr).toLocaleDateString('lo-LA');
+    const getDisplayPeriod = (): string => {
       switch (period) {
         case 'ວັນນີ້': return `ວັນນີ້ - ${formatDate(start)}`;
         case 'ມື້ວານ': return `ມື້ວານ - ${formatDate(start)}`;
@@ -415,7 +455,7 @@ export default function StationPortalPage() {
   };
 
   // Fetch dashboard data
-  const fetchDashboardData = async (queryStartDate?: string, queryEndDate?: string) => {
+  const fetchDashboardData = async (queryStartDate?: string, queryEndDate?: string): Promise<void> => {
     try {
       setError(null);
       if (!refreshing) setLoading(true);
@@ -446,7 +486,7 @@ export default function StationPortalPage() {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      setError(error instanceof Error ? error.message : 'เกิดขʍ້ผิดพลาดในการโหลดข້อมูล');
+      setError(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -454,7 +494,7 @@ export default function StationPortalPage() {
   };
 
   // Handle refresh
-  const handleRefresh = async () => {
+  const handleRefresh = async (): Promise<void> => {
     setRefreshing(true);
     
     if (selectedPeriod === 'ກຳໜົດເອງ') {
@@ -465,7 +505,7 @@ export default function StationPortalPage() {
   };
 
   // Calculate date range based on period
-  const calculateDateRange = (period: string) => {
+  const calculateDateRange = (period: string): { startDate: string; endDate: string } | null => {
     const today = new Date();
     const newStartDate = new Date(today);
     const newEndDate = new Date(today);
@@ -496,7 +536,7 @@ export default function StationPortalPage() {
   };
 
   // Handle period change
-  const handlePeriodChange = async (period: string) => {
+  const handlePeriodChange = async (period: string): Promise<void> => {
     setSelectedPeriod(period);
     
     if (period === 'ກຳໜົດເອງ') {
@@ -518,7 +558,7 @@ export default function StationPortalPage() {
   };
 
   // Handle custom date range update
-  const handleCustomDateUpdate = async () => {
+  const handleCustomDateUpdate = async (): Promise<void> => {
     if (!startDate || !endDate) {
       toast.error('กรุณาเลือกวันที่เริ่มต้นและวันที่สิ้นสุด');
       return;
@@ -575,7 +615,7 @@ export default function StationPortalPage() {
   }, [status, session]);
 
   // Format date for Lao display
-  const formatDateLao = (dateString: string) => {
+  const formatDateLao = (dateString: string): string => {
     const date = new Date(dateString);
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -584,7 +624,7 @@ export default function StationPortalPage() {
   };
 
   // Get display text for current period
-  const getDisplayPeriod = () => {
+  const getDisplayPeriod = (): string => {
     switch (selectedPeriod) {
       case 'ວັນນີ້':
         return `ວັນນີ້ - ${formatDateLao(selectedDate)}`;
@@ -630,8 +670,8 @@ export default function StationPortalPage() {
       },
       tooltip: {
         callbacks: {
-          label: function(context: any) {
-            return context.label + ': ' + formatCurrency(context.parsed);
+          label: function(context: TooltipItem<'doughnut'>) {
+            return context.label + ': ' + formatCurrency(context.parsed as number);
           }
         }
       }
@@ -924,11 +964,13 @@ export default function StationPortalPage() {
 }
 
 // Revenue Card Component
-const RevenueCard: React.FC<{
+interface RevenueCardProps {
   title: string;
   amount: number;
   color: 'blue' | 'green' | 'purple' | 'orange';
-}> = ({ title, amount, color }) => {
+}
+
+const RevenueCard: React.FC<RevenueCardProps> = ({ title, amount, color }) => {
   const colorClasses = {
     blue: 'bg-blue-50 border-blue-200 text-blue-700',
     green: 'bg-green-50 border-green-200 text-green-700',
@@ -954,12 +996,19 @@ const RevenueCard: React.FC<{
 };
 
 // Revenue Breakdown Item Component
-const RevenueBreakdownItem: React.FC<{
+interface RevenueBreakdownItemProps {
   label: string;
   amount: number;
   transactions: number;
   color: 'blue' | 'green' | 'orange';
-}> = ({ label, amount, transactions, color }) => {
+}
+
+const RevenueBreakdownItem: React.FC<RevenueBreakdownItemProps> = ({ 
+  label, 
+  amount, 
+  transactions, 
+  color 
+}) => {
   const colorClasses = {
     blue: 'text-blue-600',
     green: 'text-green-600',
