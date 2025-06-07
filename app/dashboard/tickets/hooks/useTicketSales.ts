@@ -362,7 +362,7 @@ export default function useTicketSales() {
                   <span class="detail-value">${getPaymentMethodText(ticket.paymentMethod)}</span>
                 </div>
 
-                 <div class="detail-item >
+                 <div class="detail-item" >
                   <span class="detail-label">ອອກໂດຍ/Payment</span>
                   <span class="detail-colon">:</span>
                   <span class="detail-value">${ticket.soldBy || 'System'}</span>

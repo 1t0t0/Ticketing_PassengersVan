@@ -1,4 +1,4 @@
-// app/driver-portal/layout.tsx
+// app/driver-portal/layout.tsx - อัปเดตเพื่อเพิ่ม menu ใหม่
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,7 +9,8 @@ import {
   FiDollarSign, 
   FiLogOut, 
   FiMenu, 
-  FiX
+  FiX,
+  FiTruck
 } from 'react-icons/fi';
 import { TbBus } from "react-icons/tb";
 import GoogleAlphabetIcon from '@/components/GoogleAlphabetIcon';
@@ -28,6 +29,12 @@ const menuItems: MenuItem[] = [
     href: '/driver-portal',
     icon: FiDollarSign,
     description: 'ເບິ່ງລາຍຮັບຂອງຕົນເອງ'
+  },
+  {
+    name: 'ຈັດການການເດີນທາງ',
+    href: '/driver-portal/trip-management',
+    icon: FiTruck,
+    description: 'ສະແກນ QR Code ແລະ ນັບຜູ້ໂດຍສານ'
   }
 ];
 
