@@ -1,4 +1,4 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts (Updated Receipt Style Layout)
+// app/dashboard/tickets/hooks/useTicketSales.ts - Enhanced with QR Code
 import { useState, useCallback } from 'react';
 import { createTicket } from '../api/ticket';
 import { DEFAULT_TICKET_PRICE, PAYMENT_METHODS } from '../config/constants';
@@ -6,7 +6,7 @@ import { Ticket } from '../types';
 import notificationService from '@/lib/notificationService';
 
 /**
- * Hook สำหรับจัดการการขายตั๋ว (แบบใบเสร็จสไตล์ใหม่)
+ * Hook สำหรับจัดการการขายตั๋ว พร้อม QR Code
  */
 export default function useTicketSales() {
   // State
@@ -43,6 +43,41 @@ export default function useTicketSales() {
         return method;
     }
   };
+
+  // ฟังก์ชันสร้าง QR Code Data สำหรับ Driver เท่านั้น
+  const generateQRCodeData = (ticket: Ticket) => {
+    const qrData = {
+      ticketNumber: ticket.ticketNumber,
+      price: ticket.price,
+      soldAt: ticket.soldAt,
+      paymentMethod: ticket.paymentMethod,
+      soldBy: ticket.soldBy,
+      route: "ສະຖານີລົດໄຟ-ຕົວເມືອງ",
+      forDriverOnly: true,
+      validationKey: `DRV-${ticket.ticketNumber}-${new Date(ticket.soldAt).getTime()}`
+    };
+    return JSON.stringify(qrData);
+  };
+
+  // ฟังก์ชันสร้าง QR Code SVG
+  const generateQRCodeSVG = async (data: string) => {
+    try {
+      // ใช้ QR Code library ที่มีอยู่
+      const QRCode = await import('qrcode');
+      const qrCodeDataURL = await QRCode.toDataURL(data, {
+        width: 80,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      return qrCodeDataURL;
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      return null;
+    }
+  };
   
   /**
    * ฟังก์ชันแสดง Modal ยืนยัน
@@ -67,7 +102,7 @@ export default function useTicketSales() {
   }, []);
 
   /**
-   * ฟังก์ชันยืนยันการขายตั๋ว - เปิด print dialog ทันที
+   * ฟังก์ชันยืนยันการขายตั๋ว - เปิด print dialog ทันที พร้อม QR Code
    */
   const confirmSellTicket = useCallback(async () => {
     setLoading(true);
@@ -95,7 +130,7 @@ export default function useTicketSales() {
       // แสดงข้อความสำเร็จ
       notificationService.success(`ອອກປີ້สຳເລັດ ${quantity} ໃບ`);
       
-      // เปิด print dialog ทันทีด้วยตั๋วที่เพิ่งสร้าง
+      // เปิด print dialog ทันทีด้วยตั๋วที่เพิ่งสร้าง พร้อม QR Code
       setTimeout(() => {
         handlePrintWithTickets(tickets);
       }, 100);
@@ -111,10 +146,19 @@ export default function useTicketSales() {
   }, [ticketPrice, paymentMethod, quantity]);
 
   /**
-   * ฟังก์ชันพิมพ์ตั๋วแบบใช้ iframe (Receipt Style)
+   * ฟังก์ชันพิมพ์ตั๋วแบบใช้ iframe พร้อม QR Code
    */
-  const handlePrintWithTickets = useCallback((tickets: Ticket[]) => {
+  const handlePrintWithTickets = useCallback(async (tickets: Ticket[]) => {
     if (tickets && tickets.length > 0) {
+      // สร้าง QR Code สำหรับแต่ละตั๋ว
+      const ticketsWithQR = await Promise.all(
+        tickets.map(async (ticket) => {
+          const qrData = generateQRCodeData(ticket);
+          const qrCodeImage = await generateQRCodeSVG(qrData);
+          return { ...ticket, qrCodeImage };
+        })
+      );
+
       // สร้าง iframe สำหรับพิมพ์
       const iframe = document.createElement('iframe');
       iframe.style.position = 'absolute';
@@ -126,12 +170,12 @@ export default function useTicketSales() {
       
       document.body.appendChild(iframe);
       
-      // สร้างเนื้อหา HTML สำหรับพิมพ์
+      // สร้างเนื้อหา HTML สำหรับพิมพ์ พร้อม QR Code
       const printHTML = `
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Bus Tickets - Receipt Style</title>
+          <title>Bus Tickets with QR Code</title>
           <meta charset="utf-8">
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Phetsarath:wght@400;700&display=swap');
@@ -172,7 +216,7 @@ export default function useTicketSales() {
             
             .receipt-header {
               text-align: center;
-              margin-bottom: 4mm;
+              margin-bottom: 2mm;
             }
             
             .company-name {
@@ -188,7 +232,7 @@ export default function useTicketSales() {
             
             .divider {
               border-top: 1px solid black;
-              margin: 3mm 0;
+              margin: 0.5mm 0;
             }
             
             .content-section {
@@ -226,9 +270,42 @@ export default function useTicketSales() {
               margin-left: auto;
             }
             
+            .qr-section {
+              text-align: center;
+              margin: 0mm 0;
+              background: #f8f9fa;
+              border-radius: 4px;
+            }
+            
+            .qr-code {
+              margin: 2mm 0;
+            }
+            
+            .qr-code img {
+              width: 100px;
+              height: 100px;
+              border: 1px solid #ddd;
+              background: white;
+              padding: 2px;
+            }
+            
+            .qr-label {
+              font-size: 10px;
+              color: #666;
+              font-weight: bold;
+              margin-bottom: 2px;
+            }
+            
+            .qr-note {
+              font-size: 8px;
+              color: #888;
+              margin-top: 2mm;
+              line-height: 1.2;
+            }
+            
             .receipt-footer {
               text-align: center;
-              margin-top: 4mm;
+              margin-top: 2mm;
               font-size: 13px;
               font-weight: bold;
               color: #666;
@@ -243,7 +320,7 @@ export default function useTicketSales() {
           </style>
         </head>
         <body>
-          ${tickets.map((ticket, index) => `
+          ${ticketsWithQR.map((ticket, index) => `
             <div class="receipt-container">
               <div class="receipt-header">
                 <div class="company-name">ປີ້ລົດຕູ້ໂດຍສານ</div>
@@ -284,31 +361,44 @@ export default function useTicketSales() {
                   <span class="detail-colon">:</span>
                   <span class="detail-value">${getPaymentMethodText(ticket.paymentMethod)}</span>
                 </div>
+
+                 <div class="detail-item >
+                  <span class="detail-label">ອອກໂດຍ/Payment</span>
+                  <span class="detail-colon">:</span>
+                  <span class="detail-value">${ticket.soldBy || 'System'}</span>
+                  </div>
+                
               </div>
               
               <div class="divider"></div>
               
               <div class="content-section" style="text-align: center;">
-                <div style="font-weight: bold; margin-bottom: 2mm;">ສະຖານີລົດໄຟ → ຕົວເມືອງ</div>
+                <div style="font-weight: bold; margin-bottom: 0mm;">ສະຖານີລົດໄຟ → ຕົວເມືອງ</div>
                 <div style="font-weight: bold;">TRAIN STATION → DOWNTOWN</div>
               </div>
               
               <div class="divider"></div>
               
-              <div class="content-section" style="text-align: center;">
-                <div>ອອກໂດຍ/Sold By:</div>
-                <div style="font-weight: bold;">${ticket.soldBy || 'System'}</div>
-              </div>
-              
-              <div class="divider"></div>
+              ${ticket.qrCodeImage ? `
+                <div class="qr-section">
+                  <div class="qr-code">
+                    <img src="${ticket.qrCodeImage}" alt="QR Code" />
+                  </div>
+                  <div class="qr-note">
+                    <strong>ສຳລັບພະນັກງານຂັບລົດເທົ່ານັ້ນ</strong><br>
+                    For Driver Verification Only<br>
+                    ໃຊ້ເພື່ອກວດສອບຄວາມຈຳນວນຄົນໃນລົດ
+                  </div>
+                </div>
+                
+                <div class="divider"></div>
+              ` : ''}
               
               <div class="receipt-footer">
                 <div style="margin-bottom: 2mm;">( ຂໍໃຫ້ທ່ານເດີນທາງປອດໄພ )</div>
-               
-                
               </div>
               
-              ${index < tickets.length - 1 ? `
+              ${index < ticketsWithQR.length - 1 ? `
                 <div class="cut-line">
                   
                 </div>
