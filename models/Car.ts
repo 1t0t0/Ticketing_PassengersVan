@@ -1,4 +1,4 @@
-// models/Car.ts - Enhanced with CarType reference
+// models/Car.ts - Enhanced with CarType reference (Fixed duplicate index)
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
 export interface ICar extends Document {
@@ -47,11 +47,12 @@ const carSchema = new Schema({
   }
 }, { timestamps: true });
 
-// Create indexes for better performance
+// Create indexes for better performance (ลบ duplicate indexes ออก)
 carSchema.index({ user_id: 1 });
 carSchema.index({ car_type_id: 1 });
-carSchema.index({ car_registration: 1 }, { unique: true });
-carSchema.index({ car_id: 1 }, { unique: true });
+// ลบ 2 บรรทัดนี้ออกเพราะ unique: true ใน schema definition จะสร้าง index ให้อัตโนมัติแล้ว
+// carSchema.index({ car_registration: 1 }, { unique: true }); // <-- ลบออก
+// carSchema.index({ car_id: 1 }, { unique: true }); // <-- ลบออก
 
 // Define static method to find cars by user ID
 carSchema.statics.findByUserId = function(userId: string) {

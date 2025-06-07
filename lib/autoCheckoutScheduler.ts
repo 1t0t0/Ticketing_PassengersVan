@@ -1,14 +1,68 @@
-// lib/autoCheckoutScheduler.ts
-import cron from 'node-cron';
+// lib/autoCheckoutScheduler.ts - Fixed TypeScript types
+import * as cron from 'node-cron';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import WorkLog from '@/models/WorkLog';
+import mongoose from 'mongoose';
 
 interface AutoCheckoutSettings {
   enabled: boolean;
   checkoutTime: string;
   timezone: string;
 }
+
+interface CheckedInUser {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  employeeId?: string;
+  role: string;
+  lastCheckIn?: Date;
+}
+
+interface AutoCheckoutResult {
+  userId: mongoose.Types.ObjectId;
+  name: string;
+  employeeId?: string;
+  role: string;
+  workHours?: number;
+  status: 'success' | 'failed';
+  error?: string;
+}
+
+interface AutoCheckoutLogEntry {
+  executedAt: Date;
+  totalUsers: number;
+  successfulCheckouts: number;
+  failedCheckouts: number;
+  details: AutoCheckoutResult[];
+  executionType: 'manual' | 'scheduled';
+  errorMessage?: string;
+}
+
+// Define Mongoose schemas with proper typing
+const AutoCheckoutSettingsSchema = new mongoose.Schema({
+  enabled: { type: Boolean, required: true },
+  checkoutTime: { type: String, required: true },
+  timezone: { type: String, default: 'Asia/Vientiane' },
+  lastRun: { type: Date },
+  affectedUsers: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+const AutoCheckoutLogSchema = new mongoose.Schema({
+  executedAt: { type: Date, default: Date.now },
+  totalUsers: { type: Number, required: true },
+  successfulCheckouts: { type: Number, required: true },
+  failedCheckouts: { type: Number, required: true },
+  details: [{ type: mongoose.Schema.Types.Mixed }],
+  executionType: { 
+    type: String, 
+    enum: ['manual', 'scheduled'], 
+    required: true 
+  },
+  errorMessage: { type: String }
+});
 
 class AutoCheckoutScheduler {
   private scheduledTask: cron.ScheduledTask | null = null;
@@ -17,7 +71,7 @@ class AutoCheckoutScheduler {
   /**
    * เริ่มต้นระบบ Auto Checkout Scheduler
    */
-  async initialize() {
+  async initialize(): Promise<void> {
     if (this.isInitialized) {
       console.log('Auto Checkout Scheduler already initialized');
       return;
@@ -35,7 +89,7 @@ class AutoCheckoutScheduler {
   /**
    * โหลดการตั้งค่าและสร้าง schedule ใหม่
    */
-  async loadAndSchedule() {
+  async loadAndSchedule(): Promise<void> {
     try {
       const settings = await this.getCurrentSettings();
       
@@ -57,23 +111,21 @@ class AutoCheckoutScheduler {
   private async getCurrentSettings(): Promise<AutoCheckoutSettings | null> {
     try {
       await connectDB();
-      const mongoose = require('mongoose');
       
-      const AutoCheckoutSettings = mongoose.models.AutoCheckoutSettings || 
-                                  mongoose.model('AutoCheckoutSettings', new mongoose.Schema({
-                                    enabled: Boolean,
-                                    checkoutTime: String,
-                                    timezone: String,
-                                    lastRun: Date,
-                                    affectedUsers: Number
-                                  }));
+      const AutoCheckoutSettingsModel = mongoose.models.AutoCheckoutSettings || 
+                                       mongoose.model('AutoCheckoutSettings', AutoCheckoutSettingsSchema);
 
-      const settings = await AutoCheckoutSettings.findOne().sort({ createdAt: -1 });
-      return settings ? {
+      const settings = await AutoCheckoutSettingsModel.findOne().sort({ createdAt: -1 });
+      
+      if (!settings) {
+        return null;
+      }
+
+      return {
         enabled: settings.enabled,
         checkoutTime: settings.checkoutTime,
         timezone: settings.timezone
-      } : null;
+      };
     } catch (error) {
       console.error('Error fetching auto checkout settings:', error);
       return null;
@@ -83,7 +135,7 @@ class AutoCheckoutScheduler {
   /**
    * สร้าง cron job สำหรับ Auto Checkout
    */
-  private async scheduleAutoCheckout(settings: AutoCheckoutSettings) {
+  private async scheduleAutoCheckout(settings: AutoCheckoutSettings): Promise<void> {
     // หยุด schedule เดิมก่อน (ถ้ามี)
     this.stopSchedule();
 
@@ -108,17 +160,17 @@ class AutoCheckoutScheduler {
   /**
    * ดำเนินการ Auto Checkout
    */
-  private async executeAutoCheckout() {
+  private async executeAutoCheckout(): Promise<void> {
     try {
       console.log('Starting scheduled auto checkout...');
       
       await connectDB();
       
       // ค้นหาผู้ใช้ที่ยังเช็คอินอยู่
-      const checkedInUsers = await User.find({
+      const checkedInUsers: CheckedInUser[] = await User.find({
         checkInStatus: 'checked-in',
         role: { $in: ['driver', 'staff'] }
-      }).select('_id name employeeId role lastCheckIn');
+      }).select('_id name employeeId role lastCheckIn').lean();
 
       console.log(`Found ${checkedInUsers.length} users still checked in`);
 
@@ -127,7 +179,7 @@ class AutoCheckoutScheduler {
         return;
       }
 
-      const results = [];
+      const results: AutoCheckoutResult[] = [];
       const now = new Date();
 
       // ทำการ checkout ให้ผู้ใช้แต่ละคน
@@ -144,8 +196,23 @@ class AutoCheckoutScheduler {
             }
           );
 
-          // บันทึก WorkLog
-          await WorkLog.logWorkAction(user._id.toString(), 'check-out');
+          // บันทึก WorkLog - ตรวจสอบว่า method มีอยู่จริง
+          try {
+            if (WorkLog && typeof WorkLog.logWorkAction === 'function') {
+              await WorkLog.logWorkAction(user._id.toString(), 'check-out');
+            } else {
+              // สร้าง WorkLog แบบ manual หาก logWorkAction ไม่มี
+              await WorkLog.create({
+                user_id: user._id,
+                action: 'check-out',
+                timestamp: now,
+                date: now.toISOString().split('T')[0]
+              });
+            }
+          } catch (workLogError) {
+            console.warn(`Failed to create work log for user ${user._id}:`, workLogError);
+            // ทำต่อไปแม้ work log จะล้มเหลว
+          }
 
           // คำนวณชั่วโมงทำงาน
           let workHours = 0;
@@ -163,9 +230,11 @@ class AutoCheckoutScheduler {
             status: 'success'
           });
 
-          console.log(`Auto checkout successful for ${user.name} (${user.employeeId})`);
+          console.log(`Auto checkout successful for ${user.name} (${user.employeeId || 'N/A'})`);
         } catch (userError) {
           console.error(`Auto checkout failed for user ${user._id}:`, userError);
+          
+          const errorMessage = userError instanceof Error ? userError.message : 'Unknown error';
           
           results.push({
             userId: user._id,
@@ -173,7 +242,7 @@ class AutoCheckoutScheduler {
             employeeId: user.employeeId,
             role: user.role,
             status: 'failed',
-            error: (userError as Error).message
+            error: errorMessage
           });
         }
       }
@@ -192,32 +261,28 @@ class AutoCheckoutScheduler {
     } catch (error) {
       console.error('Error executing scheduled auto checkout:', error);
       
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       // บันทึก error log
-      await this.logAutoCheckoutExecution([], 'scheduled', (error as Error).message);
+      await this.logAutoCheckoutExecution([], 'scheduled', errorMessage);
     }
   }
 
   /**
    * บันทึกประวัติการดำเนินการ Auto Checkout
    */
-  private async logAutoCheckoutExecution(results: any[], executionType: 'manual' | 'scheduled', errorMessage?: string) {
+  private async logAutoCheckoutExecution(
+    results: AutoCheckoutResult[], 
+    executionType: 'manual' | 'scheduled', 
+    errorMessage?: string
+  ): Promise<void> {
     try {
-      const mongoose = require('mongoose');
-      
-      const AutoCheckoutLog = mongoose.models.AutoCheckoutLog || mongoose.model('AutoCheckoutLog', new mongoose.Schema({
-        executedAt: { type: Date, default: Date.now },
-        totalUsers: Number,
-        successfulCheckouts: Number,
-        failedCheckouts: Number,
-        details: [mongoose.Schema.Types.Mixed],
-        executionType: { type: String, enum: ['manual', 'scheduled'] },
-        errorMessage: String
-      }));
+      const AutoCheckoutLogModel = mongoose.models.AutoCheckoutLog || 
+                                  mongoose.model('AutoCheckoutLog', AutoCheckoutLogSchema);
 
       const successfulCheckouts = results.filter(r => r.status === 'success');
       const failedCheckouts = results.filter(r => r.status === 'failed');
 
-      await AutoCheckoutLog.create({
+      const logEntry: AutoCheckoutLogEntry = {
         executedAt: new Date(),
         totalUsers: results.length,
         successfulCheckouts: successfulCheckouts.length,
@@ -225,7 +290,9 @@ class AutoCheckoutScheduler {
         details: results,
         executionType,
         errorMessage
-      });
+      };
+
+      await AutoCheckoutLogModel.create(logEntry);
     } catch (logError) {
       console.error('Failed to log auto checkout execution:', logError);
     }
@@ -234,18 +301,18 @@ class AutoCheckoutScheduler {
   /**
    * อัพเดทข้อมูลการดำเนินการล่าสุด
    */
-  private async updateLastRunInfo(lastRun: Date, affectedUsers: number) {
+  private async updateLastRunInfo(lastRun: Date, affectedUsers: number): Promise<void> {
     try {
-      const mongoose = require('mongoose');
-      const AutoCheckoutSettings = mongoose.models.AutoCheckoutSettings;
+      const AutoCheckoutSettingsModel = mongoose.models.AutoCheckoutSettings;
       
-      if (AutoCheckoutSettings) {
-        await AutoCheckoutSettings.findOneAndUpdate(
+      if (AutoCheckoutSettingsModel) {
+        await AutoCheckoutSettingsModel.findOneAndUpdate(
           {},
           { 
             $set: { 
               lastRun,
-              affectedUsers 
+              affectedUsers,
+              updatedAt: new Date()
             }
           },
           { sort: { createdAt: -1 } }
@@ -259,7 +326,7 @@ class AutoCheckoutScheduler {
   /**
    * หยุด schedule ปัจจุบัน
    */
-  private stopSchedule() {
+  private stopSchedule(): void {
     if (this.scheduledTask) {
       this.scheduledTask.stop();
       this.scheduledTask.destroy();
@@ -271,7 +338,7 @@ class AutoCheckoutScheduler {
   /**
    * อัพเดท schedule ใหม่ (เรียกจาก API เมื่อมีการเปลี่ยนแปลงการตั้งค่า)
    */
-  async updateSchedule() {
+  async updateSchedule(): Promise<void> {
     console.log('Updating auto checkout schedule...');
     await this.loadAndSchedule();
   }
@@ -279,10 +346,20 @@ class AutoCheckoutScheduler {
   /**
    * ปิดการทำงานของ scheduler
    */
-  destroy() {
+  destroy(): void {
     this.stopSchedule();
     this.isInitialized = false;
     console.log('Auto Checkout Scheduler destroyed');
+  }
+
+  /**
+   * Get current status for debugging
+   */
+  getStatus(): { isInitialized: boolean; hasScheduledTask: boolean } {
+    return {
+      isInitialized: this.isInitialized,
+      hasScheduledTask: this.scheduledTask !== null
+    };
   }
 }
 
@@ -292,11 +369,14 @@ const autoCheckoutScheduler = new AutoCheckoutScheduler();
 export default autoCheckoutScheduler;
 
 // ฟังก์ชันเริ่มต้นระบบ (เรียกใน app startup)
-export const initializeAutoCheckout = async () => {
+export const initializeAutoCheckout = async (): Promise<void> => {
   await autoCheckoutScheduler.initialize();
 };
 
 // ฟังก์ชันอัพเดท schedule (เรียกจาก API)
-export const updateAutoCheckoutSchedule = async () => {
+export const updateAutoCheckoutSchedule = async (): Promise<void> => {
   await autoCheckoutScheduler.updateSchedule();
 };
+
+// Export types for use in other files
+export type { AutoCheckoutSettings, AutoCheckoutResult, AutoCheckoutLogEntry };

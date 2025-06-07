@@ -1,4 +1,4 @@
-// app/api/cars/[id]/route.ts
+// app/api/cars/[id]/route.ts - Fixed TypeScript types
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Car from '@/models/Car';
@@ -7,11 +7,41 @@ import User from '@/models/User';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+// Types for better type safety
+interface CarUpdateData {
+  car_name?: string;
+  car_capacity?: number;
+  car_registration?: string;
+  car_type_id?: string;
+  user_id?: string;
+}
+
+interface CarResponse {
+  _id: unknown;
+  car_id: string;
+  car_name: string;
+  car_capacity: number;
+  car_registration: string;
+  car_type_id: string;
+  user_id: any;
+  carType?: any;
+  createdAt?: Date;
+  updatedAt?: Date;
+  __v?: number;
+}
+
+interface DeletedCarInfo {
+  car_id: string;
+  car_name: string;
+  car_registration: string;
+  driver: any;
+}
+
 // GET - Get a single car by ID with populated data
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   try {
     // Check authorization
     const session = await getServerSession(authOptions);
@@ -36,13 +66,13 @@ export async function GET(
     }
 
     // Convert to plain object
-    const carObj = car.toObject();
+    const carObj = car.toObject() as CarResponse;
     
     // Manually populate car type information
     try {
       if (carObj.car_type_id) {
         const carType = await CarType.findById(carObj.car_type_id);
-        carObj.carType = carType;
+        carObj.carType = carType?.toObject() || null;
       }
     } catch (error) {
       console.warn('Failed to populate car type for car:', carObj._id);
@@ -52,8 +82,9 @@ export async function GET(
     return NextResponse.json(carObj);
   } catch (error) {
     console.error('Get Car Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return NextResponse.json(
-      { error: 'Failed to fetch car: ' + (error as Error).message },
+      { error: 'Failed to fetch car: ' + errorMessage },
       { status: 500 }
     );
   }
@@ -63,7 +94,7 @@ export async function GET(
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   try {
     // Check authorization (only admin can update cars)
     const session = await getServerSession(authOptions);
@@ -93,7 +124,7 @@ export async function PUT(
     }
     
     // Build update object with validation
-    const updateData: any = {};
+    const updateData: CarUpdateData = {};
     
     if (car_name !== undefined) {
       if (!car_name || !car_name.trim()) {
@@ -106,7 +137,7 @@ export async function PUT(
     }
     
     if (car_capacity !== undefined) {
-      const capacity = parseInt(car_capacity);
+      const capacity = parseInt(car_capacity.toString(), 10);
       if (isNaN(capacity) || capacity < 1) {
         return NextResponse.json(
           { error: 'Car capacity must be a positive number' },
@@ -202,11 +233,11 @@ export async function PUT(
     }
     
     // Add car type information
-    const carObj = updatedCar.toObject();
+    const carObj = updatedCar.toObject() as CarResponse;
     try {
       if (carObj.car_type_id) {
         const carType = await CarType.findById(carObj.car_type_id);
-        carObj.carType = carType;
+        carObj.carType = carType?.toObject() || null;
       }
     } catch (error) {
       console.warn('Failed to populate car type for updated car:', carObj._id);
@@ -218,8 +249,9 @@ export async function PUT(
     return NextResponse.json(carObj);
   } catch (error) {
     console.error('Update Car Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return NextResponse.json(
-      { error: 'Failed to update car: ' + (error as Error).message },
+      { error: 'Failed to update car: ' + errorMessage },
       { status: 500 }
     );
   }
@@ -229,7 +261,7 @@ export async function PUT(
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   try {
     // Check authorization (only admin can delete cars)
     const session = await getServerSession(authOptions);
@@ -254,7 +286,7 @@ export async function DELETE(
     }
     
     // Store car information for response
-    const carInfo = {
+    const carInfo: DeletedCarInfo = {
       car_id: car.car_id,
       car_name: car.car_name,
       car_registration: car.car_registration,
@@ -273,8 +305,9 @@ export async function DELETE(
     });
   } catch (error) {
     console.error('Delete Car Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return NextResponse.json(
-      { error: 'Failed to delete car: ' + (error as Error).message },
+      { error: 'Failed to delete car: ' + errorMessage },
       { status: 500 }
     );
   }
