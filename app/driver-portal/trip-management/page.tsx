@@ -1,4 +1,4 @@
-// app/driver-portal/trip-management/page.tsx - เพิ่มปุ่มปิดรอบ
+// app/driver-portal/trip-management/page.tsx - เพิ่มปุ่มปิดรอบพร้อม Modal และแก้ไขการแสดง Ticket
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -14,7 +14,8 @@ import {
   FiClock,
   FiTruck,
   FiSquare,
-  FiAlertTriangle
+  FiAlertTriangle,
+  FiX
 } from 'react-icons/fi';
 import notificationService from '@/lib/notificationService';
 import { Scan } from 'lucide-react';
@@ -57,12 +58,13 @@ export default function ImprovedDriverTripManagementPage() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [startingTrip, setStartingTrip] = useState(false);
-  const [completingTrip, setCompletingTrip] = useState(false); // ✅ เพิ่ม state สำหรับปิดรอบ
-  const [showCompleteModal, setShowCompleteModal] = useState(false); // ✅ เพิ่ม state สำหรับ modal
+  const [completingTrip, setCompletingTrip] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [ticketInput, setTicketInput] = useState('');
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [showAllPassengers, setShowAllPassengers] = useState(false);
 
   // Authentication check
   useEffect(() => {
@@ -121,20 +123,20 @@ export default function ImprovedDriverTripManagementPage() {
     }
   };
 
-  // ✅ ฟังก์ชันเปิด modal แทน alert
+  // ฟังก์ชันเปิด modal
   const handleCompleteTrip = () => {
     if (!tripStatus?.active_trip) return;
     setShowCompleteModal(true);
   };
 
-  // ✅ ฟังก์ชันปิดรอบจริง (จาก modal)
+  // ฟังก์ชันปิดรอบจริง (จาก modal)
   const confirmCompleteTrip = async () => {
     setShowCompleteModal(false);
     
     try {
       setCompletingTrip(true);
       
-      const response = await fetch('/api/driver/trip/complete', {
+      const response = await fetch('/api/driver/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -220,6 +222,11 @@ export default function ImprovedDriverTripManagementPage() {
 
   const handleManualScan = () => {
     processTicketScan(ticketInput);
+  };
+
+  // Toggle แสดงผู้โดยสารทั้งหมด
+  const toggleShowAllPassengers = () => {
+    setShowAllPassengers(!showAllPassengers);
   };
 
   // ลดความถี่ในการ refresh
@@ -406,7 +413,6 @@ export default function ImprovedDriverTripManagementPage() {
                       </button>
                     </div>
                   </div>
-                  
 
                 </>
               ) : (
@@ -485,7 +491,7 @@ export default function ImprovedDriverTripManagementPage() {
                       </div>
                     </div>
 
-                    {/* ✅ ปุ่มปิดรอบ */}
+                    {/* ปุ่มปิดรอบ */}
                     <div className="flex justify-center">
                       <button
                         onClick={handleCompleteTrip}
@@ -523,28 +529,65 @@ export default function ImprovedDriverTripManagementPage() {
                     )}
                   </div>
                   
+                  {/* ✅ แสดงรายชื่อผู้โดยสาร - แสดง 2 คนล่าสุด */}
                   {tripStatus.active_trip?.passengers && tripStatus.active_trip.passengers.length > 0 && (
                     <div className="bg-gray-50 p-6 rounded-lg">
                       <h4 className="font-semibold mb-4 flex items-center">
                         <FiUsers className="mr-2 text-gray-600" />
                         ຜູ້ໂດຍສານທີ່ສະແກນແລ້ວ ({tripStatus.active_trip.passengers.length} ຄົນ):
                       </h4>
-                      <div className="grid grid-cols-1 gap-3 max-h-48 overflow-y-auto">
-                        {tripStatus.active_trip.passengers.map((passenger, index) => (
-                          <div key={index} className="bg-white p-3 rounded-lg border flex justify-between items-center">
-                            <div>
-                              <span className="font-medium text-blue-600">#{passenger.order}</span>
-                              <span className="ml-2 text-gray-700">{passenger.ticket_number}</span>
-                            </div>
-                            <span className="text-sm text-gray-500 flex items-center">
-                              <FiClock className="mr-1" />
-                              {new Date(passenger.scanned_at).toLocaleTimeString('lo-LA', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
+                      <div className="space-y-3">
+                        {/* แสดงผู้โดยสาร */}
+                        <div className={`space-y-3 overflow-y-auto transition-all duration-300 ${
+                          showAllPassengers ? 'max-h-96' : 'max-h-32'
+                        }`}>
+                          {tripStatus.active_trip.passengers
+                            .slice()
+                            .reverse()
+                            .slice(0, showAllPassengers ? undefined : 2)
+                            .map((passenger, index) => {
+                              // ใช้ ticket_number ที่ได้จาก API แล้ว
+                              let displayTicketId = passenger.ticket_number;
+                              
+                              // ถ้าเป็น ObjectId (24 ตัวอักษร) ให้แปลงเป็น T format
+                              if (displayTicketId && displayTicketId.length === 24 && /^[0-9a-fA-F]{24}$/.test(displayTicketId)) {
+                                displayTicketId = `T${passenger.order.toString().padStart(5, '0')}`;
+                              }
+                              
+                              return (
+                                <div key={`${passenger.ticket_number}-${index}`} className="bg-white p-3 rounded-lg border flex justify-between items-center shadow-sm">
+                                  <div className="flex items-center">
+                                    <span className="font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded text-sm">
+                                      #{passenger.order}
+                                    </span>
+                                    <span className="ml-3 text-gray-900 font-medium">{displayTicketId}</span>
+                                  </div>
+                                  <span className="text-sm text-gray-500 flex items-center">
+                                    <FiClock className="mr-1" />
+                                    {new Date(passenger.scanned_at).toLocaleTimeString('lo-LA', {
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                        
+                        {/* ปุ่มดูทั้งหมดถ้ามีมากกว่า 2 คน */}
+                        {tripStatus.active_trip.passengers.length > 2 && (
+                          <div className="pt-2 border-t border-gray-200">
+                            <button 
+                              onClick={toggleShowAllPassengers}
+                              className="w-full text-sm text-blue-600 hover:text-blue-800 py-2 hover:bg-blue-50 rounded transition-colors"
+                            >
+                              {showAllPassengers 
+                                ? 'ປິດລາຍການ' 
+                                : `ເບິ່ງທັງໝົດ ${tripStatus.active_trip.passengers.length} ຄົນ`
+                              }
+                            </button>
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
                   )}
@@ -570,6 +613,97 @@ export default function ImprovedDriverTripManagementPage() {
           </div>
         </div>
       </div>
+
+      {/* Complete Trip Confirmation Modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-auto">
+            <div className="p-6">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="flex items-center justify-center h-12 w-12 rounded-full bg-orange-100">
+                    <FiSquare className="h-6 w-6 text-orange-600" />
+                  </div>
+                </div>
+                <div className="ml-4 w-full">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    ຢືນຢັນການປິດຮອບ
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    ທ່ານຕ້ອງການປິດຮອບທີ {tripStatus?.active_trip?.trip_number} ແມ່ນບໍ?
+                  </p>
+                  
+                  <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                    <div className="text-sm space-y-2">
+                      <div className="flex justify-between">
+                        <span>ຜູ້ໂດຍສານປັດຈຸບັນ:</span>
+                        <span className="font-medium">{tripStatus?.active_trip?.current_passengers} ຄົນ</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>ເປົ້າໝາຍ (80%):</span>
+                        <span className="font-medium">{tripStatus?.active_trip?.required_passengers} ຄົນ</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>ຄວາມຈຸລົດ:</span>
+                        <span className="font-medium">{tripStatus?.active_trip?.car_capacity} ຄົນ</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status Message */}
+                  {tripStatus?.active_trip?.current_passengers >= tripStatus?.active_trip?.required_passengers ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-center">
+                        <FiCheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                        <span className="text-sm text-green-800 font-medium">
+                          ✅ ຄົບເປົ້າໝາຍແລ້ວ - ຮອບນີ້ຈະນັບເຂົ້າເງື່ອນໄຂລາຍຮັບ
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-center">
+                        <FiAlertTriangle className="h-5 w-5 text-orange-600 mr-2" />
+                        <span className="text-sm text-orange-800 font-medium">
+                          ⚠️ ຍັງບໍ່ຄົບເປົ້າໝາຍ - ຮອບນີ້ບໍ່ນັບເຂົ້າເງື່ອນໄຂລາຍຮັບ
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
+              <button
+                type="button"
+                className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                onClick={() => setShowCompleteModal(false)}
+                disabled={completingTrip}
+              >
+                <FiX className="inline mr-2 h-4 w-4" />
+                ຍົກເລີກ
+              </button>
+              <button
+                type="button"
+                className="w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                onClick={confirmCompleteTrip}
+                disabled={completingTrip}
+              >
+                {completingTrip ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2 inline-block"></div>
+                    ກຳລັງປິດຮອບ...
+                  </>
+                ) : (
+                  'ຢືນຢັນປິດຮອບ'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* QR Code Scanner Modal */}
       {showQRScanner && (

@@ -1,9 +1,10 @@
-// app/api/driver/trip/route.ts - แก้ไข Mongoose schema error
+// app/api/driver/trip/route.ts - แก้ไข Mongoose schema error และ Filter 80%
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
-import Car from '@/models/Car'; // เพิ่มการ import Car model
-import User from '@/models/User'; // เพิ่มการ import User model
+import Car from '@/models/Car';
+import User from '@/models/User';
+import Ticket from '@/models/Ticket';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -21,11 +22,81 @@ export async function GET(request: Request) {
     await connectDB();
     
     const driverId = session.user.id;
-    const status = await DriverTrip.getCurrentTripStatus(driverId);
+    const today = new Date().toISOString().split('T')[0];
+    
+    // หารอบที่กำลังดำเนินการ
+    const activeTrip = await DriverTrip.findOne({
+      driver_id: driverId,
+      date: today,
+      status: 'in_progress'
+    });
+
+    // ✅ แก้ไข: นับเฉพาะรอบที่ถึง 80% และ status = 'completed' เท่านั้น
+    const completedTripsToday = await DriverTrip.countDocuments({
+      driver_id: driverId,
+      date: today,
+      status: 'completed',
+      is_80_percent_reached: true  // ✅ เพิ่มเงื่อนไขนี้
+    });
+
+    // เช็คว่ามีสิทธิ์รับรายได้หรือไม่ (ต้องอย่างน้อย 2 รอบที่ถึง 80%)
+    const qualifiesForRevenue = completedTripsToday >= 2;
+    
+    const revenueStatus = qualifiesForRevenue ? 
+      'ມີສິດຮັບສ່ວນແບ່ງລາຍຮັບ 85%' : 
+      `ຕ້ອງການອີກ ${2 - completedTripsToday} ຮອບເພື່ອໄດ້ຮັບສ່ວນແບ່ງລາຍຮັບ`;
+
+    // ✅ แก้ไข: ดึงข้อมูล ticket ที่ถูกต้องพร้อม populate
+    let passengersData = [];
+    if (activeTrip && activeTrip.scanned_tickets && activeTrip.scanned_tickets.length > 0) {
+      try {
+        passengersData = await Promise.all(
+          activeTrip.scanned_tickets.map(async (ticket: any) => {
+            try {
+              // ดึงข้อมูล ticket จาก database
+              const ticketDoc = await Ticket.findById(ticket.ticket_id).select('ticketNumber');
+              
+              return {
+                order: ticket.passenger_order,
+                ticket_number: ticketDoc ? ticketDoc.ticketNumber : `T${ticket.passenger_order.toString().padStart(5, '0')}`,
+                scanned_at: ticket.scanned_at
+              };
+            } catch (error) {
+              console.warn('Failed to fetch ticket:', ticket.ticket_id);
+              // ถ้าหา ticket ไม่เจอ ให้ใช้เลขลำดับแทน
+              return {
+                order: ticket.passenger_order,
+                ticket_number: `T${ticket.passenger_order.toString().padStart(5, '0')}`,
+                scanned_at: ticket.scanned_at
+              };
+            }
+          })
+        );
+      } catch (error) {
+        console.error('Error fetching passengers data:', error);
+        passengersData = [];
+      }
+    }
+
+    const tripStatus = {
+      has_active_trip: !!activeTrip,
+      active_trip: activeTrip ? {
+        trip_id: activeTrip._id.toString(),
+        trip_number: activeTrip.trip_number,
+        current_passengers: activeTrip.current_passengers,
+        required_passengers: activeTrip.required_passengers,
+        car_capacity: activeTrip.car_capacity,
+        started_at: activeTrip.started_at,
+        passengers: passengersData  // ✅ ใช้ข้อมูลที่ populate แล้ว
+      } : null,
+      completed_trips_today: completedTripsToday,  // ✅ ตอนนี้จะเป็นรอบที่ถึง 80% เท่านั้น
+      qualifies_for_revenue: qualifiesForRevenue,
+      revenue_status: revenueStatus
+    };
     
     return NextResponse.json({
       success: true,
-      data: status
+      data: tripStatus
     });
 
   } catch (error) {
@@ -86,7 +157,7 @@ export async function POST(request: Request) {
       );
     }
     
-    // หาว่าวันนี้เป็นรอบที่เท่าไหร่
+    // หาว่าวันนี้เป็นรอบที่เท่าไหร่ (นับรวมทุกรอบ ไม่ว่าจะถึง 80% หรือไม่)
     const tripCount = await DriverTrip.countDocuments({
       driver_id: driverId,
       date: today

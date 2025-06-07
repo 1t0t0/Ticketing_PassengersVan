@@ -1,4 +1,4 @@
-// app/api/driver/trip/complete/route.ts - ไฟล์ใหม่
+// app/api/driver/complete/route.ts - ตรวจสอบและแก้ไข Filter
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
@@ -58,12 +58,12 @@ export async function POST(request: Request) {
       qualificationStatus = 'ຮອບນີ້ບໍ່ນັບເຂົ້າເງື່ອນໄຂລາຍຮັບ (ຕ້ອງການ 80%)';
     }
     
-    // นับรอบที่สำเร็จแล้ววันนี้
+    // ✅ แก้ไข: นับรอบที่สำเร็จแล้ววันนี้ (เฉพาะที่ถึง 80% เท่านั้น)
     const completedTripsToday = await DriverTrip.countDocuments({
       driver_id: driverId,
       date: today,
       status: 'completed',
-      is_80_percent_reached: true // ✅ นับเฉพาะรอบที่ถึง 80%
+      is_80_percent_reached: true // ✅ เพิ่มเงื่อนไขนี้
     });
     
     // ตรวจสอบสิทธิ์รายได้
@@ -75,7 +75,8 @@ export async function POST(request: Request) {
       passengers: activeTrip.current_passengers,
       required: activeTrip.required_passengers,
       qualifies: is80PercentReached,
-      completedTripsToday: completedTripsToday
+      completedTripsToday: completedTripsToday,
+      qualifiesForRevenue: qualifiesForRevenue
     });
     
     return NextResponse.json({
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
       completed_at: completedAt,
       message: message,
       qualification_status: qualificationStatus,
-      completed_trips_today: completedTripsToday,
+      completed_trips_today: completedTripsToday, // ✅ ตอนนี้จะนับเฉพาะรอบที่ถึง 80%
       qualifies_for_revenue: qualifiesForRevenue,
       revenue_status: qualifiesForRevenue ? 
         'ມີສິດຮັບສ່ວນແບ່ງລາຍຮັບ 85%' : 

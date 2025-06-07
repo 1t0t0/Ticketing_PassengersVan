@@ -1,4 +1,4 @@
-// app/api/driver/trip/scan/route.ts - อัพเดทแล้ว
+// app/api/driver/trip/scan/route.ts - อัพเดทแล้ว แก้ไข ticket display
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     
     activeTrip.current_passengers = passengerOrder;
     
-    // ✅ อัพเดท: ไม่ปิดรอบอัตโนมัติ แค่อัพเดทสถานะ
+    // ✅ อัพเดท: ตรวจสอบและอัพเดท is_80_percent_reached
     const is80PercentReached = activeTrip.current_passengers >= activeTrip.required_passengers;
     activeTrip.is_80_percent_reached = is80PercentReached;
     
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       status_message: statusMessage,
       ticket_info: {
         ticket_id: ticket._id,
-        ticket_number: ticket.ticketNumber,
+        ticket_number: ticket.ticketNumber, // ✅ ใช้ ticketNumber แทน ObjectId
         price: ticket.price,
         passenger_order: passengerOrder
       }
