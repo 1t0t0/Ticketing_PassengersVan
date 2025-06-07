@@ -1,9 +1,10 @@
-// app/driver-portal/trip-management/page.tsx - หน้าจัดการรอบการเดินทางใหม่
+// app/driver-portal/trip-management/page.tsx - เพิ่ม QR Scanner
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { 
   FiPlay, 
   FiUsers, 
@@ -15,9 +16,20 @@ import {
   FiClock,
   FiTruck,
   FiMapPin,
-  FiTarget
+  FiTarget,
+  FiEdit
 } from 'react-icons/fi';
 import notificationService from '@/lib/notificationService';
+
+// Dynamic import สำหรับ QR Scanner เพื่อป้องกัน SSR issues
+const QRCodeScanner = dynamic(() => import('@/components/QRCodeScanner'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center p-4">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    </div>
+  )
+});
 
 interface TripStatus {
   has_active_trip: boolean;
@@ -51,7 +63,7 @@ interface RevenueData {
   };
 }
 
-export default function DriverTripManagementPage() {
+export default function EnhancedDriverTripManagementPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
@@ -62,6 +74,8 @@ export default function DriverTripManagementPage() {
   const [startingTrip, setStartingTrip] = useState(false);
   const [ticketInput, setTicketInput] = useState('');
   const [scanResult, setScanResult] = useState<string | null>(null);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [scanMethod, setScanMethod] = useState<'manual' | 'camera'>('manual');
 
   // Authentication check
   useEffect(() => {
@@ -77,11 +91,9 @@ export default function DriverTripManagementPage() {
     try {
       setLoading(true);
       
-      // ดึงสถานะรอบ
       const tripResponse = await fetch('/api/driver/trip');
       const tripData = await tripResponse.json();
       
-      // ดึงข้อมูลรายได้
       const revenueResponse = await fetch('/api/driver/revenue');
       const revenueInfo = await revenueResponse.json();
       
@@ -130,9 +142,9 @@ export default function DriverTripManagementPage() {
     }
   };
 
-  // สแกน QR Code
-  const scanTicket = async () => {
-    if (!ticketInput.trim()) {
+  // สแกน QR Code หรือ Manual Input
+  const processTicketScan = async (ticketData: string) => {
+    if (!ticketData.trim()) {
       setScanResult('❌ ກະລຸນາໃສ່ເລກທີ່ຕັ້ວ');
       notificationService.error('ກະລຸນາໃສ່ເລກທີ່ຕັ້ວ');
       return;
@@ -144,7 +156,7 @@ export default function DriverTripManagementPage() {
       const response = await fetch('/api/driver/trip/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketId: ticketInput.trim() })
+        body: JSON.stringify({ ticketId: ticketData.trim() })
       });
       
       const result = await response.json();
@@ -154,7 +166,6 @@ export default function DriverTripManagementPage() {
         notificationService.success(result.message);
         setTicketInput('');
         
-        // ถ้าครบรอบให้แสดงข้อความพิเศษ
         if (result.trip_completed) {
           setTimeout(() => {
             notificationService.success(`🎉 ສຳເລັດຮອບທີ ${result.trip_number}! ສາມາດເລີ່ມຮອບໃໝ່ໄດ້`);
@@ -175,10 +186,31 @@ export default function DriverTripManagementPage() {
     }
   };
 
+  // Handle QR Scanner result
+  const handleQRScanResult = (ticketNumber: string) => {
+    setShowQRScanner(false);
+    setTicketInput(ticketNumber);
+    notificationService.success(`ສະແກນສຳເລັດ: ${ticketNumber}`);
+    
+    // Auto process scanned ticket
+    setTimeout(() => {
+      processTicketScan(ticketNumber);
+    }, 500);
+  };
+
+  // Handle QR Scanner error
+  const handleQRScanError = (error: string) => {
+    notificationService.error(error);
+  };
+
+  // Manual scan
+  const handleManualScan = () => {
+    processTicketScan(ticketInput);
+  };
+
   useEffect(() => {
     if (session?.user?.role === 'driver') {
       fetchData();
-      // Auto refresh ทุก 30 วินาที
       const interval = setInterval(fetchData, 30000);
       return () => clearInterval(interval);
     }
@@ -311,7 +343,6 @@ export default function DriverTripManagementPage() {
             
             {tripStatus?.has_active_trip ? (
               <div className="space-y-6">
-                {/* Header ของรอบ */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-100">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-blue-900">
@@ -325,7 +356,6 @@ export default function DriverTripManagementPage() {
                     </div>
                   </div>
                   
-                  {/* Progress Bar */}
                   <div className="mb-4">
                     <div className="flex justify-between text-sm text-blue-700 mb-2">
                       <span>ຄວາມຄືບໜ້າ: {progressPercentage.toFixed(0)}%</span>
@@ -341,7 +371,6 @@ export default function DriverTripManagementPage() {
                     </div>
                   </div>
                   
-                  {/* สถิติ */}
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div className="bg-white p-4 rounded-lg">
                       <p className="text-2xl font-bold text-blue-600">
@@ -364,7 +393,6 @@ export default function DriverTripManagementPage() {
                   </div>
                 </div>
                 
-                {/* รายการผู้โดยสาร */}
                 {tripStatus.active_trip?.passengers && tripStatus.active_trip.passengers.length > 0 && (
                   <div className="bg-gray-50 p-6 rounded-lg">
                     <h4 className="font-semibold mb-4 flex items-center">
@@ -411,7 +439,7 @@ export default function DriverTripManagementPage() {
           </div>
         </div>
 
-        {/* สแกน QR Code */}
+        {/* สแกน QR Code - Enhanced */}
         {tripStatus?.has_active_trip && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
             <div className="p-6">
@@ -423,42 +451,85 @@ export default function DriverTripManagementPage() {
               <div className="space-y-6">
                 <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
                   <p className="text-sm text-purple-700 mb-2">
-                    <strong>ວິທີໃຊ້:</strong> ໃສ່ເລກທີ່ຕັ້ວ ຫຼື ສະແກນ QR Code ຈາກຕັ້ວ
+                    <strong>ວິທີໃຊ້:</strong> ສະແກນ QR Code ຈາກຕັ້ວ ຫຼື ໃສ່ເລກທີ່ຕັ້ວດ້ວຍມື
                   </p>
                   <p className="text-xs text-purple-600">
                     ແຕ່ລະ QR Code = 1 ຜູ້ໂດຍສານ | ເປົ້າໝາຍ: {tripStatus.active_trip?.required_passengers} ຄົນ (80% ຂອງຄວາມຈຸລົດ)
                   </p>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    ເລກທີ່ຕັ້ວ ຫຼື QR Code
-                  </label>
-                  <div className="flex space-x-3">
-                    <input
-                      type="text"
-                      value={ticketInput}
-                      onChange={(e) => setTicketInput(e.target.value)}
-                      placeholder="ໃສ່ເລກທີ່ຕັ້ວ ເຊັ່ນ: T1234567890..."
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg"
-                      onKeyPress={(e) => e.key === 'Enter' && scanTicket()}
-                    />
-                    <button
-                      onClick={scanTicket}
-                      disabled={scanning || !ticketInput.trim()}
-                      className="px-8 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-medium rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {scanning ? (
-                        <div className="flex items-center">
-                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
-                          ກຳລັງສະແກນ...
-                        </div>
-                      ) : (
-                        'ສະແກນ'
-                      )}
-                    </button>
-                  </div>
+
+                {/* Method Selection */}
+                <div className="flex space-x-4 mb-4">
+                  <button
+                    onClick={() => setScanMethod('camera')}
+                    className={`flex-1 flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-colors ${
+                      scanMethod === 'camera' 
+                        ? 'border-purple-500 bg-purple-50 text-purple-700' 
+                        : 'border-gray-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <FiCamera className="mr-2" />
+                    ສະແກນດ້ວຍກ້ອງ
+                  </button>
+                  <button
+                    onClick={() => setScanMethod('manual')}
+                    className={`flex-1 flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-colors ${
+                      scanMethod === 'manual' 
+                        ? 'border-purple-500 bg-purple-50 text-purple-700' 
+                        : 'border-gray-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <FiEdit className="mr-2" />
+                    ໃສ່ດ້ວຍມື
+                  </button>
                 </div>
+                
+                {scanMethod === 'camera' ? (
+                  /* Camera Scan Method */
+                  <div className="text-center">
+                    <button
+                      onClick={() => setShowQRScanner(true)}
+                      className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-medium text-lg rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-lg"
+                    >
+                      <FiCamera className="mr-3 h-5 w-5" />
+                      ເປີດກ້ອງສະແກນ QR Code
+                    </button>
+                    <p className="text-sm text-gray-500 mt-2">
+                      ກົດປຸ່ມເພື່ອເປີດກ້ອງແລະສະແກນ QR Code ຈາກຕັ້ວ
+                    </p>
+                  </div>
+                ) : (
+                  /* Manual Input Method */
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      ເລກທີ່ຕັ້ວ
+                    </label>
+                    <div className="flex space-x-3">
+                      <input
+                        type="text"
+                        value={ticketInput}
+                        onChange={(e) => setTicketInput(e.target.value)}
+                        placeholder="ໃສ່ເລກທີ່ຕັ້ວ ເຊັ່ນ: T1234567890..."
+                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg"
+                        onKeyPress={(e) => e.key === 'Enter' && handleManualScan()}
+                      />
+                      <button
+                        onClick={handleManualScan}
+                        disabled={scanning || !ticketInput.trim()}
+                        className="px-8 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-medium rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {scanning ? (
+                          <div className="flex items-center">
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                            ກຳລັງສະແກນ...
+                          </div>
+                        ) : (
+                          'ສະແກນ'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
                 {scanResult && (
                   <div className={`p-4 rounded-lg border ${
@@ -535,6 +606,16 @@ export default function DriverTripManagementPage() {
           </div>
         )}
       </div>
+
+      {/* QR Code Scanner Modal */}
+      {showQRScanner && (
+        <QRCodeScanner
+          isOpen={showQRScanner}
+          onClose={() => setShowQRScanner(false)}
+          onScan={handleQRScanResult}
+          onError={handleQRScanError}
+        />
+      )}
     </div>
   );
 }
