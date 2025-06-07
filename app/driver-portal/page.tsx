@@ -1,3 +1,4 @@
+// app/driver-portal/page.tsx - แก้ไขให้แสดงเฉพาะคนขับที่มีสิทธิ์
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -13,7 +14,8 @@ import {
   FiAlertCircle,
   FiCheckCircle,
   FiClock,
-  
+  FiUsers,
+  FiTruck
 } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
 import {
@@ -52,14 +54,23 @@ interface DashboardData {
   companyRevenue: number;
   stationRevenue: number;
   driverRevenue: number;
-  workingDriversCount: number;
+  
+  // ✅ ข้อมูลใหม่ที่เฉพาะเจาะจง
+  qualifiedDriversCount: number; // คนขับที่ทำครบ 2 รอบ
+  myQualifiedTrips: number; // รอบที่ตัวเองทำสำเร็จ
   myDailyIncome: number;
   myExpectedShare: number;
   myTicketsCount: number;
+  
   monthlyIncome: number;
   monthlyDays: number;
   averagePerTicket: number;
   averageDriverShare: number;
+  
+  // ✅ ข้อมูลสิทธิ์
+  hasRevenue: boolean;
+  qualificationMessage: string;
+  
   chartData: {
     company: number;
     station: number;
@@ -70,7 +81,7 @@ interface DashboardData {
     companyPercent: number;
     stationPercent: number;
     driversPercent: number;
-    workingDrivers: number;
+    qualifiedDrivers: number; // ✅ เปลี่ยนจาก workingDrivers
     sharePerDriver: number;
     method: string;
   };
@@ -231,7 +242,7 @@ export default function EnhancedDriverPortalPage() {
     await fetchDashboardData(startDate, endDate);
   };
 
-  // Export PDF function (แก้ไข html2canvas options)
+  // Export PDF function
   const handleExportPDF = async () => {
     if (!dashboardData) {
       toast.error('ບໍ່ມີຂໍ້ມູນສຳລັບສົ່ງອອກ PDF');
@@ -264,7 +275,6 @@ export default function EnhancedDriverPortalPage() {
       document.body.appendChild(tempDiv);
       await document.fonts.ready;
 
-      // แก้ไข html2canvas options - เอา scale ออก
       const canvas = await html2canvas(tempDiv, {
         useCORS: true,
         allowTaint: true,
@@ -317,7 +327,7 @@ export default function EnhancedDriverPortalPage() {
     }
   };
 
-  // PDF content generator (enhanced)
+  // PDF content generator (enhanced with new data)
   const generateDriverPDFContent = (data: DashboardData, period: string, start: string, end: string) => {
     const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('lo-LA');
     const getDisplayPeriod = () => {
@@ -336,7 +346,7 @@ export default function EnhancedDriverPortalPage() {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>ລາຍງານລາຍຮັບພະນັກງານພະນັກງານຂັບລົດ</title>
+        <title>ລາຍງານລາຍຮັບພະນັກງານຂັບລົດ</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap');
           
@@ -393,6 +403,13 @@ export default function EnhancedDriverPortalPage() {
             padding: 20px; margin: 20px 0;
           }
           
+          .qualification-box {
+            background: ${data.hasRevenue ? '#d4edda' : '#f8d7da'};
+            border: 2px solid ${data.hasRevenue ? '#c3e6cb' : '#f5c6cb'};
+            border-radius: 8px; padding: 15px; margin: 20px 0;
+            color: ${data.hasRevenue ? '#155724' : '#721c24'};
+          }
+          
           .currency { font-weight: bold; color: #2563EB; }
           .text-center { text-align: center; }
           .text-success { color: #28a745; }
@@ -402,12 +419,6 @@ export default function EnhancedDriverPortalPage() {
             margin-top: 30px; text-align: center; font-size: 12px; color: #666;
             border-top: 2px solid #ddd; padding-top: 15px;
           }
-          
-          .historical-note {
-            background: #fff3cd; border: 2px solid #ffeaa7;
-            border-radius: 8px; padding: 15px; margin: 20px 0; color: #856404;
-          }
-          
         </style>
       </head>
       <body>
@@ -427,10 +438,17 @@ export default function EnhancedDriverPortalPage() {
                 ${data.driver.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
               </span>
             </p>
+            <p><strong>ຮອບທີ່ທຳສຳເລັດ:</strong> ${data.myQualifiedTrips || 0} ຮອບ</p>
           </div>
           
           <div class="period-info">
             📅 <strong>ໄລຍະເວລາທີ່ເບິ່ງ:</strong> ${getDisplayPeriod()}
+          </div>
+          
+          <div class="qualification-box">
+            <h3 style="margin-bottom: 10px;">${data.hasRevenue ? '✅' : '❌'} ສະຖານະສິດຮັບລາຍຮັບ</h3>
+            <p><strong>${data.qualificationMessage}</strong></p>
+            ${!data.hasRevenue ? '<p style="font-size: 12px; margin-top: 10px;">💡 <strong>ເງື່ອນໄຂ:</strong> ຕ້ອງທຳຮອບການເດີນທາງສຳເລັດ 2 ຮອບຕໍ່ວັນ (ແຕ່ລະຮອບຕ້ອງມີຜູ້ໂດຍສານ ≥80% ຂອງຄວາມຈຸລົດ)</p>' : ''}
           </div>
           
           <div class="stats-grid">
@@ -443,23 +461,25 @@ export default function EnhancedDriverPortalPage() {
               <div class="stat-label">🎫 ຈຳນວນປີ້</div>
             </div>
             <div class="stat-card">
-              <div class="stat-value">${data.workingDriversCount}</div>
-              <div class="stat-label">👥 ພະນັກງານຂັບລົດທີ່ເຮັດວຽກ</div>
+              <div class="stat-value">${data.qualifiedDriversCount}</div>
+              <div class="stat-label">👥 ພະນັກງານຂັບລົດທີ່ມີສິດ</div>
             </div>
             <div class="stat-card">
               <div class="stat-value">${formatCurrency(data.averageDriverShare)}</div>
-              <div class="stat-label">📊 ເຉລ່ຍຕໍ່ຄົນ</div>
+              <div class="stat-label">📊 ເຉລ່ຍຕໍ່ຄົນທີ່ມີສິດ</div>
             </div>
           </div>
           
           <div class="my-share-highlight">
             <h3 style="margin-bottom: 15px; color: #1976d2;">💎 ລາຍຮັບຂອງທ່ານ</h3>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <span style="font-size: 16px;">ສ່ວນແບ່ງທີ່ຄາດວ່າຈະໄດ້ຮັບ:</span>
-              <span style="font-size: 24px; font-weight: bold; color: #1976d2;">${formatCurrency(data.myExpectedShare)}</span>
+              <span style="font-size: 16px;">ສ່ວນແບ່ງທີ່ໄດ້ຮັບ:</span>
+              <span style="font-size: 24px; font-weight: bold; color: ${data.hasRevenue ? '#1976d2' : '#666'};">
+                ${formatCurrency(data.myExpectedShare)}
+              </span>
             </div>
             <div style="font-size: 12px; color: #666; text-align: center; margin-top: 15px;">
-              💡 <strong>ວິທີຄິດໄລ່:</strong> ລາຍຮັບພະນັກງານຂັບລົດ ${formatCurrency(data.driverRevenue)} ÷ ${data.workingDriversCount} ຄົນ = ${formatCurrency(data.averageDriverShare)}
+              💡 <strong>ວິທີຄິດໄລ່:</strong> ລາຍຮັບພະນັກງານຂັບລົດ ${formatCurrency(data.driverRevenue)} ÷ ${data.qualifiedDriversCount} ຄົນທີ່ມີສິດ = ${formatCurrency(data.averageDriverShare)}
             </div>
             ${data.dateRange ? `
             <div style="font-size: 11px; color: #666; text-align: center; margin-top: 10px;">
@@ -471,6 +491,9 @@ export default function EnhancedDriverPortalPage() {
           <div class="report-footer">
             <p><strong>ສ້າງເມື່ອ:</strong> ${new Date().toLocaleString('lo-LA')}</p>
             <p>🚌 ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງລົດໄຟ ລາວ-ຈີນ</p>
+            <p style="font-size: 10px; margin-top: 10px; color: #999;">
+              ✅ ເງື່ອນໄຂການຮັບລາຍຮັບ: ທຳຮອບການເດີນທາງສຳເລັດ 2 ຮອບຕໍ່ວັນ (≥80% ຄວາມຈຸລົດ)
+            </p>
           </div>
         </div>
       </body>
@@ -581,7 +604,7 @@ export default function EnhancedDriverPortalPage() {
                 <h1 className="text-2xl font-bold text-gray-900">ລາຍຮັບພະນັກງານຂັບລົດ</h1>
                 <p className="text-gray-600">ສະບາຍດີ, {session?.user?.name}</p>
                 {dashboardData && (
-                  <div className="mt-1">
+                  <div className="mt-1 flex items-center space-x-3">
                     <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
                       dashboardData.driver.checkInStatus === 'checked-in' 
                         ? 'bg-green-100 text-green-800' 
@@ -596,6 +619,25 @@ export default function EnhancedDriverPortalPage() {
                         <>
                           <FiClock className="mr-1" />
                           ເບິ່ງຂໍ້ມູນຍ້ອນຫລັງ
+                        </>
+                      )}
+                    </span>
+                    
+                    {/* ✅ แสดงสถานะสิทธิ์ */}
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                      dashboardData.hasRevenue 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {dashboardData.hasRevenue ? (
+                        <>
+                          <FiDollarSign className="mr-1" />
+                          ມີສິດຮັບລາຍຮັບ
+                        </>
+                      ) : (
+                        <>
+                          <FiAlertCircle className="mr-1" />
+                          ຍັງບໍ່ມີສິດຮັບ
                         </>
                       )}
                     </span>
@@ -647,6 +689,35 @@ export default function EnhancedDriverPortalPage() {
                 >
                   ລອງໃໝ່
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ แสดงข้อความสิทธิ์ */}
+          {dashboardData && (
+            <div className={`mb-6 p-4 rounded-lg border-2 ${
+              dashboardData.hasRevenue 
+                ? 'bg-green-50 border-green-200' 
+                : 'bg-orange-50 border-orange-200'
+            }`}>
+              <div className="flex items-center">
+                {dashboardData.hasRevenue ? (
+                  <FiCheckCircle className="text-green-600 mr-3 h-6 w-6" />
+                ) : (
+                  <FiAlertCircle className="text-orange-600 mr-3 h-6 w-6" />
+                )}
+                <div>
+                  <p className={`font-semibold ${
+                    dashboardData.hasRevenue ? 'text-green-800' : 'text-orange-800'
+                  }`}>
+                    {dashboardData.qualificationMessage}
+                  </p>
+                  {!dashboardData.hasRevenue && (
+                    <p className="text-sm text-orange-700 mt-1">
+                      💡 <strong>ເງື່ອນໄຂ:</strong> ຕ້ອງທຳຮອບການເດີນທາງສຳເລັດ 2 ຮອບຕໍ່ວັນ (ແຕ່ລະຮອບຕ້ອງມີຜູ້ໂດຍສານ ≥80% ຂອງຄວາມຈຸລົດ)
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -779,9 +850,9 @@ export default function EnhancedDriverPortalPage() {
                   )}
                 </div>
 
-                {/* Revenue Breakdown */}
+                {/* ✅ Revenue Breakdown ใหม่ */}
                 <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">ລາຍຮັບລວມ</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">ລາຍຮັບລະອຽດ</h3>
                   <div className="space-y-4">
                     <RevenueBreakdownItem
                       label="ບໍລິສັດ (10%)"
@@ -803,36 +874,51 @@ export default function EnhancedDriverPortalPage() {
                     />
                   </div>
 
-                  {/* รายรับต่อคน */}
+                  {/* ✅ รายรับต่อคนใหม่ */}
                   <div className="mt-8 pt-6 border-t border-gray-200">
-                    <h4 className="text-md font-semibold text-gray-900 mb-4">ລາຍຮັບຕໍ່ຄົນ</h4>
+                    <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+                      <FiUsers className="mr-2 text-blue-600" />
+                      ລາຍຮັບຕໍ່ຄົນທີ່ມີສິດ
+                    </h4>
                     
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4">
+                    <div className={`rounded-lg p-4 mb-4 ${
+                      dashboardData.hasRevenue 
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200' 
+                        : 'bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-300'
+                    }`}>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-blue-600 font-medium">
+                          <p className={`text-sm font-medium ${
+                            dashboardData.hasRevenue ? 'text-blue-600' : 'text-gray-600'
+                          }`}>
                             ລາຍຮັບຂອງທ່ານ
-                            {dashboardData.driver.checkInStatus === 'checked-out' && (
-                              <span className="ml-1 text-xs text-gray-500">(ຄິດໄລ່ຍ້ອນຫລັງ)</span>
+                            {!dashboardData.hasRevenue && (
+                              <span className="ml-1 text-xs text-red-500">(ບໍ່ມີສິດ)</span>
                             )}
                           </p>
-                          <p className="text-2xl font-bold text-blue-900">
+                          <p className={`text-2xl font-bold ${
+                            dashboardData.hasRevenue ? 'text-blue-900' : 'text-gray-500'
+                          }`}>
                             {formatCurrency(dashboardData.myExpectedShare)}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs text-blue-600">ຈາກ {dashboardData.totalTickets} ໃບ</p>
-                          <p className="text-xs text-blue-600">ແບ່ງກັບ {dashboardData.workingDriversCount} ຄົນ</p>
+                          <p className={`text-xs ${
+                            dashboardData.hasRevenue ? 'text-blue-600' : 'text-gray-500'
+                          }`}>
+                            ຮອບທຳສຳເລັດ: {dashboardData.myQualifiedTrips || 0}
+                          </p>
+                          <p className={`text-xs ${
+                            dashboardData.hasRevenue ? 'text-blue-600' : 'text-gray-500'
+                          }`}>
+                            ແບ່ງກັບ: {dashboardData.qualifiedDriversCount} ຄົນທີ່ມີສິດ
+                          </p>
                           {dashboardData.dateRange && (
-                            <p className="text-xs text-blue-600">{dashboardData.dateRange.totalDays} ວັນ</p>
-                          )}
-                          {dashboardData.driver.checkInStatus === 'checked-out' && (
-                            <div className="mt-1">
-                              <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
-                                <FiClock className="mr-1 h-3 w-3" />
-                                ຂໍ້ມູນຍ້ອນຫລັງ
-                              </span>
-                            </div>
+                            <p className={`text-xs ${
+                              dashboardData.hasRevenue ? 'text-blue-600' : 'text-gray-500'
+                            }`}>
+                              {dashboardData.dateRange.totalDays} ວັນ
+                            </p>
                           )}
                         </div>
                       </div>
@@ -842,33 +928,41 @@ export default function EnhancedDriverPortalPage() {
                       <div className="text-sm text-gray-600">
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
                           <span>ພະນັກງານຂັບລົດທີ່ມີສິດແບ່ງ:</span>
-                          <span className="font-medium">{dashboardData.workingDriversCount} ຄົນ</span>
+                          <span className="font-medium text-blue-600">
+                            {dashboardData.qualifiedDriversCount} ຄົນ
+                          </span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
                           <span>ລາຍຮັບສ່ວນພະນັກງານຂັບລົດລວມ:</span>
                           <span className="font-medium text-orange-600">{formatCurrency(dashboardData.driverRevenue)}</span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span>ລາຍຮັບເຉລ່ຍຕໍ່ຄົນ:</span>
+                          <span>ລາຍຮັບເຉລ່ຍຕໍ່ຄົນທີ່ມີສິດ:</span>
                           <span className="font-medium text-green-600">{formatCurrency(dashboardData.averageDriverShare)}</span>
                         </div>
                         <div className="flex justify-between items-center py-2">
-                          <span className="text-blue-700 font-medium">ສ່ວນແບ່ງຂອງທ່ານ:</span>
-                          <span className="font-bold text-blue-700 text-lg">{formatCurrency(dashboardData.myExpectedShare)}</span>
+                          <span className={`font-medium ${
+                            dashboardData.hasRevenue ? 'text-blue-700' : 'text-gray-600'
+                          }`}>
+                            ສ່ວນແບ່ງຂອງທ່ານ:
+                          </span>
+                          <span className={`font-bold text-lg ${
+                            dashboardData.hasRevenue ? 'text-blue-700' : 'text-gray-500'
+                          }`}>
+                            {formatCurrency(dashboardData.myExpectedShare)}
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* คำอธิบายการคิดไล่ */}
+                    {/* ✅ คำอธิบายการคิดไล่ใหม่ */}
                     <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                       <p className="text-xs text-yellow-800">
-                        <strong>💡 ວິທີຄິດໄລ່:</strong> ລາຍຮັບ 85% ({formatCurrency(dashboardData.driverRevenue)}) ÷ {dashboardData.workingDriversCount} ພະນັກງານຂັບລົດ = {formatCurrency(dashboardData.averageDriverShare)} ຕໍ່ຄົນ
+                        <strong>💡 ວິທີຄິດໄລ່:</strong> ລາຍຮັບ 85% ({formatCurrency(dashboardData.driverRevenue)}) ÷ {dashboardData.qualifiedDriversCount} ພະນັກງານຂັບລົດທີ່ມີສິດ = {formatCurrency(dashboardData.averageDriverShare)} ຕໍ່ຄົນ
                       </p>
-                      {dashboardData.driver.checkInStatus === 'checked-out' && (
-                        <p className="text-xs text-amber-700 mt-1">
-                          <strong>📊 ການຄິດໄລ່ຍ້ອນຫລັງ:</strong> ແມ່ນວ່າທ່ານບໍ່ໄດ້ເຂົ້າວຽກປັດຈຸບັນ ແຕ່ສາມາດເບິ່ງຄ່າປະມານລາຍຮັບໄດ້ຈາກຂໍ້ມູນການຂາຍຕົວຈິງ
-                        </p>
-                      )}
+                      <p className="text-xs text-amber-700 mt-1">
+                        <strong>📊 ເງື່ອນໄຂສິດ:</strong> ຕ້ອງທຳຮອບການເດີນທາງສຳເລັດ 2 ຮອບຕໍ່ວັນ (ແຕ່ລະຮອບຕ້ອງມີຜູ້ໂດຍສານ ≥80% ຂອງຄວາມຈຸລົດ)
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -885,7 +979,7 @@ export default function EnhancedDriverPortalPage() {
   );
 }
 
-// Revenue Card Component
+// Revenue Card Component (เดิม)
 const RevenueCard: React.FC<{
   title: string;
   amount: number;
@@ -915,7 +1009,7 @@ const RevenueCard: React.FC<{
   );
 };
 
-// Revenue Breakdown Item Component
+// Revenue Breakdown Item Component (เดิม)
 const RevenueBreakdownItem: React.FC<{
   label: string;
   amount: number;

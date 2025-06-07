@@ -1,4 +1,4 @@
-// app/api/driver/trip/scan/route.ts - อัพเดทแล้ว แก้ไข ticket display
+// app/api/driver/trip/scan/route.ts - แก้ไขให้ตรวจสอบ ticket ทั้งระบบ
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
@@ -6,7 +6,7 @@ import Ticket from '@/models/Ticket';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// POST - สแกน QR Code หรือเลขตั๋ว (ไม่ปิดรอบอัตโนมัติ)
+// POST - สแกน QR Code หรือเลขตั๋ว (ตรวจสอบ duplicate ทั้งระบบ)
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     
     if (!ticketNumber || !ticketNumber.trim()) {
       return NextResponse.json(
-        { error: 'ກະລຸນາໃສ່ຂໍ້ມູນຕັ້ວ' },
+        { error: 'ກະລຸນາໃສ່ເລກທີ່ຕັ້ວ' },
         { status: 400 }
       );
     }
@@ -76,14 +76,38 @@ export async function POST(request: Request) {
     
     console.log('Ticket found:', ticket._id, ticket.ticketNumber);
     
-    // ตรวจสอบว่า ticket นี้ถูกสแกนแล้วหรือไม่
-    const ticketAlreadyScanned = activeTrip.scanned_tickets.some(
-      (scan: any) => scan.ticket_id.toString() === ticket._id.toString()
-    );
+    // ✅ ตรวจสอบใหม่: ว่า ticket นี้ถูกสแกนไปแล้วในระบบหรือไม่
+    const ticketUsedInSystem = await DriverTrip.findOne({
+      'scanned_tickets.ticket_id': ticket._id
+    });
     
-    if (ticketAlreadyScanned) {
+    if (ticketUsedInSystem) {
+      // หาข้อมูลการสแกนและ driver ที่สแกน
+      const usedByTrip = await DriverTrip.findOne({
+        'scanned_tickets.ticket_id': ticket._id
+      }).populate('driver_id', 'name employeeId');
+      
+      const scanDetails = usedByTrip?.scanned_tickets.find(
+        (scan: any) => scan.ticket_id.toString() === ticket._id.toString()
+      );
+      
+      const usedByDriverName = usedByTrip?.driver_id?.name || 'Unknown';
+      const usedByEmployeeId = usedByTrip?.driver_id?.employeeId || 'Unknown';
+      const scannedAt = scanDetails?.scanned_at ? new Date(scanDetails.scanned_at).toLocaleString('lo-LA') : 'Unknown';
+      
       return NextResponse.json(
-        { error: `ຕັ້ວເລກທີ ${ticketNumber} ຖືກສະແກນແລ້ວ` },
+        { 
+          error: `❌ ຕັ້ວເລກທີ ${ticketNumber} ຖືກສະແກນໄປແລ້ວ`,
+          details: {
+            message: `ຖືກສະແກນໂດຍ: ${usedByDriverName} (${usedByEmployeeId})`,
+            scannedAt: `ເວລາ: ${scannedAt}`,
+            tripId: usedByTrip?._id,
+            usedByDriver: {
+              name: usedByDriverName,
+              employeeId: usedByEmployeeId
+            }
+          }
+        },
         { status: 400 }
       );
     }
@@ -112,15 +136,10 @@ export async function POST(request: Request) {
     activeTrip.is_80_percent_reached = is80PercentReached;
     
     // ✅ ไม่ปิดรอบอัตโนมัติแล้ว - ให้ driver ตัดสินใจเอง
-    // if (is80PercentReached) {
-    //   activeTrip.status = 'completed';
-    //   activeTrip.completed_at = new Date();
-    // }
-    
     await activeTrip.save();
     
     // ✅ สร้างข้อความแจ้งเตือนใหม่
-    let message = `ເພີ່ມຜູ້ໂດຍສານ: ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ`;
+    let message = `✅ ສະແກນສຳເລັດ: ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ`;
     let statusMessage = '';
     
     if (is80PercentReached && activeTrip.current_passengers < activeTrip.car_capacity) {
@@ -138,7 +157,8 @@ export async function POST(request: Request) {
       tripId: activeTrip._id,
       currentPassengers: activeTrip.current_passengers,
       requiredPassengers: activeTrip.required_passengers,
-      is80PercentReached: is80PercentReached
+      is80PercentReached: is80PercentReached,
+      ticketScanned: ticket.ticketNumber
     });
     
     return NextResponse.json({
@@ -150,13 +170,13 @@ export async function POST(request: Request) {
       occupancy_percentage: Math.round((activeTrip.current_passengers / activeTrip.car_capacity) * 100),
       progress_percentage: Math.round((activeTrip.current_passengers / activeTrip.required_passengers) * 100),
       is_80_percent_reached: is80PercentReached,
-      can_complete_trip: true, // ✅ เสมอสามารถปิดรอบได้
-      trip_completed: false, // ✅ ไม่ปิดรอบอัตโนมัติ
+      can_complete_trip: true,
+      trip_completed: false,
       message: message,
       status_message: statusMessage,
       ticket_info: {
         ticket_id: ticket._id,
-        ticket_number: ticket.ticketNumber, // ✅ ใช้ ticketNumber แทน ObjectId
+        ticket_number: ticket.ticketNumber,
         price: ticket.price,
         passenger_order: passengerOrder
       }

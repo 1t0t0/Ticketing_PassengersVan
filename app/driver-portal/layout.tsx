@@ -1,4 +1,4 @@
-// app/driver-portal/layout.tsx - อัปเดตเพื่อเพิ่ม menu ใหม่
+// app/driver-portal/layout.tsx - แก้ไขเมนูและเพิ่มเงื่อนไขการใช้งาน
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,9 +10,10 @@ import {
   FiLogOut, 
   FiMenu, 
   FiX,
-  FiTruck
+  FiLock
 } from 'react-icons/fi';
 import { TbBus } from "react-icons/tb";
+import { Scan } from "lucide-react";
 import GoogleAlphabetIcon from '@/components/GoogleAlphabetIcon';
 import notificationService from '@/lib/notificationService';
 
@@ -21,20 +22,24 @@ interface MenuItem {
   href: string;
   icon: React.ComponentType<any>;
   description?: string;
+  requiresCheckIn?: boolean; // ✅ เพิ่มเงื่อนไขการ check-in
 }
 
+// ✅ เปลี่ยนลำดับและชื่อเมนู
 const menuItems: MenuItem[] = [
   {
-    name: 'ລາຍຮັບ',
-    href: '/driver-portal',
-    icon: FiDollarSign,
-    description: 'ເບິ່ງລາຍຮັບຂອງຕົນເອງ'
+    name: 'ສະແກນປີ້', // ✅ เปลี่ยนชื่อจาก "ຈັດການການເດີນທາງ"
+    href: '/driver-portal/trip-management',
+    icon: Scan, // ✅ เปลี่ยนไอคอน
+    description: 'ສະແກນ QR Code ແລະ ນັບຜູ້ໂດຍສານ',
+    requiresCheckIn: true // ✅ ต้อง check-in ถึงจะใช้ได้
   },
   {
-    name: 'ຈັດການການເດີນທາງ',
-    href: '/driver-portal/trip-management',
-    icon: FiTruck,
-    description: 'ສະແກນ QR Code ແລະ ນັບຜູ້ໂດຍສານ'
+    name: 'ລາຍຮັບ', // ✅ ย้ายมาข้างล่าง
+    href: '/driver-portal',
+    icon: FiDollarSign,
+    description: 'ເບິ່ງລາຍຮັບຂອງຕົນເອງ',
+    requiresCheckIn: false // ✅ ดูได้เสมอ
   }
 ];
 
@@ -87,6 +92,23 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
     fetchUserData();
   }, [session?.user?.id]);
 
+  // ✅ ตรวจสอบว่าเมนูสามารถใช้งานได้หรือไม่
+  const isMenuItemDisabled = (item: MenuItem): boolean => {
+    if (!item.requiresCheckIn) return false;
+    return userCheckInStatus !== 'checked-in';
+  };
+
+  // ✅ Handle click เมนู
+  const handleMenuClick = (item: MenuItem, e: React.MouseEvent) => {
+    if (isMenuItemDisabled(item)) {
+      e.preventDefault();
+      notificationService.warning('ກະລຸນາ Check-in ກ່ອນໃຊ້ງານສະແກນປີ້');
+      return false;
+    }
+    setSidebarOpen(false);
+    return true;
+  };
+
   if (!mounted || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F7F6F3]">
@@ -98,7 +120,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  if (status === 'unauthenticated' || session?.user?.role !== 'driver') {
+  if (status === 'unauthenticated') {
     return null;
   }
 
@@ -182,6 +204,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
           {menuItems.map((item) => {
             // ใช้ exact matching เพื่อป้องกันปัญหา nested paths
             const isActive = pathname === item.href;
+            const isDisabled = isMenuItemDisabled(item);
             
             return (
               <Link
@@ -190,22 +213,44 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
                 className={`flex items-center px-4 py-3 mb-1 text-sm font-medium rounded-lg transition-colors group ${
                   isActive
                     ? 'bg-blue-500 text-white shadow-md'
+                    : isDisabled
+                    ? 'text-gray-400 cursor-not-allowed bg-gray-100'
                     : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
                 }`}
-                onClick={() => setSidebarOpen(false)}
+                onClick={(e) => handleMenuClick(item, e)}
               >
-                <item.icon 
-                  className={`mr-3 h-5 w-5 ${
-                    isActive ? 'text-white' : 'text-gray-500 group-hover:text-blue-600'
-                  }`} 
-                />
+                <div className="relative">
+                  <item.icon 
+                    className={`mr-3 h-5 w-5 ${
+                      isActive 
+                        ? 'text-white' 
+                        : isDisabled 
+                        ? 'text-gray-400'
+                        : 'text-gray-500 group-hover:text-blue-600'
+                    }`} 
+                  />
+                  {/* ✅ แสดงไอคอน lock เมื่อปิดการใช้งาน */}
+                  {isDisabled && (
+                    <FiLock className="absolute -top-1 -right-1 h-3 w-3 text-red-500 bg-white rounded-full p-0.5" />
+                  )}
+                </div>
                 <div className="flex-1">
                   <div>{item.name}</div>
                   {item.description && (
                     <div className={`text-xs mt-0.5 ${
-                      isActive ? 'text-blue-100' : 'text-gray-500'
+                      isActive 
+                        ? 'text-blue-100' 
+                        : isDisabled 
+                        ? 'text-gray-400'
+                        : 'text-gray-500'
                     }`}>
                       {item.description}
+                    </div>
+                  )}
+                  {/* ✅ แสดงข้อความเตือนเมื่อปิดการใช้งาน */}
+                  {isDisabled && (
+                    <div className="text-xs mt-0.5 text-red-500">
+                      ຕ້ອງເຂົ້າວຽກກ່ອນ
                     </div>
                   )}
                 </div>
