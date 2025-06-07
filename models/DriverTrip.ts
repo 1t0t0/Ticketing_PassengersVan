@@ -1,4 +1,4 @@
-// models/DriverTrip.ts - แก้ไข Mongoose model conflicts
+// models/DriverTrip.ts - แก้ไข index conflict
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
 export interface IDriverTrip extends Document {
@@ -89,10 +89,14 @@ const driverTripSchema = new Schema({
   } 
 });
 
-// Indexes
+// ✅ แก้ไข: เก็บเฉพาะ index ที่จำเป็นและไม่ทำให้เกิดปัญหา
 driverTripSchema.index({ driver_id: 1, date: 1, trip_number: 1 });
 driverTripSchema.index({ status: 1 });
-driverTripSchema.index({ 'scanned_tickets.ticket_id': 1 }, { sparse: true });
+// ❌ ลบ index นี้ออกเพราะทำให้เกิด duplicate key error
+// driverTripSchema.index({ 'scanned_tickets.ticket_id': 1 }, { sparse: true });
+
+// ✅ เพิ่ม compound index ที่ปลอดภัยกว่า
+driverTripSchema.index({ driver_id: 1, date: 1, status: 1 });
 
 // Static method: สแกน QR Code (แก้ไขเพื่อไม่ใช้ mongoose.model ใน method)
 driverTripSchema.statics.scanQRCode = async function(driverId: string, ticketId: string) {
@@ -112,10 +116,10 @@ driverTripSchema.statics.scanQRCode = async function(driverId: string, ticketId:
       throw new Error('ກະລຸນາເລີ່ມການເດີນທາງກ່ອນ');
     }
     
-    // ตรวจสอบว่า ticket นี้ถูกสแกนแล้วหรือไม่
-    const ticketAlreadyScanned = await this.findOne({
-      'scanned_tickets.ticket_id': ticketId
-    });
+    // ✅ แก้ไข: ใช้วิธีตรวจสอบที่ปลอดภัยกว่า
+    const ticketAlreadyScanned = activeTrip.scanned_tickets.some(
+      (scan: any) => scan.ticket_id.toString() === ticketId
+    );
     
     if (ticketAlreadyScanned) {
       throw new Error('ຕັ້ວນີ້ຖືກສະແກນແລ້ວ');
