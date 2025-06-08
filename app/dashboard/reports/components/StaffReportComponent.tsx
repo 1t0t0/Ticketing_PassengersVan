@@ -1,13 +1,24 @@
-// app/dashboard/reports/components/StaffReportComponent.tsx - ปรับปรุงแล้ว
+// app/dashboard/reports/components/StaffReportComponent.tsx - เพิ่ม Pagination
+
 import React from 'react';
 import { FiUserCheck, FiUsers, FiCalendar, FiDollarSign } from 'react-icons/fi';
+import Pagination from '@/components/ui/Pagination';
 
 interface StaffReportComponentProps {
   reportData: any;
   loading: boolean;
+  staffPage: number;
+  setStaffPage: (page: number) => void;
 }
 
-const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData, loading }) => {
+const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ 
+  reportData, 
+  loading, 
+  staffPage, 
+  setStaffPage 
+}) => {
+  const ITEMS_PER_PAGE = 5;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-32">
@@ -22,6 +33,13 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
 
   const summary = reportData.summary || {};
   const staff = reportData.staff || [];
+
+  // Pagination logic for staff
+  const totalStaff = staff.length;
+  const totalPages = Math.ceil(totalStaff / ITEMS_PER_PAGE);
+  const startIndex = (staffPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentStaff = staff.slice(startIndex, endIndex);
 
   // Debug: ตรวจสอบข้อมูลที่ได้รับ
   console.log('Staff Report Data:', reportData);
@@ -93,15 +111,16 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
         </div>
       </div>
 
-      {/* Staff Performance Table */}
-      {staff.length > 0 && (
+      {/* Staff Performance Table with Pagination */}
+      {totalStaff > 0 && (
         <div className="bg-white border rounded-lg p-4">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-semibold text-gray-800">ລາຍລະອຽດການປະຕິບັດງານພະນັກງານຂາຍປີ້</h3>
             <span className="text-sm text-gray-500">
-              ({Math.min(staff.length, 5)} ຈາກ {staff.length} ຄົນ)
+              ສະແດງ {startIndex + 1}-{Math.min(endIndex, totalStaff)} ຈາກ {totalStaff} ຄົນ
             </span>
           </div>
+          
           <div 
             className="overflow-x-auto"
             style={{
@@ -140,6 +159,7 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
               <table className="w-full text-sm min-w-[800px]">
                 <thead>
                   <tr className="border-b bg-gray-50">
+                    <th className="text-left p-2 whitespace-nowrap">#</th>
                     <th className="text-left p-2 whitespace-nowrap">ຊື່</th>
                     <th className="text-left p-2 whitespace-nowrap">ລະຫັດ</th>
                     <th className="text-center p-2 whitespace-nowrap">ສະຖານະ</th>
@@ -150,10 +170,11 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
                   </tr>
                 </thead>
                 <tbody>
-                  {staff.slice(0, 5).map((member: any, index: number) => {
+                  {currentStaff.map((member: any, index: number) => {
                     return (
-                      <tr key={member.id || index} className="border-b hover:bg-gray-50">
-                        <td className="p-2 font-medium whitespace-nowrap">{member.name || 'N/A'}</td>
+                      <tr key={member.id || startIndex + index} className="border-b hover:bg-gray-50">
+                        <td className="p-2 whitespace-nowrap">{startIndex + index + 1}</td>
+                        <td className="p-2 font-medium whitespace-nowrap">{member.name || 'ບໍ່ລະບຸ'}</td>
                         <td className="p-2 text-gray-600 whitespace-nowrap">{member.employeeId || 'N/A'}</td>
                         <td className="p-2 text-center">
                           <span className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
@@ -198,13 +219,13 @@ const StaffReportComponent: React.FC<StaffReportComponentProps> = ({ reportData,
             </div>
           </div>
           
-          {staff.length > 5 && (
-            <div className="mt-3 text-center">
-              <p className="text-sm text-gray-500">
-                ແລະອີກ {staff.length - 5} ຄົນ... (ເລື່ອນຊ້າຍ-ຂວາເພື່ອເບິ່ງລາຍລະອຽດ)
-              </p>
-            </div>
-          )}
+          {/* Pagination */}
+          <Pagination
+            currentPage={staffPage}
+            totalPages={totalPages}
+            onPageChange={setStaffPage}
+            className="mt-4"
+          />
           
           {/* เพิ่มข้อความอธิบาย */}
           <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">

@@ -1,14 +1,25 @@
-// app/dashboard/reports/components/VehiclesReportComponent.tsx - ปรับปรุงแล้ว
+// app/dashboard/reports/components/VehiclesReportComponent.tsx - เพิ่ม Pagination
+
 import React from 'react';
 import { FiTruck, FiTag, FiUser, FiCheck, FiX } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
+import Pagination from '@/components/ui/Pagination';
 
 interface VehiclesReportComponentProps {
   reportData: any;
   loading: boolean;
+  carPage: number;
+  setCarPage: (page: number) => void;
 }
 
-const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ reportData, loading }) => {
+const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ 
+  reportData, 
+  loading, 
+  carPage, 
+  setCarPage 
+}) => {
+  const ITEMS_PER_PAGE = 5;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-32">
@@ -24,6 +35,13 @@ const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ repor
   const summary = reportData.summary || {};
   const carTypes = reportData.carTypes || [];
   const cars = reportData.cars || [];
+
+  // Pagination logic for cars
+  const totalCars = cars.length;
+  const totalPages = Math.ceil(totalCars / ITEMS_PER_PAGE);
+  const startIndex = (carPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentCars = cars.slice(startIndex, endIndex);
 
   // Prepare chart data for car types
   const carTypeChartData = {
@@ -223,15 +241,17 @@ const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ repor
         </div>
       )}
 
-      {/* Cars List - กระชับลง แสดง 5 คันแรก */}
-      {cars.length > 0 && (
+      {/* Cars List with Pagination */}
+      {totalCars > 0 && (
         <div className="bg-white border rounded-lg p-4">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-semibold flex items-center">
               <FiTruck className="mr-2" />
               ລາຍການລົດ
             </h3>
-            <span className="text-sm text-gray-500">({Math.min(cars.length, 5)} ຈາກ {cars.length} ຄັນ)</span>
+            <span className="text-sm text-gray-500">
+              ສະແດງ {startIndex + 1}-{Math.min(endIndex, totalCars)} ຈາກ {totalCars} ຄັນ
+            </span>
           </div>
           
           <div 
@@ -272,6 +292,7 @@ const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ repor
               <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr className="border-b bg-gray-50">
+                    <th className="text-left p-2 whitespace-nowrap">#</th>
                     <th className="text-left p-2 whitespace-nowrap">ລະຫັດລົດ</th>
                     <th className="text-left p-2 whitespace-nowrap">ຊື່ລົດ</th>
                     <th className="text-left p-2 whitespace-nowrap">ທະບຽນ</th>
@@ -282,8 +303,9 @@ const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ repor
                   </tr>
                 </thead>
                 <tbody>
-                  {cars.slice(0, 5).map((car: any, index: number) => (
-                    <tr key={car._id || index} className="border-b hover:bg-gray-50">
+                  {currentCars.map((car: any, index: number) => (
+                    <tr key={car._id || startIndex + index} className="border-b hover:bg-gray-50">
+                      <td className="p-2 whitespace-nowrap">{startIndex + index + 1}</td>
                       <td className="p-2 font-medium text-blue-600 whitespace-nowrap">{car.car_id}</td>
                       <td className="p-2 whitespace-nowrap">{car.car_name}</td>
                       <td className="p-2 font-mono bg-gray-100 rounded px-2 whitespace-nowrap">{car.car_registration}</td>
@@ -319,13 +341,13 @@ const VehiclesReportComponent: React.FC<VehiclesReportComponentProps> = ({ repor
             </div>
           </div>
 
-          {cars.length > 5 && (
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-500">
-                ແລະອີກ {cars.length - 5} ຄັນ... (ເລື່ອນຊ້າຍ-ຂວາເພື່ອເບິ່ງລາຍລະອຽດ)
-              </p>
-            </div>
-          )}
+          {/* Pagination */}
+          <Pagination
+            currentPage={carPage}
+            totalPages={totalPages}
+            onPageChange={setCarPage}
+            className="mt-4"
+          />
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
-// app/dashboard/reports/components/ReportTypeSelector.tsx - แก้ไขให้ Staff ไม่เห็นรายงานพนักงาน
+// app/dashboard/reports/components/ReportTypeSelector.tsx - แก้ไขลำดับรายงาน
 import React from 'react';
-import { useSession } from 'next-auth/react'; // เพิ่ม import
+import { useSession } from 'next-auth/react';
 import { FiBarChart, FiCreditCard, FiUsers, FiDollarSign, FiFilter, FiTruck, FiTag, FiUserCheck } from 'react-icons/fi';
 
 interface ReportType {
@@ -8,7 +8,7 @@ interface ReportType {
   title: string;
   icon: React.ReactNode;
   description: string;
-  roles?: string[]; // เพิ่ม field roles
+  roles?: string[];
 }
 
 interface ReportTypeSelectorProps {
@@ -20,8 +20,9 @@ const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
   selectedReport,
   onReportChange
 }) => {
-  const { data: session } = useSession(); // เพิ่ม session
+  const { data: session } = useSession();
 
+  // เรียงลำดับใหม่: ย้าย staff ไปใกล้ drivers และ financial ไปท้ายสุด
   const reportTypes: ReportType[] = [
     { 
       id: 'summary', 
@@ -45,11 +46,11 @@ const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
       roles: ['admin', 'staff', 'station'] 
     },
     { 
-      id: 'financial', 
-      title: 'ການເງິນ', 
-      icon: <FiDollarSign />, 
-      description: 'ແບ່ງລາຍຮັບ',
-      roles: ['admin', 'staff', 'station'] 
+      id: 'staff', 
+      title: 'ພະນັກງານຂາຍປີ້', 
+      icon: <FiUserCheck />, 
+      description: 'ລາຍງານພະນັກງານຂາຍປີ້',
+      roles: ['admin', 'station'] // เฉพาะ admin และ station เท่านั้น
     },
     { 
       id: 'vehicles', 
@@ -59,26 +60,25 @@ const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
       roles: ['admin', 'staff', 'station'] 
     },
     { 
-      id: 'staff', 
-      title: 'ພະນັກງານຂາຍປີ້', 
-      icon: <FiUserCheck />, 
-      description: 'ລາຍງານພະນັກງານຂາຍປີ້',
-      roles: ['admin', 'station'] // ❌ ลบ 'staff' ออก - เฉพาะ admin และ station เท่านั้น
+      id: 'financial', 
+      title: 'ການເງິນ', 
+      icon: <FiDollarSign />, 
+      description: 'ແບ່ງລາຍຮັບ',
+      roles: ['admin', 'staff', 'station'] 
     }
   ];
 
   // กรองรายงานตาม role ของผู้ใช้
   const filteredReportTypes = reportTypes.filter(report => {
-    if (!report.roles) return true; // ถ้าไม่มี roles กำหนดให้แสดงทุก role
+    if (!report.roles) return true;
     return report.roles.includes(session?.user?.role || '');
   });
 
   // ตรวจสอบว่า selectedReport ยังอยู่ใน filteredReportTypes หรือไม่
-  // ถ้าไม่อยู่ให้เปลี่ยนไปเป็น summary
   React.useEffect(() => {
     const isSelectedReportAvailable = filteredReportTypes.some(report => report.id === selectedReport);
     if (!isSelectedReportAvailable && filteredReportTypes.length > 0) {
-      onReportChange('summary'); // เปลี่ยนไปเป็น summary
+      onReportChange('summary');
     }
   }, [selectedReport, filteredReportTypes, onReportChange]);
 
