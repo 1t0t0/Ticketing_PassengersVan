@@ -282,8 +282,8 @@ export default function useTicketSales() {
             }
             
             .qr-code img {
-              width: 100px;
-              height: 100px;
+              width: 200px;
+              height: 200px;
               border: 1px solid #ddd;
               background: white;
               padding: 2px;
