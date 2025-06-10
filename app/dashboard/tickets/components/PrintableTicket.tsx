@@ -39,29 +39,32 @@ export default function TicketTemplate({
   };
 
   // สร้าง QR Code
-  useEffect(() => {
-    const generateQRCode = async () => {
-      try {
-        const QRCode = await import('qrcode');
-        const qrData = generateQRCodeData();
-        const dataURL = await QRCode.toDataURL(qrData, {
-          width: 120,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-          },
-          errorCorrectionLevel: 'M'
-        });
-        setQrCodeDataURL(dataURL);
-      } catch (error) {
-        console.error('Error generating QR code:', error);
-        setQrCodeDataURL(null);
-      }
-    };
+useEffect(() => {
+  const generateQRCode = async () => {
+    try {
+      const QRCode = await import('qrcode');
+      
+      // ✅ ใช้แค่หมายเลขตั๋ว (ไม่ใช่ JSON)
+      const qrData = ticketNumber;
+      
+      const dataURL = await QRCode.toDataURL(qrData, {
+        width: 150,                    // ✅ ขนาดใหญ่ขึ้น
+        margin: 3,                     // ✅ ขอบกว้างขึ้น
+        errorCorrectionLevel: 'H',     // ✅ แก้ไข error ได้ดีที่สุด
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setQrCodeDataURL(dataURL);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      setQrCodeDataURL(null);
+    }
+  };
 
-    generateQRCode();
-  }, [ticketNumber, price, soldAt, paymentMethod, soldBy]);
+  generateQRCode();
+}, [ticketNumber]);
 
   return (
     <div 
@@ -129,26 +132,27 @@ export default function TicketTemplate({
 
       {/* QR Code Section - สำหรับ Driver เท่านั้น */}
       {qrCodeDataURL && (
-        <div className="p-4 text-center border-b-2 bg-gray-50">
-          <div className="mb-2">
-            <p className="text-sm font-bold text-gray-700">🔍 QR CODE FOR DRIVER</p>
-          </div>
-          <div className="flex justify-center mb-2">
-            <img 
-              src={qrCodeDataURL} 
-              alt="QR Code for Driver Verification" 
-              className="w-16 h-16 border border-gray-300 bg-white p-1"
-            />
-          </div>
-          <div className="text-center">
-            <p className="text-xs font-bold text-red-600">ສຳລັບພະນັກງານຂັບລົດເທົ່ານັ້ນ</p>
-            <p className="text-xs text-gray-600">For Driver Verification Only</p>
-            <p className="text-xs text-gray-500">
-              Scan: <span className="font-mono font-bold">{ticketNumber}</span>
-            </p>
-          </div>
-        </div>
-      )}
+  <div className="p-4 text-center border-b-2 bg-gray-50">
+    <div className="mb-2">
+      <p className="text-sm font-bold text-gray-700">🔍 QR CODE FOR DRIVER</p>
+    </div>
+    <div className="flex justify-center mb-2">
+      <img 
+        src={qrCodeDataURL} 
+        alt="QR Code for Driver Verification" 
+        className="w-20 h-20 border border-gray-300 bg-white p-1"
+      />
+    </div>
+    <div className="text-center">
+      <p className="text-xs font-bold text-red-600">ສຳລັບພະນັກງານຂັບລົດເທົ່ານັ້ນ</p>
+      <p className="text-xs text-gray-600">For Driver Verification Only</p>
+      <p className="text-xs text-gray-500">
+        {/* ✅ อัพเดทข้อความให้ตรงกับการทำงานใหม่ */}
+        Ticket: <span className="font-mono font-bold">{ticketNumber}</span>
+      </p>
+    </div>
+  </div>
+)}
 
       {/* Footer */}
       <div className="p-4 text-center flex-grow flex flex-col justify-end">

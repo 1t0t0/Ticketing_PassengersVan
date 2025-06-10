@@ -46,38 +46,28 @@ export default function useTicketSales() {
 
   // ฟังก์ชันสร้าง QR Code Data สำหรับ Driver เท่านั้น
   const generateQRCodeData = (ticket: Ticket) => {
-    const qrData = {
-      ticketNumber: ticket.ticketNumber,
-      price: ticket.price,
-      soldAt: ticket.soldAt,
-      paymentMethod: ticket.paymentMethod,
-      soldBy: ticket.soldBy,
-      route: "ສະຖານີລົດໄຟ-ຕົວເມືອງ",
-      forDriverOnly: true,
-      validationKey: `DRV-${ticket.ticketNumber}-${new Date(ticket.soldAt).getTime()}`
-    };
-    return JSON.stringify(qrData);
+    return ticket.ticketNumber;
   };
 
   // ฟังก์ชันสร้าง QR Code SVG
-  const generateQRCodeSVG = async (data: string) => {
-    try {
-      // ใช้ QR Code library ที่มีอยู่
-      const QRCode = await import('qrcode');
-      const qrCodeDataURL = await QRCode.toDataURL(data, {
-        width: 80,
-        margin: 1,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
-      });
-      return qrCodeDataURL;
-    } catch (error) {
-      console.error('Error generating QR code:', error);
-      return null;
-    }
-  };
+const generateQRCodeSVG = async (data: string) => {
+  try {
+    const QRCode = await import('qrcode');
+    const qrCodeDataURL = await QRCode.toDataURL(data, {
+      width: 150,                    // ✅ เพิ่มขนาดจาก 80 เป็น 150
+      margin: 3,                     // ✅ เพิ่มขอบจาก 1 เป็น 3
+      errorCorrectionLevel: 'H',     // ✅ เพิ่ม error correction สูงสุด
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+    return qrCodeDataURL;
+  } catch (error) {
+    console.error('Error generating QR code:', error);
+    return null;
+  }
+};
   
   /**
    * ฟังก์ชันแสดง Modal ยืนยัน
