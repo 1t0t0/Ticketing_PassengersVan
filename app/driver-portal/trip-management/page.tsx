@@ -200,15 +200,15 @@ export default function ImprovedDriverTripManagementPage() {
         const isDuplicateTicket = result.error && result.error.includes('ຖືກສະແກນໄປແລ້ວ');
         
         if (isDuplicateTicket) {
-          // ❌ ถ้าเป็นตั๋วซ้ำ → แจ้ง error แต่ไม่แจ้ง success
-          notificationService.error(result.error);
+          // ❌ ถ้าเป็นตั๋วซ้ำ → แจ้งเฉพาะ warning (ไม่แจ้ง error)
+          notificationService.warning(result.error);
           
-          // แสดงรายละเอียดเพิ่มเติมถ้ามี
-          if (result.details?.message) {
-            setTimeout(() => {
-              notificationService.warning(result.details.message);
-            }, 500);
-          }
+          // ❌ ลบการแสดงรายละเอียดเพิ่มเติม (ไม่แสดงซ้อน)
+          // if (result.details?.message) {
+          //   setTimeout(() => {
+          //     notificationService.warning(result.details.message);
+          //   }, 500);
+          // }
         } else {
           // ✅ ถ้าเป็น error อื่นๆ → แจ้ง error ปกติ
           notificationService.error(result.error);
