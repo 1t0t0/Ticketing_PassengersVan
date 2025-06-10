@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     
     if (!ticketNumber || !ticketNumber.trim()) {
       return NextResponse.json(
-        { error: 'ກະລຸນາໃສ່ເລກທີ່ຕັ້ວ' },
+        { error: 'ກະລຸນາໃສ່ເລກທີ່ປີ້' },
         { status: 400 }
       );
     }
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     const ticket = await Ticket.findOne({ ticketNumber: ticketNumber.trim() });
     if (!ticket) {
       return NextResponse.json(
-        { error: `ບໍ່ພົບຂໍ້ມູນຕັ້ວເລກທີ ${ticketNumber}` },
+        { error: `ບໍ່ພົບຂໍ້ມູນປີ້ເລກທີ ${ticketNumber}` },
         { status: 404 }
       );
     }
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       
       return NextResponse.json(
         { 
-          error: `❌ ຕັ້ວເລກທີ ${ticketNumber} ຖືກສະແກນໄປແລ້ວ`,
+          error: `❌ ປີ້ເລກທີ ${ticketNumber} ຖືກສະແກນໄປແລ້ວ`,
           details: {
             message: `ຖືກສະແກນໂດຍ: ${usedByDriverName} (${usedByEmployeeId})`,
             scannedAt: `ເວລາ: ${scannedAt}`,
