@@ -166,8 +166,8 @@ export default function ImprovedDriverTripManagementPage() {
   // ✅ FIXED: สแกน QR Code หรือ Manual Input - แก้ไขการแจ้งเตือน
   const processTicketScan = async (ticketData: string) => {
     if (!ticketData.trim()) {
-      setScanResult('❌ ກະລຸນາໃສ່ເລກທີ່ຕັ້ວ');
-      notificationService.error('ກະລຸນາໃສ່ເລກທີ່ຕັ້ວ');
+      setScanResult('❌ ກະລຸນາໃສ່ເລກທີ່ຂອງປີ້');
+      notificationService.error('ກະລຸນາໃສ່ເລກທີ່ຂອງປີ້');
       return;
     }
 
@@ -367,7 +367,7 @@ export default function ImprovedDriverTripManagementPage() {
                   <Scan className="h-10 w-10 text-blue-600" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">ສະແກນ QR Code</h2>
-                <p className="text-gray-600 mb-1">ສະແກນ QR Code ຈາກຕັ້ວ ຫຼື ໃສ່ເລກທີ່ຕັ້ວດ້ວຍມື</p>
+                <p className="text-gray-600 mb-1">ສະແກນ QR Code ຈາກປີ້ ຫຼື ໃສ່ເລກທີ່ປີ້ດ້ວຍມື</p>
                 {tripStatus?.active_trip && (
                   <p className="text-sm text-blue-600 font-medium">
                     ເປົ້າໝາຍ: {tripStatus.active_trip?.current_passengers}/{tripStatus.active_trip?.required_passengers} ຄົນ 
@@ -403,14 +403,14 @@ export default function ImprovedDriverTripManagementPage() {
                   {/* Manual Input */}
                   <div className="bg-white rounded-xl p-6 shadow-inner">
                     <label className="block text-lg font-semibold text-gray-800 mb-3">
-                      ໃສ່ເລກທີ່ຕັ້ວດ້ວຍມື
+                      ໃສ່ເລກທີ່ປີ້ດ້ວຍມື
                     </label>
                     <div className="flex space-x-3">
                       <input
                         type="text"
                         value={ticketInput}
                         onChange={(e) => setTicketInput(e.target.value)}
-                        placeholder="ໃສ່ເລກທີ່ຕັ້ວ ເຊັ່ນ: T00001"
+                        placeholder="ໃສ່ເລກທີ່ປີ້ ເຊັ່ນ: T00001"
                         className="flex-1 px-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         onKeyPress={(e) => e.key === 'Enter' && handleManualScan()}
                         disabled={tripStatus.active_trip?.current_passengers >= tripStatus.active_trip?.car_capacity}
