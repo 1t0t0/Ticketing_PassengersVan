@@ -222,15 +222,16 @@ export default function ImprovedDriverTripManagementPage() {
     }
   };
 
-  // Handle QR Scanner result
+  // ✅ FIXED: Handle QR Scanner result - ไม่แจ้ง success ก่อนเช็คตั๋วซ้ำ
   const handleQRScanResult = (ticketNumber: string) => {
     setShowQRScanner(false);
     setTicketInput(ticketNumber);
-    notificationService.success(`ສະແກນສຳເລັດ: ${ticketNumber}`);
     
-    setTimeout(() => {
-      processTicketScan(ticketNumber);
-    }, 500);
+    // ❌ ลบการแจ้ง success ออก - จะแจ้งใน processTicketScan แทน
+    // notificationService.success(`ສະແກນສຳເລັດ: ${ticketNumber}`);
+    
+    // ทำการ process ทันที
+    processTicketScan(ticketNumber);
   };
 
   const handleQRScanError = (error: string) => {
