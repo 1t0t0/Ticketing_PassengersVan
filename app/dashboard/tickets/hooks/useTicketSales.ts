@@ -206,7 +206,6 @@ const generateQRCodeSVG = async (data: string) => {
             
             .receipt-header {
               text-align: center;
-              margin-bottom: 2mm;
             }
             
             .company-name {
@@ -232,7 +231,7 @@ const generateQRCodeSVG = async (data: string) => {
             .detail-item {
               display: flex;
               align-items: center;
-              margin-bottom: 2mm;
+              margin-bottom: 1mm;
               font-size: 12px;
               position: relative;
             }
@@ -272,8 +271,8 @@ const generateQRCodeSVG = async (data: string) => {
             }
             
             .qr-code img {
-              width: 200px;
-              height: 200px;
+              width: 150px;
+              height: 150px;
               border: 1px solid #ddd;
               background: white;
               padding: 2px;
@@ -287,9 +286,8 @@ const generateQRCodeSVG = async (data: string) => {
             }
             
             .qr-note {
-              font-size: 8px;
+              font-size: 12px;
               color: #888;
-              margin-top: 2mm;
               line-height: 1.2;
             }
             
@@ -314,9 +312,9 @@ const generateQRCodeSVG = async (data: string) => {
             <div class="receipt-container">
               <div class="receipt-header">
                 <div class="company-name">ປີ້ລົດຕູ້ໂດຍສານ</div>
-                <div class="company-subtitle">ປະຈຳທາງລົດໄຟ ລາວ-ຈີນ</div>
-                <div class="company-subtitle">BUS TICKET LAOS-CHINA</div>
-                <div class="company-subtitle">RAILWAY</div>
+                <div class="company-name">ປະຈຳທາງລົດໄຟຫຼວງພະບາງ</div>
+                <div class="company-subtitle">Passenger Van Ticket</div>
+                <div class="company-subtitle">at Luang Prabang Railway Station</div>
               </div>
               
               <div class="divider"></div>
@@ -329,15 +327,9 @@ const generateQRCodeSVG = async (data: string) => {
                 </div>
                 
                 <div class="detail-item">
-                  <span class="detail-label">ວັນທີ/Date</span>
+                  <span class="detail-label">ວັນເວລາ/DateTime</span>
                   <span class="detail-colon">:</span>
-                  <span class="detail-value">${formatDateShort(new Date(ticket.soldAt))}</span>
-                </div>
-                
-                <div class="detail-item">
-                  <span class="detail-label">ເວລາ/Time</span>
-                  <span class="detail-colon">:</span>
-                  <span class="detail-value">${formatTimeShort(new Date(ticket.soldAt))}</span>
+                  <span class="detail-value">${formatDateShort(new Date(ticket.soldAt))}/${formatTimeShort(new Date(ticket.soldAt))}</span>
                 </div>
                 
                 <div class="detail-item">
@@ -375,9 +367,8 @@ const generateQRCodeSVG = async (data: string) => {
                     <img src="${ticket.qrCodeImage}" alt="QR Code" />
                   </div>
                   <div class="qr-note">
-                    <strong>ສຳລັບພະນັກງານຂັບລົດເທົ່ານັ້ນ</strong><br>
-                    For Driver Verification Only<br>
-                    ໃຊ້ເພື່ອກວດສອບຄວາມຈຳນວນຄົນໃນລົດ
+                    <strong>QRສຳລັບພະນັກງານຂັບລົດເທົ່ານັ້ນ</strong><br>
+                    QR For Driver Verification Only<br>
                   </div>
                 </div>
                 
@@ -385,7 +376,7 @@ const generateQRCodeSVG = async (data: string) => {
               ` : ''}
               
               <div class="receipt-footer">
-                <div style="margin-bottom: 2mm;">( ຂໍໃຫ້ທ່ານເດີນທາງປອດໄພ )</div>
+                <div style="margin-bottom: 1mm;">( ຂໍໃຫ້ທ່ານເດີນທາງປອດໄພ )</div>
               </div>
               
               ${index < ticketsWithQR.length - 1 ? `

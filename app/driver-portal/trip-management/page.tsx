@@ -1,4 +1,4 @@
-// app/driver-portal/trip-management/page.tsx - เพิ่มปุ่มปิดรอบพร้อม Modal และแก้ไขการแสดง Ticket
+// app/driver-portal/trip-management/page.tsx - FULL CODE with Fixed Notifications
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -163,7 +163,7 @@ export default function ImprovedDriverTripManagementPage() {
     }
   };
 
-  // สแกน QR Code หรือ Manual Input
+  // ✅ FIXED: สแกน QR Code หรือ Manual Input - แก้ไขการแจ้งเตือน
   const processTicketScan = async (ticketData: string) => {
     if (!ticketData.trim()) {
       setScanResult('❌ ກະລຸນາໃສ່ເລກທີ່ຕັ້ວ');
@@ -183,6 +183,7 @@ export default function ImprovedDriverTripManagementPage() {
       const result = await response.json();
       
       if (result.success) {
+        // ✅ แสดง success notification ปกติ (เก็บไว้)
         notificationService.success(result.message);
         
         // แสดงข้อความเพิ่มเติม
@@ -195,7 +196,23 @@ export default function ImprovedDriverTripManagementPage() {
         setTicketInput('');
         await fetchData(false);
       } else {
-        notificationService.error(result.error);
+        // ✅ เช็คว่าเป็น error ประเภท "ตั๋วซ้ำ" หรือไม่
+        const isDuplicateTicket = result.error && result.error.includes('ຖືກສະແກນໄປແລ້ວ');
+        
+        if (isDuplicateTicket) {
+          // ❌ ถ้าเป็นตั๋วซ้ำ → แจ้ง error แต่ไม่แจ้ง success
+          notificationService.error(result.error);
+          
+          // แสดงรายละเอียดเพิ่มเติมถ้ามี
+          if (result.details?.message) {
+            setTimeout(() => {
+              notificationService.warning(result.details.message);
+            }, 500);
+          }
+        } else {
+          // ✅ ถ้าเป็น error อื่นๆ → แจ้ง error ปกติ
+          notificationService.error(result.error);
+        }
       }
       
     } catch (error) {
@@ -529,7 +546,7 @@ export default function ImprovedDriverTripManagementPage() {
                     )}
                   </div>
                   
-                  {/* ✅ แสดงรายชื่อผู้โดยสาร - แสดง 2 คนล่าสุด */}
+                  {/* แสดงรายชื่อผู้โดยสาร - แสดง 2 คนล่าสุด */}
                   {tripStatus.active_trip?.passengers && tripStatus.active_trip.passengers.length > 0 && (
                     <div className="bg-gray-50 p-6 rounded-lg">
                       <h4 className="font-semibold mb-4 flex items-center">
