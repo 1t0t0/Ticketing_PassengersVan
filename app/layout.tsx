@@ -5,8 +5,8 @@ import Providers from './providers'
 import { Toaster } from 'react-hot-toast';
 
 export const metadata: Metadata = {
-  title: 'Bus Ticket System',
-  description: 'Bus ticket management system',
+  title: 'Passenger Van Ticketing System',
+  description: 'Passenger Van Ticketing System at Luang Prabang Railway Station',
 }
 
 export default function RootLayout({

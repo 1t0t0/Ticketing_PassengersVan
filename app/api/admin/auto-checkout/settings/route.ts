@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     const settingsData = {
       enabled: Boolean(enabled),
       checkoutTime: checkoutTime || '17:30',
-      timezone: timezone || 'Asia/Vientiane',
+timezone: timezone || process.env.APP_TIMEZONE || 'Asia/Vientiane',
       updatedBy: session.user.id
     };
     
