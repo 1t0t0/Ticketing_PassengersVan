@@ -131,29 +131,13 @@ export default function LoginPage() {
           </form>
 
           {/* Demo Account Info */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-xs font-medium text-gray-700 mb-2 text-center">
-                ບັນຊີທົດລອງ
-              </p>
-              <div className="text-xs text-gray-600 space-y-1">
-                <div className="flex justify-between">
-                  <span>ອີເມວ:</span>
-                  <span className="font-mono">admin@busticketing.com</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>ລະຫັດ:</span>
-                  <span className="font-mono">password123</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          
         </div>
 
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-xs text-gray-500">
-            © 2024 ລະບົບຂາຍປີ້ລົດຕູ້ໂດຍສານ ປະຈຳທາງລົດໄຟ ລາວ-ຈີນ
+            © 2025 ລະບົບຂາຍປີ້ລົດຕູ້ໂດຍສານ ປະຈຳທາງລົດໄຟ ລາວ-ຈີນ
           </p>
         </div>
       </div>
