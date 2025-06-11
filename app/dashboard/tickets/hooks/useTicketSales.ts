@@ -312,7 +312,7 @@ const generateQRCodeSVG = async (data: string) => {
             <div class="receipt-container">
               <div class="receipt-header">
                 <div class="company-name">ປີ້ລົດຕູ້ໂດຍສານ</div>
-                <div class="company-name">ປະຈຳທາງລົດໄຟຫຼວງພະບາງ</div>
+                <div class="company-name">ປະຈຳສະຖານີລົດໄຟຫຼວງພະບາງ</div>
                 <div class="company-subtitle">Passenger Van Ticket</div>
                 <div class="company-subtitle">at Luang Prabang Railway Station</div>
               </div>
