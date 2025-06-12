@@ -1,18 +1,20 @@
-// app/api/driver/trip/scan/route.ts - แก้ไขให้ตรวจสอบ ticket ทั้งระบบ
+// app/api/driver/trip/scan/route.ts - Enhanced with Booking Integration
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
 import Ticket from '@/models/Ticket';
+import User from '@/models/User';
+import Booking from '@/models/Booking';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// POST - สแกน QR Code หรือเลขตั๋ว (ตรวจสอบ duplicate ทั้งระบบ)
 export async function POST(request: Request) {
   try {
+    // Authentication check
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== 'driver') {
       return NextResponse.json(
-        { error: 'Unauthorized - Only drivers can access this endpoint' },
+        { error: 'Unauthorized - Only drivers can scan tickets' },
         { status: 401 }
       );
     }
@@ -20,49 +22,35 @@ export async function POST(request: Request) {
     await connectDB();
     
     const body = await request.json();
-    const { ticketId, qrData } = body;
+    const { ticketId } = body;
     
-    console.log('Scan request:', { ticketId, qrData });
-    
-    let ticketNumber = ticketId;
-    
-    // ✅ ปรับการตรวจสอบ QR Code Data
-    if (qrData) {
-      try {
-        // ❌ เดิม: พยายาม parse JSON
-        // const parsedQRData = JSON.parse(qrData);
-        // if (parsedQRData.forDriverOnly && parsedQRData.ticketNumber) {
-        //   ticketNumber = parsedQRData.ticketNumber;
-        //   console.log('Using ticket number from QR:', ticketNumber);
-        // }
-
-        // ✅ ใหม่: ใช้ QR data โดยตรง (เพราะเป็นหมายเลขตั๋วแล้ว)
-        if (typeof qrData === 'string' && qrData.trim()) {
-          ticketNumber = qrData.trim();
-          console.log('Using ticket number from QR:', ticketNumber);
-        }
-      } catch (error) {
-        // ✅ ถ้า parse ไม่ได้ ให้ใช้เป็น string ธรรมดา
-        console.log('QR data is not JSON, using as plain string:', qrData);
-        if (typeof qrData === 'string' && qrData.trim()) {
-          ticketNumber = qrData.trim();
-        }
-      }
-    }
-    
-    if (!ticketNumber || !ticketNumber.trim()) {
+    if (!ticketId || !ticketId.trim()) {
       return NextResponse.json(
-        { error: 'ກະລຸນາໃສ່ເລກທີ່ປີ້' },
+        { error: 'ກະລຸນາໃສ່ເລກທີ່ຂອງປີ້' },
         { status: 400 }
       );
     }
 
-    // ✅ ส่วนที่เหลือเหมือนเดิม
-    const driverId = session.user.id;
+    console.log('🎫 Driver scan request:', {
+      driverId: session.user.id,
+      ticketId: ticketId.trim(),
+      driverEmail: session.user.email
+    });
+
+    // Get driver information
+    const driver = await User.findById(session.user.id);
+    if (!driver) {
+      return NextResponse.json(
+        { error: 'ບໍ່ພົບຂໍ້ມູນຄົນຂັບ' },
+        { status: 404 }
+      );
+    }
+
     const today = new Date().toISOString().split('T')[0];
     
+    // Check for active trip
     const activeTrip = await DriverTrip.findOne({
-      driver_id: driverId,
+      driver_id: session.user.id,
       date: today,
       status: 'in_progress'
     });
@@ -73,60 +61,130 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    
-    // ค้นหา ticket โดยใช้ ticketNumber
-    const ticket = await Ticket.findOne({ ticketNumber: ticketNumber.trim() });
+
+    // 🔍 Enhanced Ticket Search - support multiple formats
+    let ticket = null;
+    let searchResults = [];
+
+    // Try different search strategies
+    const searchStrategies = [
+      // 1. Direct MongoDB ID
+      () => Ticket.findById(ticketId.trim()),
+      
+      // 2. Exact ticket number match
+      () => Ticket.findOne({ ticketNumber: ticketId.trim() }),
+      
+      // 3. Case-insensitive ticket number
+      () => Ticket.findOne({ ticketNumber: { $regex: new RegExp(`^${ticketId.trim()}$`, 'i') } }),
+      
+      // 4. Partial match (in case of scanning issues)
+      () => Ticket.findOne({ ticketNumber: { $regex: ticketId.trim().replace(/[^A-Za-z0-9]/g, ''), $options: 'i' } })
+    ];
+
+    for (const strategy of searchStrategies) {
+      try {
+        ticket = await strategy();
+        if (ticket) {
+          console.log('✅ Ticket found using strategy');
+          break;
+        }
+      } catch (error) {
+        console.log('Strategy failed, trying next...');
+        continue;
+      }
+    }
+
     if (!ticket) {
       return NextResponse.json(
-        { error: `ບໍ່ພົບຂໍ້ມູນປີ້ເລກທີ ${ticketNumber}` },
+        { 
+          error: 'ບໍ່ພົບຂໍ້ມູນຕັ້ວ',
+          details: {
+            searchedFor: ticketId.trim(),
+            message: 'ກະລຸນາກວດສອບເລກທີ່ປີ້ໃໝ່'
+          }
+        },
         { status: 404 }
       );
     }
-    
-    // ตรวจสอบว่า ticket นี้ถูกสแกนไปแล้วในระบบหรือไม่
-    const ticketUsedInSystem = await DriverTrip.findOne({
-      'scanned_tickets.ticket_id': ticket._id
+
+    console.log('🎫 Found ticket:', {
+      id: ticket._id,
+      ticketNumber: ticket.ticketNumber,
+      price: ticket.price,
+      isFromBooking: ticket.isFromBooking,
+      bookingId: ticket.bookingId
     });
+
+    // Check if ticket already scanned in this trip
+    const ticketAlreadyScanned = activeTrip.scanned_tickets.some(
+      (scan: any) => scan.ticket_id.toString() === ticket._id.toString()
+    );
     
-    if (ticketUsedInSystem) {
-      const usedByTrip = await DriverTrip.findOne({
-        'scanned_tickets.ticket_id': ticket._id
-      }).populate('driver_id', 'name employeeId');
-      
-      const scanDetails = usedByTrip?.scanned_tickets.find(
-        (scan: any) => scan.ticket_id.toString() === ticket._id.toString()
-      );
-      
-      const usedByDriverName = usedByTrip?.driver_id?.name || 'Unknown';
-      const usedByEmployeeId = usedByTrip?.driver_id?.employeeId || 'Unknown';
-      const scannedAt = scanDetails?.scanned_at ? new Date(scanDetails.scanned_at).toLocaleString('lo-LA') : 'Unknown';
-      
+    if (ticketAlreadyScanned) {
+      // 🔍 Get booking info for duplicate scan message
+      let bookingInfo = null;
+      if (ticket.isFromBooking && ticket.bookingId) {
+        try {
+          bookingInfo = await Booking.findById(ticket.bookingId)
+            .select('bookingNumber passengerInfo.name passengerInfo.phone');
+        } catch (error) {
+          console.log('Could not fetch booking info for duplicate scan');
+        }
+      }
+
       return NextResponse.json(
         { 
-          error: `❌ ປີ້ເລກທີ ${ticketNumber} ຖືກສະແກນໄປແລ້ວ`,
+          error: 'ຕັ້ວນີ້ຖືກສະແກນໄປແລ້ວ',
           details: {
-            message: `ຖືກສະແກນໂດຍ: ${usedByDriverName} (${usedByEmployeeId})`,
-            scannedAt: `ເວລາ: ${scannedAt}`,
-            tripId: usedByTrip?._id,
-            usedByDriver: {
-              name: usedByDriverName,
-              employeeId: usedByEmployeeId
-            }
+            ticketNumber: ticket.ticketNumber,
+            ticketType: ticket.isFromBooking ? 'ປີ້ຈອງ' : 'ປີ້ປົກກະຕິ',
+            passengerName: bookingInfo?.passengerInfo?.name || null,
+            bookingNumber: bookingInfo?.bookingNumber || null,
+            message: ticket.isFromBooking && bookingInfo 
+              ? `ຕັ້ວຈອງຂອງ ${bookingInfo.passengerInfo.name} (${bookingInfo.bookingNumber})`
+              : 'ຕັ້ວນີ້ຖືກສະແກນໃນຮອບນີ້ແລ້ວ'
           }
         },
-        { status: 400 }
+        { status: 409 }
       );
     }
-    
-    // ตรวจสอบว่าเกินความจุหรือไม่
+
+    // Check if car is full
     if (activeTrip.current_passengers >= activeTrip.car_capacity) {
       return NextResponse.json(
-        { error: `ລົດເຕັມແລ້ວ! ຄວາມຈຸສູງສຸດ ${activeTrip.car_capacity} ຄົນ` },
+        { error: 'ລົດເຕັມແລ້ວ ບໍ່ສາມາດຮັບຜູ້ໂດຍສານເພີ່ມເຕີມໄດ້' },
         { status: 400 }
       );
     }
-    
-    // เพิ่มผู้โดยสาร
+
+    // 🆕 Enhanced: Get Booking Information
+    let bookingInfo = null;
+    let passengerDetails = null;
+
+    if (ticket.isFromBooking && ticket.bookingId) {
+      try {
+        bookingInfo = await Booking.findById(ticket.bookingId)
+          .select('bookingNumber passengerInfo tripDetails pricing status approvedAt');
+        
+        if (bookingInfo) {
+          passengerDetails = {
+            name: bookingInfo.passengerInfo.name,
+            phone: bookingInfo.passengerInfo.phone,
+            email: bookingInfo.passengerInfo.email,
+            bookingNumber: bookingInfo.bookingNumber,
+            travelDate: bookingInfo.tripDetails.travelDate,
+            totalPassengers: bookingInfo.tripDetails.passengers,
+            totalAmount: bookingInfo.pricing.totalAmount,
+            approvedAt: bookingInfo.approvedAt
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching booking info:', error);
+        // Continue without booking info if fetch fails
+      }
+    }
+
+    // Add passenger to trip
     const passengerOrder = activeTrip.current_passengers + 1;
     
     activeTrip.scanned_tickets.push({
@@ -137,62 +195,87 @@ export async function POST(request: Request) {
     
     activeTrip.current_passengers = passengerOrder;
     
-    // อัพเดท is_80_percent_reached
+    // Check if 80% capacity reached
     const is80PercentReached = activeTrip.current_passengers >= activeTrip.required_passengers;
     activeTrip.is_80_percent_reached = is80PercentReached;
     
     await activeTrip.save();
     
-    // สร้างข้อความแจ้งเตือน
-    let message = `✅ ສະແກນສຳເລັດ: ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ`;
-    let statusMessage = '';
+    // 🎉 Enhanced Success Response
+    const occupancyPercentage = Math.round((activeTrip.current_passengers / activeTrip.car_capacity) * 100);
+    const progressPercentage = Math.round((activeTrip.current_passengers / activeTrip.required_passengers) * 100);
     
-    if (is80PercentReached && activeTrip.current_passengers < activeTrip.car_capacity) {
-      statusMessage = `🎯 ຄົບເປົ້าໝາຍ ${activeTrip.required_passengers} ຄົນແລ້ວ! ສາມາດສືບຕໍ່ສະແກນຫຼືປິດຮອບໄດ້`;
-    } else if (activeTrip.current_passengers === activeTrip.car_capacity) {
-      statusMessage = `🚌 ລົດເຕັມແລ້ວ! ກະລຸນາປິດຮອບ`;
-    } else {
-      const remaining = activeTrip.required_passengers - activeTrip.current_passengers;
-      if (remaining > 0) {
-        statusMessage = `ຕ້ອງການອີກ ${remaining} ຄົນເພື່ອຄົບເປົ້າໝາຍ`;
-      }
-    }
-    
-    console.log('Trip updated successfully:', {
-      tripId: activeTrip._id,
-      currentPassengers: activeTrip.current_passengers,
-      requiredPassengers: activeTrip.required_passengers,
-      is80PercentReached: is80PercentReached,
-      ticketScanned: ticket.ticketNumber
-    });
-    
-    return NextResponse.json({
+    const responseData = {
       success: true,
-      trip_number: activeTrip.trip_number,
-      current_passengers: activeTrip.current_passengers,
-      required_passengers: activeTrip.required_passengers,
-      car_capacity: activeTrip.car_capacity,
-      occupancy_percentage: Math.round((activeTrip.current_passengers / activeTrip.car_capacity) * 100),
-      progress_percentage: Math.round((activeTrip.current_passengers / activeTrip.required_passengers) * 100),
-      is_80_percent_reached: is80PercentReached,
-      can_complete_trip: true,
-      trip_completed: false,
-      message: message,
-      status_message: statusMessage,
+      message: ticket.isFromBooking 
+        ? `✅ ສະແກນສຳເລັດ: ປີ້ຈອງ ${ticket.ticketNumber}${passengerDetails ? ` - ${passengerDetails.name}` : ''}`
+        : `✅ ສະແກນສຳເລັດ: ${ticket.ticketNumber}`,
+      
+      // Trip status
+      trip_status: {
+        trip_number: activeTrip.trip_number,
+        current_passengers: activeTrip.current_passengers,
+        required_passengers: activeTrip.required_passengers,
+        car_capacity: activeTrip.car_capacity,
+        occupancy_percentage: occupancyPercentage,
+        progress_percentage: progressPercentage,
+        is_80_percent_reached: is80PercentReached
+      },
+      
+      // 🆕 Enhanced Ticket Information
       ticket_info: {
-        ticket_id: ticket._id,
+        id: ticket._id,
         ticket_number: ticket.ticketNumber,
         price: ticket.price,
-        passenger_order: passengerOrder
+        payment_method: ticket.paymentMethod,
+        passenger_order: passengerOrder,
+        scanned_at: new Date(),
+        
+        // Ticket type identification
+        ticket_type: ticket.isFromBooking ? 'booking' : 'walk_in',
+        ticket_type_lao: ticket.isFromBooking ? 'ປີ້ຈອງ' : 'ປີ້ປົກກະຕິ',
+        
+        // 🆕 Booking Details (if available)
+        booking_details: passengerDetails ? {
+          passenger_name: passengerDetails.name,
+          passenger_phone: passengerDetails.phone,
+          booking_number: passengerDetails.bookingNumber,
+          travel_date: passengerDetails.travelDate,
+          total_passengers_in_booking: passengerDetails.totalPassengers,
+          booking_amount: passengerDetails.totalAmount,
+          approved_at: passengerDetails.approvedAt
+        } : null
+      },
+      
+      // Status message for UI
+      status_message: is80PercentReached 
+        ? `🎉 ຮອບທີ ${activeTrip.trip_number} ບັນລຸເປົ້າໝາຍແລ້ວ! (${activeTrip.current_passengers}/${activeTrip.required_passengers})` 
+        : `📊 ຄວາມຄືບໜ້າ: ${activeTrip.current_passengers}/${activeTrip.required_passengers} ຄົນ (${progressPercentage}%)`,
+        
+      // Additional context
+      context: {
+        driver_name: driver.name,
+        trip_date: today,
+        scan_time: new Date().toLocaleString('lo-LA')
       }
+    };
+
+    console.log('🎉 Scan successful:', {
+      ticketNumber: ticket.ticketNumber,
+      isFromBooking: ticket.isFromBooking,
+      passengerName: passengerDetails?.name || 'N/A',
+      currentPassengers: activeTrip.current_passengers,
+      tripNumber: activeTrip.trip_number
     });
 
+    return NextResponse.json(responseData);
+
   } catch (error) {
-    console.error('Scan QR Code Error:', error);
+    console.error('❌ Driver scan error:', error);
     return NextResponse.json(
       { 
-        error: error instanceof Error ? error.message : 'Failed to scan QR code',
-        details: error instanceof Error ? error.stack : 'Unknown error occurred'
+        error: 'ເກີດຂໍ້ຜິດພາດໃນການສະແກນ',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );

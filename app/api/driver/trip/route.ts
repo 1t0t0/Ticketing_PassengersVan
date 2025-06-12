@@ -1,20 +1,21 @@
-// app/api/driver/trip/route.ts - แก้ไข Mongoose schema error และ Filter 80%
+// app/api/driver/trip/route.ts - Enhanced GET method with Booking Integration
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
-import Car from '@/models/Car';
 import User from '@/models/User';
+import Car from '@/models/Car';
 import Ticket from '@/models/Ticket';
+import Booking from '@/models/Booking';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// GET - ดึงสถานะรอบปัจจุบัน
+// GET - Enhanced with Booking Information
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== 'driver') {
       return NextResponse.json(
-        { error: 'Unauthorized - Only drivers can access this endpoint' },
+        { error: 'Unauthorized - Only drivers can access trip status' },
         { status: 401 }
       );
     }
@@ -24,86 +25,157 @@ export async function GET(request: Request) {
     const driverId = session.user.id;
     const today = new Date().toISOString().split('T')[0];
     
-    // หารอบที่กำลังดำเนินการ
+    console.log('🚗 Fetching trip status for driver:', session.user.email, 'Date:', today);
+
+    // Get driver info
+    const driver = await User.findById(driverId);
+    if (!driver) {
+      return NextResponse.json(
+        { error: 'ບໍ່ພົບຂໍ້ມູນຄົນຂັບ' },
+        { status: 404 }
+      );
+    }
+
+    // Find active trip
     const activeTrip = await DriverTrip.findOne({
       driver_id: driverId,
       date: today,
       status: 'in_progress'
+    }).populate({
+      path: 'scanned_tickets.ticket_id',
+      select: 'ticketNumber price paymentMethod soldBy isFromBooking bookingId soldAt'
     });
 
-    // ✅ แก้ไข: นับเฉพาะรอบที่ถึง 80% และ status = 'completed' เท่านั้น
-    const completedTripsToday = await DriverTrip.countDocuments({
+    // Count completed trips today
+    const completedTrips = await DriverTrip.find({
       driver_id: driverId,
       date: today,
-      status: 'completed',
-      is_80_percent_reached: true  // ✅ เพิ่มเงื่อนไขนี้
+      status: 'completed'
     });
 
-    // เช็คว่ามีสิทธิ์รับรายได้หรือไม่ (ต้องอย่างน้อย 2 รอบที่ถึง 80%)
-    const qualifiesForRevenue = completedTripsToday >= 2;
-    
-    const revenueStatus = qualifiesForRevenue ? 
-      'ມີສິດຮັບສ່ວນແບ່ງລາຍຮັບ 85%' : 
-      `ຕ້ອງການອີກ ${2 - completedTripsToday} ຮອບເພື່ອໄດ້ຮັບສ່ວນແບ່ງລາຍຮັບ`;
+    const totalCompletedTrips = completedTrips.length;
+    const qualifiesForRevenue = totalCompletedTrips >= 2;
 
-    // ✅ แก้ไข: ดึงข้อมูล ticket ที่ถูกต้องพร้อม populate
-    let passengersData = [];
-    if (activeTrip && activeTrip.scanned_tickets && activeTrip.scanned_tickets.length > 0) {
-      try {
-        passengersData = await Promise.all(
-          activeTrip.scanned_tickets.map(async (ticket: any) => {
-            try {
-              // ดึงข้อมูล ticket จาก database
-              const ticketDoc = await Ticket.findById(ticket.ticket_id).select('ticketNumber');
-              
-              return {
-                order: ticket.passenger_order,
-                ticket_number: ticketDoc ? ticketDoc.ticketNumber : `T${ticket.passenger_order.toString().padStart(5, '0')}`,
-                scanned_at: ticket.scanned_at
-              };
-            } catch (error) {
-              console.warn('Failed to fetch ticket:', ticket.ticket_id);
-              // ถ้าหา ticket ไม่เจอ ให้ใช้เลขลำดับแทน
-              return {
-                order: ticket.passenger_order,
-                ticket_number: `T${ticket.passenger_order.toString().padStart(5, '0')}`,
-                scanned_at: ticket.scanned_at
-              };
-            }
-          })
-        );
-      } catch (error) {
-        console.error('Error fetching passengers data:', error);
-        passengersData = [];
-      }
-    }
-
-    const tripStatus = {
+    let tripStatusResponse = {
       has_active_trip: !!activeTrip,
-      active_trip: activeTrip ? {
-        trip_id: activeTrip._id.toString(),
+      active_trip: null as any,
+      completed_trips_today: totalCompletedTrips,
+      qualifies_for_revenue: qualifiesForRevenue,
+      revenue_status: qualifiesForRevenue 
+        ? 'ມີສິດຮັບສ່ວນແບ່ງລາຍຮັບ 85%' 
+        : `ຕ້ອງທຳອີກ ${2 - totalCompletedTrips} ຮອບເພື່ອໄດ້ຮັບສ່ວນແບ່ງລາຍຮັບ`
+    };
+
+    if (activeTrip) {
+      // 🆕 Enhanced: Get detailed passenger information with booking data
+      const enhancedPassengers = await Promise.all(
+        activeTrip.scanned_tickets.map(async (scan: any) => {
+          const ticket = scan.ticket_id;
+          if (!ticket) return null;
+
+          let bookingDetails = null;
+          
+          // 🔍 If ticket is from booking, get booking information
+          if (ticket.isFromBooking && ticket.bookingId) {
+            try {
+              const booking = await Booking.findById(ticket.bookingId)
+                .select('bookingNumber passengerInfo tripDetails pricing');
+              
+              if (booking) {
+                bookingDetails = {
+                  booking_number: booking.bookingNumber,
+                  passenger_name: booking.passengerInfo.name,
+                  passenger_phone: booking.passengerInfo.phone,
+                  passenger_email: booking.passengerInfo.email,
+                  total_passengers_in_booking: booking.tripDetails.passengers,
+                  booking_amount: booking.pricing.totalAmount,
+                  travel_date: booking.tripDetails.travelDate
+                };
+              }
+            } catch (error) {
+              console.error('Error fetching booking details for ticket:', ticket._id, error);
+            }
+          }
+
+          return {
+            order: scan.passenger_order,
+            ticket_number: ticket.ticketNumber,
+            scanned_at: scan.scanned_at,
+            
+            // 🆕 Enhanced ticket information
+            ticket_details: {
+              id: ticket._id,
+              price: ticket.price,
+              payment_method: ticket.paymentMethod,
+              sold_by: ticket.soldBy,
+              sold_at: ticket.soldAt,
+              
+              // Ticket type
+              ticket_type: ticket.isFromBooking ? 'booking' : 'walk_in',
+              ticket_type_lao: ticket.isFromBooking ? 'ປີ້ຈອງ' : 'ປີ້ປົກກະຕິ',
+              
+              // 🆕 Booking details (if available)
+              booking_details: bookingDetails
+            }
+          };
+        })
+      );
+
+      // Filter out null results and sort by order
+      const validPassengers = enhancedPassengers
+        .filter(p => p !== null)
+        .sort((a, b) => a.order - b.order);
+
+      tripStatusResponse.active_trip = {
+        trip_id: activeTrip._id,
         trip_number: activeTrip.trip_number,
         current_passengers: activeTrip.current_passengers,
         required_passengers: activeTrip.required_passengers,
         car_capacity: activeTrip.car_capacity,
         started_at: activeTrip.started_at,
-        passengers: passengersData  // ✅ ใช้ข้อมูลที่ populate แล้ว
-      } : null,
-      completed_trips_today: completedTripsToday,  // ✅ ตอนนี้จะเป็นรอบที่ถึง 80% เท่านั้น
-      qualifies_for_revenue: qualifiesForRevenue,
-      revenue_status: revenueStatus
-    };
-    
+        
+        // 🆕 Enhanced passenger list with booking information
+        passengers: validPassengers,
+        
+        // 🆕 Additional trip statistics
+        trip_stats: {
+          occupancy_percentage: Math.round((activeTrip.current_passengers / activeTrip.car_capacity) * 100),
+          progress_percentage: Math.round((activeTrip.current_passengers / activeTrip.required_passengers) * 100),
+          is_80_percent_reached: activeTrip.is_80_percent_reached,
+          
+          // Passenger breakdown by type
+          passenger_breakdown: {
+            walk_in_count: validPassengers.filter(p => p.ticket_details.ticket_type === 'walk_in').length,
+            booking_count: validPassengers.filter(p => p.ticket_details.ticket_type === 'booking').length,
+            total_revenue: validPassengers.reduce((sum, p) => sum + p.ticket_details.price, 0)
+          }
+        }
+      };
+
+      console.log('📊 Active trip found:', {
+        tripNumber: activeTrip.trip_number,
+        passengers: activeTrip.current_passengers,
+        bookingPassengers: tripStatusResponse.active_trip.trip_stats.passenger_breakdown.booking_count,
+        walkInPassengers: tripStatusResponse.active_trip.trip_stats.passenger_breakdown.walk_in_count
+      });
+    }
+
+    console.log('✅ Trip status response prepared:', {
+      hasActiveTrip: tripStatusResponse.has_active_trip,
+      completedTrips: tripStatusResponse.completed_trips_today,
+      qualifiesForRevenue: tripStatusResponse.qualifies_for_revenue
+    });
+
     return NextResponse.json({
       success: true,
-      data: tripStatus
+      data: tripStatusResponse
     });
 
   } catch (error) {
-    console.error('Get Trip Status Error:', error);
+    console.error('❌ Get trip status error:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to get trip status',
+      {
+        error: 'ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນການເດີນທາງ',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
@@ -111,13 +183,13 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - เริ่มรอบใหม่ (แก้ไขเพื่อหลีกเลี่ยง Mongoose schema error)
+// POST method remains the same for starting new trips
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== 'driver') {
       return NextResponse.json(
-        { error: 'Unauthorized - Only drivers can access this endpoint' },
+        { error: 'Unauthorized - Only drivers can start trips' },
         { status: 401 }
       );
     }
@@ -125,85 +197,94 @@ export async function POST(request: Request) {
     await connectDB();
     
     const driverId = session.user.id;
-    
-    // ดึงข้อมูลรถของ driver โดยตรงแทนการใช้ mongoose.model ใน static method
-    const driverCar = await Car.findOne({ user_id: driverId });
-    if (!driverCar) {
-      return NextResponse.json(
-        { 
-          error: 'ບໍ່ພົບຂໍ້ມູນລົດຂອງພະນັກງານຂັບລົດ',
-          details: 'No car assigned to this driver'
-        },
-        { status: 404 }
-      );
-    }
-    
     const today = new Date().toISOString().split('T')[0];
     
-    // ตรวจสอบว่ามีรอบที่ยังไม่เสร็จหรือไม่
-    const activeTrip = await DriverTrip.findOne({
+    console.log('🚀 Starting new trip for driver:', session.user.email);
+
+    // Check if driver has an active trip
+    const existingTrip = await DriverTrip.findOne({
       driver_id: driverId,
       date: today,
       status: 'in_progress'
     });
     
-    if (activeTrip) {
+    if (existingTrip) {
       return NextResponse.json(
-        { 
-          error: 'ທ່ານມີການເດີນທາງທີ່ຍັງບໍ່ສຳເລັດ ກະລຸນາສຳເລັດກ່ອນ',
-          details: 'Active trip already exists'
-        },
+        { error: 'ທ່ານມີການເດີນທາງທີ່ກຳລັງດຳເນີນການຢູ່ແລ້ວ' },
         { status: 400 }
       );
     }
-    
-    // หาว่าวันนี้เป็นรอบที่เท่าไหร่ (นับรวมทุกรอบ ไม่ว่าจะถึง 80% หรือไม่)
-    const tripCount = await DriverTrip.countDocuments({
+
+    // Get driver and car information
+    const driver = await User.findById(driverId);
+    if (!driver) {
+      return NextResponse.json(
+        { error: 'ບໍ່ພົບຂໍ້ມູນຄົນຂັບ' },
+        { status: 404 }
+      );
+    }
+
+    const car = await Car.findOne({ user_id: driverId });
+    if (!car) {
+      return NextResponse.json(
+        { error: 'ບໍ່ພົບຂໍ້ມູນລົດທີ່ມອບໝາຍໃຫ້' },
+        { status: 404 }
+      );
+    }
+
+    // Calculate trip number for today
+    const tripsToday = await DriverTrip.find({
       driver_id: driverId,
       date: today
-    });
+    }).sort({ trip_number: -1 });
+
+    const nextTripNumber = tripsToday.length > 0 ? tripsToday[0].trip_number + 1 : 1;
     
-    const tripNumber = tripCount + 1;
-    const carCapacity = driverCar.car_capacity || 10; // default capacity
-    const requiredPassengers = Math.floor(carCapacity * 0.8); // 80%
-    
-    // สร้างรอบใหม่
-    const newTrip = await DriverTrip.create({
+    // Calculate required passengers (80% of car capacity)
+    const requiredPassengers = Math.ceil(car.car_capacity * 0.8);
+
+    // Create new trip
+    const newTrip = new DriverTrip({
       driver_id: driverId,
-      car_id: driverCar._id,
-      trip_number: tripNumber,
+      car_id: car._id,
+      trip_number: nextTripNumber,
       date: today,
-      car_capacity: carCapacity,
+      status: 'in_progress',
+      scanned_tickets: [],
+      car_capacity: car.car_capacity,
       required_passengers: requiredPassengers,
       current_passengers: 0,
       is_80_percent_reached: false,
-      started_at: new Date(),
-      scanned_tickets: []
+      started_at: new Date()
     });
-    
-    console.log('New trip created:', {
-      tripId: newTrip._id,
-      tripNumber,
-      driverId,
-      carCapacity,
-      requiredPassengers
+
+    await newTrip.save();
+
+    console.log('🎉 New trip created:', {
+      tripNumber: nextTripNumber,
+      carCapacity: car.car_capacity,
+      requiredPassengers: requiredPassengers,
+      driverName: driver.name
     });
-    
+
     return NextResponse.json({
       success: true,
-      trip_id: newTrip._id,
-      trip_number: tripNumber,
-      car_capacity: carCapacity,
-      required_passengers: requiredPassengers,
-      message: `ເລີ່ມການເດີນທາງຮອບທີ ${tripNumber} - ຕ້ອງການຜູ້ໂດຍສານ ${requiredPassengers}/${carCapacity} ຄົນ`
+      message: `ເລີ່ມການເດີນທາງຮອບທີ ${nextTripNumber} ສຳເລັດ!`,
+      trip: {
+        trip_id: newTrip._id,
+        trip_number: nextTripNumber,
+        car_capacity: car.car_capacity,
+        required_passengers: requiredPassengers,
+        started_at: newTrip.started_at
+      }
     });
 
   } catch (error) {
-    console.error('Start New Trip Error:', error);
+    console.error('❌ Start trip error:', error);
     return NextResponse.json(
-      { 
-        error: error instanceof Error ? error.message : 'Failed to start new trip',
-        details: error instanceof Error ? error.stack : 'Unknown error occurred'
+      {
+        error: 'ເກີດຂໍ້ຜິດພາດໃນການເລີ່ມການເດີນທາງ',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
