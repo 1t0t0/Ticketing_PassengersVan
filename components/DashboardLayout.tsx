@@ -8,12 +8,10 @@ import Link from 'next/link';
 import { 
   FiHome, 
   FiUsers, 
-  FiCreditCard, 
   FiBarChart, 
   FiLogOut, 
   FiMenu, 
   FiX,
-  FiUser,
   FiFileText,
   FiPieChart,
   FiLogIn
@@ -45,6 +43,13 @@ const menuItems: MenuItem[] = [
     icon: Ticket,
     roles: ['admin', 'staff'],
     description: 'ຂາຍແລະຈັດການປີ້'
+  },
+  {
+    name: 'ການຈອງ',
+    href: '/dashboard/bookings',
+    icon: FiFileText,
+    roles: ['admin', 'staff'],
+    description: 'ຈັດການການຈອງປີ້ລ່ວງໜ້າ'
   },
   {
     name: 'ປະຫວັດປີ້',
