@@ -1,497 +1,548 @@
-// app/dashboard/bookings/page.tsx - หน้าจัดการการจองสำหรับ Admin
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Eye,
-  Check,
-  X,
-  Filter,
-  Search,
-  Calendar,
-  Users,
-  MapPin,
-  Phone,
-  Download,
-  RefreshCw
+import { 
+  Calendar, 
+  Users, 
+  Phone, 
+  User, 
+  Mail,
+  CreditCard,
+  Bus,
+  Plus,
+  Minus,
+  UserCheck
 } from 'lucide-react';
 
-interface BookingData {
-  _id: string;
-  bookingNumber: string;
-  passengerInfo: {
-    name: string;
-    phone: string;
-    email?: string;
-  };
-  tripDetails: {
-    pickupLocation: string;
-    destination: string;
-    travelDate: string;
-    travelTime: string;
-    passengers: number;
-  };
-  pricing: {
-    basePrice: number;
-    totalAmount: number;
-  };
-  paymentSlip?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
-  statusLao: string;
-  ticketNumbers: string[];
-  expiresAt: string;
-  createdAt: string;
-  approvedAt?: string;
+interface PassengerInfo {
+  name: string;
+  phone?: string;
+  email?: string;
+  age?: string;
 }
 
-type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'expired';
+interface BookingFormData {
+  // Trip Details
+  travelDate: string;
+  passengers: string;
+  
+  // Main Contact (ผู้ติดต่อหลัก)
+  mainContact: {
+    name: string;
+    phone: string;
+    email: string;
+  };
+  
+  // Passenger Details (ข้อมูลผู้โดยสารแต่ละคน)
+  passengerList: PassengerInfo[];
+}
 
-export default function BookingsManagementPage() {
-  const { data: session, status } = useSession();
+export default function BookingPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState<BookingFormData>({
+    travelDate: '',
+    passengers: '1',
+    mainContact: {
+      name: '',
+      phone: '',
+      email: ''
+    },
+    passengerList: [
+      { name: '', phone: '', email: '', age: '' }
+    ]
+  });
 
-  const [bookings, setBookings] = useState<BookingData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBooking, setSelectedBooking] = useState<BookingData | null>(null);
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
-  const [adminNotes, setAdminNotes] = useState('');
+  const basePrice = 45000;
+  const passengersNum = parseInt(formData.passengers) || 1;
+  const totalAmount = basePrice * passengersNum;
 
-  // Auth check
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    } else if (status === 'authenticated' && !['admin', 'staff'].includes(session?.user?.role || '')) {
-      router.push('/dashboard');
+  // อัปเดตจำนวนผู้โดยสาร
+  const handlePassengersChange = (value: string) => {
+    const newCount = parseInt(value) || 1;
+    const currentList = [...formData.passengerList];
+    
+    console.log('🎯 Changing passengers from', currentList.length, 'to', newCount);
+    
+    if (newCount > currentList.length) {
+      // เพิ่มผู้โดยสาร
+      for (let i = currentList.length; i < newCount; i++) {
+        currentList.push({ name: '', phone: '', email: '', age: '' });
+        console.log('➕ Added passenger', i + 1);
+      }
+    } else if (newCount < currentList.length) {
+      // ลดผู้โดยสาร
+      currentList.splice(newCount);
+      console.log('➖ Removed passengers, now have', newCount);
     }
-  }, [status, session, router]);
+    
+    setFormData(prev => ({
+      ...prev,
+      passengers: value,
+      passengerList: currentList
+    }));
+    
+    console.log('📋 Updated passenger list:', currentList);
+  };
 
-  // ดึงข้อมูลการจอง
-  const fetchBookings = async () => {
+  // อัปเดตข้อมูลผู้ติดต่อหลัก
+  const handleMainContactChange = (field: keyof BookingFormData['mainContact'], value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      mainContact: {
+        ...prev.mainContact,
+        [field]: value
+      }
+    }));
+  };
+
+  // อัปเดตข้อมูลผู้โดยสารแต่ละคน
+  const handlePassengerChange = (index: number, field: keyof PassengerInfo, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      passengerList: prev.passengerList.map((passenger, i) => 
+        i === index ? { ...passenger, [field]: value } : passenger
+      )
+    }));
+  };
+
+  // คัดลอกข้อมูลจากผู้ติดต่อหลักไปยังผู้โดยสารคนแรก
+  const copyMainContactToFirstPassenger = () => {
+    if (formData.passengerList.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        passengerList: prev.passengerList.map((passenger, index) => 
+          index === 0 ? {
+            ...passenger,
+            name: prev.mainContact.name,
+            phone: prev.mainContact.phone,
+            email: prev.mainContact.email
+          } : passenger
+        )
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    console.log('🔍 Validating form data:', formData);
+    
+    const passengersNum = parseInt(formData.passengers) || 0;
+    const phoneClean = formData.mainContact.phone.trim().replace(/\s+/g, '');
+    
+    // ตรวจสอบข้อมูลพื้นฐาน
+    const basicValid = formData.travelDate && 
+           formData.passengers && 
+           passengersNum > 0 &&
+           passengersNum <= 10 &&
+           formData.mainContact.name.trim().length > 0 && 
+           formData.mainContact.phone.trim().length > 0 && 
+           phoneClean.length >= 6;
+    
+    // ตรวจสอบข้อมูลผู้โดยสารแต่ละคน
+    const passengersValid = formData.passengerList.every((passenger, index) => {
+      if (index >= passengersNum) return true; // ไม่ต้องตรวจสอบคนที่เกิน
+      return passenger.name.trim().length > 0; // อย่างน้อยต้องมีชื่อ
+    });
+    
+    console.log('Basic valid:', basicValid);
+    console.log('Passengers valid:', passengersValid);
+    console.log('🎯 Form is valid:', basicValid && passengersValid);
+    
+    return basicValid && passengersValid;
+  };
+
+  const getTomorrowDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
+
+  const handleSubmit = async () => {
+    console.log('📝 Submit button clicked');
+    console.log('Current form data:', formData);
+    
+    if (!validateForm()) {
+      console.log('❌ Validation failed');
+      alert('ກະລຸນາກຮອກຂໍ້ມູນໃຫ້ຄົບຖ້ວນ');
+      return;
+    }
+
+    console.log('✅ Validation passed, proceeding with submission');
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      const response = await fetch('/api/bookings');
-      if (!response.ok) throw new Error('Failed to fetch bookings');
+      const requestBody = {
+        passengerInfo: {
+          name: formData.mainContact.name,
+          phone: formData.mainContact.phone,
+          email: formData.mainContact.email || undefined
+        },
+        tripDetails: {
+          pickupLocation: 'ຈຸດນັດພົບ',
+          destination: 'ຕົວເມືອງ',
+          travelDate: formData.travelDate,
+          travelTime: '08:00',
+          passengers: parseInt(formData.passengers)
+        },
+        basePrice: basePrice,
+        // เพิ่มข้อมูลผู้โดยสารทุกคน
+        passengerDetails: formData.passengerList.slice(0, passengersNum)
+      };
       
-      const data = await response.json();
-      setBookings(data);
+      console.log('📤 Sending request:', requestBody);
+
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('📥 Response status:', response.status);
+      const result = await response.json();
+      console.log('📥 Response data:', result);
+
+      if (response.ok) {
+        console.log('✅ Booking created successfully');
+        router.push(`/booking/${result.booking._id}/payment`);
+      } else {
+        console.log('❌ API Error:', result.error);
+        alert(result.error || 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງການຈອງ');
+      }
     } catch (error) {
-      console.error('Error fetching bookings:', error);
+      console.error('💥 Network/JS Error:', error);
+      alert('ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່ ກະລຸນາລອງໃໝ່');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (session?.user?.role && ['admin', 'staff'].includes(session.user.role)) {
-      fetchBookings();
-    }
-  }, [session]);
-
-  // Filter และ Search
-  const filteredBookings = bookings.filter(booking => {
-    const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
-    const matchesSearch = !searchQuery || 
-      booking.bookingNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.passengerInfo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.passengerInfo.phone.includes(searchQuery);
-    
-    return matchesStatus && matchesSearch;
-  });
-
-  // เปิด modal อนุมัติ
-  const openApprovalModal = (booking: BookingData, action: 'approve' | 'reject') => {
-    setSelectedBooking(booking);
-    setApprovalAction(action);
-    setAdminNotes('');
-    setShowApprovalModal(true);
-  };
-
-  // ปิด modal
-  const closeApprovalModal = () => {
-    setShowApprovalModal(false);
-    setSelectedBooking(null);
-    setAdminNotes('');
-  };
-
-  // ดำเนินการอนุมัติ/ปฏิเสธ
-  const handleApproval = async () => {
-    if (!selectedBooking) return;
-
-    try {
-      setProcessing(selectedBooking._id);
-      
-      const response = await fetch(`/api/bookings/${selectedBooking._id}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: approvalAction,
-          adminNotes: adminNotes.trim() || undefined
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'การดำเนินการล้มเหลว');
-      }
-
-      const result = await response.json();
-      
-      // อัพเดทรายการ
-      await fetchBookings();
-      
-      // แสดงข้อความสำเร็จ
-      alert(result.message || `${approvalAction === 'approve' ? 'ອະນຸມັດ' : 'ປະຕິເສດ'}ສຳເລັດ`);
-      
-      closeApprovalModal();
-
-    } catch (error) {
-      console.error('Approval error:', error);
-      alert(error instanceof Error ? error.message : 'เกิดข้อผิดพลาด');
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  // StatusBadge component
-  const StatusBadge = ({ status }: { status: string }) => {
-    const config = {
-      pending: { icon: Clock, color: 'bg-yellow-100 text-yellow-800', text: 'ລໍຖ້າອະນຸມັດ' },
-      approved: { icon: CheckCircle, color: 'bg-green-100 text-green-800', text: 'ອະນຸມັດແລ້ວ' },
-      rejected: { icon: XCircle, color: 'bg-red-100 text-red-800', text: 'ປະຕິເສດ' },
-      expired: { icon: AlertCircle, color: 'bg-gray-100 text-gray-800', text: 'ໝົດອາຍຸ' }
-    };
-
-    const { icon: Icon, color, text } = config[status as keyof typeof config] || config.expired;
-
-    return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${color}`}>
-        <Icon className="w-3 h-3 mr-1" />
-        {text}
-      </span>
-    );
-  };
-
-  if (status === 'loading') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (!session || !['admin', 'staff'].includes(session.user?.role || '')) {
-    return null;
-  }
-
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">ຈັດການການຈອງ</h1>
-            <p className="text-gray-600">ອະນຸມັດ ຫຼື ປະຕິເສດການຈອງປີ້</p>
-          </div>
-          <button
-            onClick={fetchBookings}
-            disabled={loading}
-            className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            ອັບເດດ
-          </button>
-        </div>
-      </div>
-
-      {/* Filters และ Search */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Status Filter */}
-          <div className="flex items-center space-x-2">
-            <Filter className="w-5 h-5 text-gray-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">ທັງໝົດ</option>
-              <option value="pending">ລໍຖ້າອະນຸມັດ</option>
-              <option value="approved">ອະນຸມັດແລ້ວ</option>
-              <option value="rejected">ປະຕິເສດ</option>
-              <option value="expired">ໝົດອາຍຸ</option>
-            </select>
-          </div>
-
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ຄົ້ນຫາດ້ວຍເລກທີການຈອງ, ຊື່, ຫຼື ເບີໂທ"
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {(['pending', 'approved', 'rejected', 'expired'] as const).map(status => (
-            <div key={status} className="text-center">
-              <div className="text-2xl font-bold text-gray-900">
-                {bookings.filter(b => b.status === status).length}
-              </div>
-              <div className="text-sm text-gray-500">
-                {status === 'pending' ? 'ລໍຖ້າອະນຸມັດ' :
-                 status === 'approved' ? 'ອະນຸມັດແລ້ວ' :
-                 status === 'rejected' ? 'ປະຕິເສດ' : 'ໝົດອາຍຸ'}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-6xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Bus className="w-8 h-8 text-blue-600 mr-3" />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">ຈອງປີ້ລົດໂດຍສານ</h1>
+                <p className="text-gray-600">ຈອງລ່ວງໜ້າ ສະດວກ ແລະ ປອດໄພ</p>
               </div>
             </div>
-          ))}
+            <button
+              onClick={() => router.push('/booking/status')}
+              className="text-blue-600 hover:text-blue-800 font-medium"
+            >
+              ກວດສອບສະຖານະການຈອງ
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Bookings List */}
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p>ກຳລັງໂຫລດ...</p>
-        </div>
-      ) : filteredBookings.length === 0 ? (
-        <div className="text-center py-12">
-          <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">ບໍ່ມີຂໍ້ມູນ</h3>
-          <p className="text-gray-600">ບໍ່ພົບການຈອງທີ່ຕົງກັບເງື່ອນໄຂ</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6">
-          {filteredBookings.map((booking) => (
-            <div key={booking._id} className="bg-white rounded-lg shadow border hover:shadow-md transition-shadow">
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          
+          {/* Main Form */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-2xl shadow-xl p-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">ຂໍ້ມູນການຈອງ</h2>
+              
+              <div className="space-y-8">
+                {/* Date and Passengers */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <div className="flex items-center space-x-3">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {booking.bookingNumber}
-                      </h3>
-                      <StatusBadge status={booking.status} />
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      ສ້າງເມື່ອ: {new Date(booking.createdAt).toLocaleString('lo-LA')}
-                    </p>
+                    <label className="flex items-center text-sm font-medium text-gray-700 mb-3">
+                      <Calendar className="w-4 h-4 mr-2 text-blue-600" />
+                      ວັນທີເດີນທາງ
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.travelDate}
+                      onChange={(e) => setFormData(prev => ({ ...prev, travelDate: e.target.value }))}
+                      min={getTomorrowDate()}
+                      className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                    />
                   </div>
-                  
-                  {booking.status === 'pending' && (
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => openApprovalModal(booking, 'approve')}
-                        disabled={processing === booking._id}
-                        className="flex items-center px-3 py-1.5 bg-green-500 text-white text-sm rounded hover:bg-green-600 disabled:opacity-50"
-                      >
-                        <Check className="w-4 h-4 mr-1" />
-                        ອະນຸມັດ
-                      </button>
-                      <button
-                        onClick={() => openApprovalModal(booking, 'reject')}
-                        disabled={processing === booking._id}
-                        className="flex items-center px-3 py-1.5 bg-red-500 text-white text-sm rounded hover:bg-red-600 disabled:opacity-50"
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        ປະຕິເສດ
-                      </button>
-                    </div>
-                  )}
+
+                  <div>
+                    <label className="flex items-center text-sm font-medium text-gray-700 mb-3">
+                      <Users className="w-4 h-4 mr-2 text-purple-600" />
+                      ຈຳນວນຜູ້ໂດຍສານ
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={formData.passengers}
+                      onChange={(e) => handlePassengersChange(e.target.value)}
+                      className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                      placeholder="1"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">ສູງສຸດ 10 ຄົນ</p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* ข้อมูลผู้โดยสาร */}
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                      <Phone className="w-4 h-4 mr-1 text-blue-600" />
-                      ຜູ້ຕິດຕໍ່
-                    </h4>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p>{booking.passengerInfo.name}</p>
-                      <p>{booking.passengerInfo.phone}</p>
-                      {booking.passengerInfo.email && <p>{booking.passengerInfo.email}</p>}
+                {/* ข้อมูลผู้ติดต่อหลัก */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                    <UserCheck className="w-5 h-5 mr-2 text-green-600" />
+                    ຂໍ້ມູນຜູ້ຕິດຕໍ່ຫຼັກ
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">ບຸກຄົນທີ່ສາມາດຕິດຕໍ່ໄດ້ສຳລັບການຈອງນີ້</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                        <User className="w-4 h-4 mr-2 text-blue-600" />
+                        ຊື່ຜູ້ຕິດຕໍ່ *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.mainContact.name}
+                        onChange={(e) => handleMainContactChange('name', e.target.value)}
+                        placeholder="ໃສ່ຊື່ຜູ້ຕິດຕໍ່"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                        <Phone className="w-4 h-4 mr-2 text-green-600" />
+                        ເບີໂທຕິດຕໍ່ *
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.mainContact.phone}
+                        onChange={(e) => handleMainContactChange('phone', e.target.value)}
+                        placeholder="020 1234 5678"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
                     </div>
                   </div>
 
-                  {/* ข้อมูลการเดินทาง */}
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                      <MapPin className="w-4 h-4 mr-1 text-green-600" />
-                      ການເດີນທາງ
-                    </h4>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p>{booking.tripDetails.pickupLocation} → {booking.tripDetails.destination}</p>
-                      <p className="flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {new Date(booking.tripDetails.travelDate).toLocaleDateString('lo-LA')}
-                      </p>
-                      <p>ເວລາ: {booking.tripDetails.travelTime}</p>
-                      <p className="flex items-center">
-                        <Users className="w-3 h-3 mr-1" />
-                        {booking.tripDetails.passengers} ຄົນ
-                      </p>
-                    </div>
+                  <div className="mt-4">
+                    <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                      <Mail className="w-4 h-4 mr-2 text-purple-600" />
+                      ອີເມວ (ບໍ່ບັງຄັບ)
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.mainContact.email}
+                      onChange={(e) => handleMainContactChange('email', e.target.value)}
+                      placeholder="example@email.com"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
+                </div>
 
-                  {/* ข้อมูลการชำระเงิน */}
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">ການຊຳລະເງິນ</h4>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p>ລາຄາລວມ: <span className="font-medium text-blue-600">₭{booking.pricing.totalAmount.toLocaleString()}</span></p>
-                      <div className="flex items-center space-x-2">
-                        <span>ສລິບ:</span>
-                        {booking.paymentSlip ? (
-                          <button
-                            onClick={() => window.open(booking.paymentSlip, '_blank')}
-                            className="text-blue-600 hover:text-blue-800 underline flex items-center"
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            ເບິ່ງສລິບ
-                          </button>
-                        ) : (
-                          <span className="text-orange-600">ຍັງບໍ່ອັບໂຫລດ</span>
-                        )}
-                      </div>
-                      {booking.status === 'approved' && booking.ticketNumbers.length > 0 && (
-                        <div>
-                          <p className="text-green-600 font-medium">ປີ້ທີ່ອອກໃຫ້:</p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {booking.ticketNumbers.map((ticket, index) => (
-                              <span key={index} className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                                {ticket}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
+                {/* ข้อมูลผู้โดยสารแต่ละคน */}
+                {passengersNum > 0 && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                        <Users className="w-5 h-5 mr-2 text-blue-600" />
+                        ຂໍ້ມູນຜູ້ໂດຍສານ ({passengersNum} ຄົນ)
+                      </h3>
+                      {formData.passengerList.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={copyMainContactToFirstPassenger}
+                          className="text-sm text-blue-600 hover:text-blue-800 underline"
+                        >
+                          📋 ຄັດລອກຜູ້ຕິດຕໍ່ຫຼັກໄປຄົນທີ 1
+                        </button>
                       )}
                     </div>
-                  </div>
-                </div>
 
-                {/* เวลาหมดอายุ (สำหรับ pending) */}
-                {booking.status === 'pending' && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                    <p className="text-sm text-yellow-800">
-                      <Clock className="w-4 h-4 inline mr-1" />
-                      ໝົດອາຍຸ: {new Date(booking.expiresAt).toLocaleString('lo-LA')}
-                    </p>
+                    <div className="space-y-6">
+                      {formData.passengerList.slice(0, passengersNum).map((passenger, index) => (
+                        <div key={`passenger-${index}`} className="bg-gray-50 rounded-lg p-4 border border-gray-200 animate-fadeIn">
+                          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                            <span className="bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">
+                              {index + 1}
+                            </span>
+                            ຜູ້ໂດຍສານຄົນທີ {index + 1}
+                            {index === 0 && (
+                              <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                ຫຼັກ
+                              </span>
+                            )}
+                          </h4>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                ຊື່ ແລະ ນາມສະກຸນ *
+                              </label>
+                              <input
+                                type="text"
+                                value={passenger.name}
+                                onChange={(e) => handlePassengerChange(index, 'name', e.target.value)}
+                                placeholder={`ໃສ່ຊື່ຜູ້ໂດຍສານຄົນທີ ${index + 1}`}
+                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                required
+                              />
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                ເບີໂທ (ບໍ່ບັງຄັບ)
+                              </label>
+                              <input
+                                type="tel"
+                                value={passenger.phone || ''}
+                                onChange={(e) => handlePassengerChange(index, 'phone', e.target.value)}
+                                placeholder="020 1234 5678"
+                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                ອາຍຸ (ບໍ່ບັງຄັບ)
+                              </label>
+                              <input
+                                type="number"
+                                value={passenger.age || ''}
+                                onChange={(e) => handlePassengerChange(index, 'age', e.target.value)}
+                                placeholder="25"
+                                min="1"
+                                max="100"
+                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Debug Info */}
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                      <strong>Debug:</strong> 
+                      <br />จำนวนที่เลือก: {passengersNum}
+                      <br />จำนวนในอาร์เรย์: {formData.passengerList.length}
+                      <br />แสดงฟอร์ม: {formData.passengerList.slice(0, passengersNum).length} คน
+                    </div>
                   </div>
                 )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* Approval Modal */}
-      {showApprovalModal && selectedBooking && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-
-            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-              <div>
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100">
-                  {approvalAction === 'approve' ? (
-                    <Check className="h-6 w-6 text-green-600" />
+                {/* Submit Button */}
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading || !validateForm()}
+                  className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-colors flex items-center justify-center ${
+                    validateForm() && !loading
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                   ) : (
-                    <X className="h-6 w-6 text-red-600" />
+                    <span className="flex items-center">
+                      ຢືນຢັນການຈອງ
+                      <CreditCard className="w-5 h-5 ml-2" />
+                    </span>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Price Summary */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-xl p-6 sticky top-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">ສະຫຼຸບການຈອງ</h3>
+              
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">ປາຍທາງ:</span>
+                  <span className="font-medium text-right">ຕົວເມືອງ</span>
                 </div>
-                <div className="mt-3 text-center sm:mt-5">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    {approvalAction === 'approve' ? 'ອະນຸມັດການຈອງ' : 'ປະຕິເສດການຈອງ'}
-                  </h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500">
-                      ເລກທີການຈອງ: {selectedBooking.bookingNumber}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      ຜູ້ຈອງ: {selectedBooking.passengerInfo.name}
-                    </p>
-                  </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">ວັນທີ:</span>
+                  <span className="font-medium">
+                    {formData.travelDate ? new Date(formData.travelDate).toLocaleDateString('lo-LA') : 'ຍັງບໍ່ໄດ້ເລືອກ'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">ຈຳນວນຄົນ:</span>
+                  <span className="font-medium">{passengersNum} ຄົນ</span>
                 </div>
               </div>
 
-              {/* Payment Slip Preview */}
-              {selectedBooking.paymentSlip && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">ສລິບການໂອນເງິນ:</p>
-                  <div className="border rounded-lg overflow-hidden">
-                    <img 
-                      src={selectedBooking.paymentSlip} 
-                      alt="Payment Slip" 
-                      className="w-full h-48 object-contain bg-gray-50"
-                    />
+              <hr className="my-4" />
+
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">ລາຄາຕໍ່ຄົນ:</span>
+                  <span className="font-medium">₭{basePrice.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">ຈຳນວນຄົນ:</span>
+                  <span className="font-medium">{passengersNum} ຄົນ</span>
+                </div>
+                
+                <hr className="my-3" />
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-bold text-gray-900">ລາຄາລວມ:</span>
+                  <span className="text-2xl font-bold text-blue-600">₭{totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Passenger List Preview */}
+              {passengersNum > 0 && formData.passengerList.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <h4 className="font-medium text-gray-900 mb-3">ລາຍຊື່ຜູ້ໂດຍສານ:</h4>
+                  <div className="space-y-2">
+                    {formData.passengerList.slice(0, passengersNum).map((passenger, index) => (
+                      <div key={index} className="flex items-center text-sm">
+                        <span className="w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-xs mr-2">
+                          {index + 1}
+                        </span>
+                        <span className="text-gray-700">
+                          {passenger.name || `ຜູ້ໂດຍສານຄົນທີ ${index + 1}`}
+                          {passenger.age && ` (${passenger.age} ປີ)`}
+                        </span>
+                        {index === 0 && (
+                          <span className="ml-2 text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded">
+                            ຫຼັກ
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* ตัวอย่างการแสดงข้อมูล Debug */}
+                  <div className="mt-3 p-2 bg-gray-100 rounded text-xs">
+                    <strong>Debug Summary:</strong>
+                    <br />✅ ผู้โดยสาร: {passengersNum} คน
+                    <br />✅ ฟอร์มที่มี: {formData.passengerList.length} ชุด
+                    <br />✅ แสดงผล: {formData.passengerList.slice(0, passengersNum).length} คน
                   </div>
                 </div>
               )}
 
-              {/* Admin Notes */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ໝາຍເຫດ {approvalAction === 'reject' && <span className="text-red-500">*</span>}
-                </label>
-                <textarea
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  placeholder={approvalAction === 'approve' ? 'ໝາຍເຫດເພີ່ມເຕີມ (ບໍ່ບັງຄັບ)' : 'ເຫດຜົນໃນການປະຕິເສດ'}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
-                  required={approvalAction === 'reject'}
-                />
-              </div>
-
-              <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                <button
-                  type="button"
-                  onClick={handleApproval}
-                  disabled={processing === selectedBooking._id || (approvalAction === 'reject' && !adminNotes.trim())}
-                  className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:col-start-2 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
-                    approvalAction === 'approve' 
-                      ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' 
-                      : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                  }`}
-                >
-                  {processing === selectedBooking._id ? (
-                    <div className="flex items-center">
-                      <RefreshCw className="animate-spin -ml-1 mr-3 h-5 w-5" />
-                      ກຳລັງດຳເນີນການ...
-                    </div>
-                  ) : (
-                    approvalAction === 'approve' ? 'ອະນຸມັດ' : 'ປະຕິເສດ'
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeApprovalModal}
-                  disabled={processing === selectedBooking._id}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm disabled:opacity-50"
-                >
-                  ຍົກເລີກ
-                </button>
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-900 mb-2">ຂໍ້ມູນສຳຄັນ</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• ປາຍທາງ: ພາຍໃນຕົວເມືອງ</li>
+                    <li>• ເວລາອອກເດີນທາງ 08:00 ໂມງເຊົ້າ</li>
+                    <li>• ການຈອງໝົດອາຍຸພາຍໃນ 24 ຊົວໂມງ</li>
+                    <li>• ບອກຈຸດໝາຍປາຍທາງໃຫ້ຄົນຂັບຟັງ</li>
+                    <li>• ກະລຸນາມາຮອດກ່ອນເວລາ 15 ນາທີ</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
