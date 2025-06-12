@@ -1,4 +1,4 @@
-// app/dashboard/bookings/page.tsx - Fixed undefined property access
+// app/dashboard/bookings/page.tsx - Fixed Modal and API Issues
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -83,10 +83,15 @@ export default function AdminBookingsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
 
+  // ✅ เพิ่ม debug state
+  const [debugInfo, setDebugInfo] = useState('');
+
   // ดึงข้อมูลการจอง
   const fetchBookings = async (page = 1, search = searchTerm, status = statusFilter) => {
     try {
       setLoading(true);
+      setDebugInfo('Fetching bookings...');
+      
       const params = new URLSearchParams({
         page: page.toString(),
         limit: pagination.limit.toString(),
@@ -97,10 +102,16 @@ export default function AdminBookingsPage() {
         params.append('search', search.trim());
       }
 
+      console.log('🔍 Fetching bookings with params:', params.toString());
+      
       const response = await fetch(`/api/bookings?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch bookings');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       
       const data = await response.json();
+      console.log('📦 Received bookings data:', data);
       
       // ✅ เพิ่มการตรวจสอบและ validation ข้อมูล
       const validBookings = (data.bookings || []).map((booking: any) => ({
@@ -121,9 +132,12 @@ export default function AdminBookingsPage() {
 
       setBookings(validBookings);
       setPagination(data.pagination || pagination);
+      setDebugInfo(`✅ Loaded ${validBookings.length} bookings`);
+      
     } catch (error) {
-      console.error('Error fetching bookings:', error);
-      alert('เกิดข้อผิดพลาดในการดึงข้อมูล');
+      console.error('❌ Error fetching bookings:', error);
+      setDebugInfo(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert('เกิดข้อผิดพลาดในการดึงข้อมูล: ' + (error instanceof Error ? error.message : 'Unknown error'));
       setBookings([]); // ✅ ตั้งค่าเป็น empty array เมื่อ error
     } finally {
       setLoading(false);
@@ -153,16 +167,37 @@ export default function AdminBookingsPage() {
     fetchBookings(page, searchTerm, statusFilter);
   };
 
-  // เปิด Modal สำหรับดูรายละเอียด
+  // ✅ เปิด Modal สำหรับดูรายละเอียด - เพิ่ม debug
   const openModal = (booking: BookingData) => {
+    console.log('🔧 Opening modal for booking:', booking.bookingNumber);
     setSelectedBooking(booking);
     setAdminNotes(booking.adminNotes || '');
     setShowModal(true);
+    setDebugInfo(`Opening modal for ${booking.bookingNumber}`);
+    
+    // ✅ เพิ่ม body scroll lock เพื่อป้องกัน scroll ทะลุ
+    document.body.style.overflow = 'hidden';
   };
 
-  // อนุมัติ/ปฏิเสธการจอง
+  // ✅ ปิด Modal - เพิ่ม cleanup
+  const closeModal = () => {
+    console.log('🔧 Closing modal');
+    setShowModal(false);
+    setSelectedBooking(null);
+    setDebugInfo('Modal closed');
+    
+    // ✅ ปลดล็อก body scroll
+    document.body.style.overflow = 'unset';
+  };
+
+  // ✅ อนุมัติ/ปฏิเสธการจอง - แก้ไข API call
   const handleBookingAction = async (action: 'approve' | 'reject') => {
-    if (!selectedBooking) return;
+    if (!selectedBooking) {
+      alert('ไม่พบข้อมูลการจอง');
+      return;
+    }
+
+    console.log('🔧 Processing booking action:', action, 'for:', selectedBooking.bookingNumber);
 
     // ตรวจสอบก่อนอนุมัติ
     if (action === 'approve' && !selectedBooking.paymentSlip) {
@@ -172,28 +207,50 @@ export default function AdminBookingsPage() {
 
     try {
       setActionLoading(true);
+      setDebugInfo(`Processing ${action}...`);
       
-      const response = await fetch(`/api/bookings/${selectedBooking._id}/approve`, {
+      // ✅ ใช้ _id แทน bookingNumber เพื่อความแน่นอน
+      const apiUrl = `/api/bookings/${selectedBooking._id}/approve`;
+      console.log('📡 API URL:', apiUrl);
+      
+      const requestBody = {
+        action,
+        adminNotes: adminNotes.trim() || undefined
+      };
+      console.log('📡 Request body:', requestBody);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action,
-          adminNotes: adminNotes.trim() || undefined
-        })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers));
+
       const result = await response.json();
+      console.log('📡 Response data:', result);
 
       if (response.ok) {
-        alert(result.message || (action === 'approve' ? 'ອະນຸມັດສຳເລັດ!' : 'ປະຕິເສດສຳເລັດ!'));
-        setShowModal(false);
+        const successMessage = result.message || (action === 'approve' ? 'ອະນຸມັດສຳເລັດ!' : 'ປະຕິເສດສຳເລັດ!');
+        alert(successMessage);
+        setDebugInfo(`✅ ${action} successful`);
+        closeModal();
         fetchBookings(pagination.currentPage, searchTerm, statusFilter); // รีเฟรชข้อมูล
       } else {
-        alert(result.error || 'ເກີດຂໍ້ຜິດພາດ');
+        const errorMessage = result.error || `เกิดข้อผิดพลาดในการ${action === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ'}`;
+        console.error('❌ API Error:', errorMessage);
+        setDebugInfo(`❌ Error: ${errorMessage}`);
+        alert(errorMessage);
       }
     } catch (error) {
-      console.error('Action error:', error);
-      alert('ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່');
+      console.error('❌ Network error:', error);
+      const networkError = `ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      setDebugInfo(`❌ Network error: ${networkError}`);
+      alert(networkError);
     } finally {
       setActionLoading(false);
     }
@@ -254,6 +311,10 @@ export default function AdminBookingsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">ຈັດການການຈອງ</h1>
             <p className="text-gray-600">ອະນຸມັດ ແລະ ຈັດການການຈອງປີ້ລ່ວງໜ້າ</p>
+            {/* ✅ เพิ่ม debug info */}
+            {debugInfo && (
+              <p className="text-xs text-blue-600 mt-1">🔧 {debugInfo}</p>
+            )}
           </div>
           <button
             onClick={() => fetchBookings(pagination.currentPage, searchTerm, statusFilter)}
@@ -471,7 +532,8 @@ export default function AdminBookingsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => openModal(booking)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
+                        className="text-blue-600 hover:text-blue-900 mr-3 p-1 rounded hover:bg-blue-50"
+                        title="ดูรายละเอียด"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
@@ -554,26 +616,34 @@ export default function AdminBookingsPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* ✅ Modal - Fixed z-index and positioning */}
       {showModal && selectedBooking && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowModal(false)}></div>
-
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="flex items-center justify-between mb-4">
+        <>
+          {/* ✅ Portal-style positioning ด้วย fixed และ z-index สูง */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+            style={{ zIndex: 9999 }}
+            onClick={closeModal}
+          >
+            <div 
+              className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">
                     ລາຍລະອຽດການຈອງ: {selectedBooking.bookingNumber || 'N/A'}
                   </h3>
                   <button
-                    onClick={() => setShowModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    onClick={closeModal}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
                   >
                     <XCircle className="w-6 h-6" />
                   </button>
                 </div>
+              </div>
 
+              <div className="px-6 py-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* ข้อมูลผู้โดยสาร */}
                   <div className="space-y-4">
@@ -667,16 +737,16 @@ export default function AdminBookingsPage() {
               </div>
 
               {/* Modal Actions */}
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
                 {selectedBooking.status === 'pending' && (
                   <>
                     <button
                       onClick={() => handleBookingAction('approve')}
                       disabled={actionLoading || !selectedBooking.paymentSlip}
-                      className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white sm:ml-3 sm:w-auto sm:text-sm ${
+                      className={`px-4 py-2 rounded-md text-sm font-medium ${
                         selectedBooking.paymentSlip && !actionLoading
-                          ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                          : 'bg-gray-400 cursor-not-allowed'
+                          ? 'bg-green-600 hover:bg-green-700 text-white'
+                          : 'bg-gray-400 cursor-not-allowed text-white'
                       }`}
                     >
                       {actionLoading ? 'ກຳລັງປະມວນຜົນ...' : 'ອະນຸມັດ'}
@@ -684,22 +754,22 @@ export default function AdminBookingsPage() {
                     <button
                       onClick={() => handleBookingAction('reject')}
                       disabled={actionLoading}
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:ring-red-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {actionLoading ? 'ກຳລັງປະມວນຜົນ...' : 'ປະຕິເສດ'}
                     </button>
                   </>
                 )}
                 <button
-                  onClick={() => setShowModal(false)}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  onClick={closeModal}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-md text-sm font-medium"
                 >
                   ປິດ
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

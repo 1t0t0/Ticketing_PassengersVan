@@ -1,4 +1,4 @@
-// app/api/bookings/[id]/approve/route.ts
+// app/api/bookings/[id]/approve/route.ts - Fixed API Route
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Booking from '@/models/Booking';
@@ -8,7 +8,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 // POST - อนุมัติ/ปฏิเสธ booking
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // ตรวจสอบสิทธิ์ (เฉพาะ admin และ staff)
@@ -22,9 +22,11 @@ export async function POST(
 
     await connectDB();
     
-    const { id } = params;
+    // ✅ แก้ไข: await params ก่อนใช้งาน
+    const { id } = await context.params;
+    
     const body = await request.json();
-    console.log('Booking approval request:', { id, body, user: session.user.email });
+    console.log('🎯 Booking approval request:', { id, body, user: session.user.email });
     
     const { action, adminNotes } = body;
     
@@ -50,6 +52,13 @@ export async function POST(
         { status: 404 }
       );
     }
+    
+    console.log('📋 Found booking:', {
+      id: booking._id,
+      bookingNumber: booking.bookingNumber,
+      status: booking.status,
+      hasPaymentSlip: !!booking.paymentSlip
+    });
     
     // ตรวจสอบสถานะ
     if (booking.status !== 'pending') {
@@ -79,59 +88,81 @@ export async function POST(
     
     try {
       if (action === 'approve') {
-        // อนุมัติการจอง และสร้างตั๋ว
-        await booking.approve(session.user.id, adminNotes);
+        console.log('✅ Starting approval process...');
         
-        console.log('Booking approved successfully:', {
-          bookingNumber: booking.bookingNumber,
-          ticketNumbers: booking.ticketNumbers,
+        // ✅ เรียกใช้ instance method ที่เพิ่มใหม่
+        const approvedBooking = await booking.approve(session.user.id, adminNotes);
+        
+        console.log('🎉 Booking approved successfully:', {
+          bookingNumber: approvedBooking.bookingNumber,
+          ticketNumbers: approvedBooking.ticketNumbers,
           approvedBy: session.user.email
         });
         
         return NextResponse.json({
           success: true,
-          booking: booking,
-          ticketNumbers: booking.ticketNumbers,
-          message: `ອະນຸມັດການຈອງສຳເລັດ! ສ້າງປີ້ເລກທີ: ${booking.ticketNumbers.join(', ')}`
+          booking: approvedBooking,
+          ticketNumbers: approvedBooking.ticketNumbers,
+          message: `ອະນຸມັດການຈອງສຳເລັດ! ສ້າງປີ້ເລກທີ: ${approvedBooking.ticketNumbers.join(', ')}`
         });
         
       } else {
-        // ปฏิเสธการจอง
-        await booking.reject(session.user.id, adminNotes);
+        console.log('❌ Starting rejection process...');
         
-        console.log('Booking rejected:', {
-          bookingNumber: booking.bookingNumber,
+        // ✅ เรียกใช้ instance method ที่เพิ่มใหม่
+        const rejectedBooking = await booking.reject(session.user.id, adminNotes);
+        
+        console.log('✅ Booking rejected:', {
+          bookingNumber: rejectedBooking.bookingNumber,
           rejectedBy: session.user.email,
           reason: adminNotes
         });
         
         return NextResponse.json({
           success: true,
-          booking: booking,
+          booking: rejectedBooking,
           message: 'ປະຕິເສດການຈອງສຳເລັດ'
         });
       }
       
     } catch (approvalError) {
-      console.error('Booking approval process error:', approvalError);
+      console.error('❌ Booking approval process error:', approvalError);
       
-      // ถ้าเป็นปัญหาการสร้างตั๋ว
-      if (approvalError instanceof Error && approvalError.message.includes('ticket')) {
+      // จัดการ error ตามประเภท
+      if (approvalError instanceof Error) {
+        if (approvalError.message.includes('ticket') || approvalError.message.includes('ตั๋ว')) {
+          return NextResponse.json(
+            { error: 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງປີ້ ກະລຸນາລອງໃໝ່' },
+            { status: 500 }
+          );
+        }
+        
+        if (approvalError.message.includes('หมดอายุ') || approvalError.message.includes('expired')) {
+          return NextResponse.json(
+            { error: 'ການຈອງນີ້ໝົດອາຍຸແລ້ວ' },
+            { status: 400 }
+          );
+        }
+        
+        // Error อื่นๆ
         return NextResponse.json(
-          { error: 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງປີ້ ກະລຸນາລອງໃໝ່' },
-          { status: 500 }
+          { error: approvalError.message },
+          { status: 400 }
         );
       }
       
+      // Unknown error
       throw approvalError;
     }
     
   } catch (error) {
-    console.error('Booking Approval Error:', error);
+    console.error('❌ Booking Approval Error:', error);
     return NextResponse.json(
       { 
         error: 'ເກີດຂໍ້ຜິດພາດໃນການດຳເນີນການ',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: process.env.NODE_ENV === 'development' 
+          ? (error instanceof Error ? error.message : 'Unknown error')
+          : undefined
       },
       { status: 500 }
     );
@@ -141,7 +172,7 @@ export async function POST(
 // GET - ดึงข้อมูลการอนุมัติ (สำหรับแสดงประวัติ)
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // ตรวจสอบสิทธิ์
@@ -155,7 +186,8 @@ export async function GET(
 
     await connectDB();
     
-    const { id } = params;
+    // ✅ แก้ไข: await params ก่อนใช้งาน
+    const { id } = await context.params;
     
     // หา booking พร้อมข้อมูลผู้อนุมัติ
     let booking;
@@ -174,7 +206,7 @@ export async function GET(
       );
     }
     
-    // ส่งคืนข้อมูলการอนุมัติ
+    // ส่งคืนข้อมูลการอนุมัติ
     const approvalInfo = {
       bookingNumber: booking.bookingNumber,
       status: booking.status,
@@ -190,7 +222,7 @@ export async function GET(
     return NextResponse.json(approvalInfo);
     
   } catch (error) {
-    console.error('Get Approval Info Error:', error);
+    console.error('❌ Get Approval Info Error:', error);
     return NextResponse.json(
       { error: 'ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນການອະນຸມັດ' },
       { status: 500 }

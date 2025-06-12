@@ -1,3 +1,4 @@
+// models/Booking.ts - Updated with approve/reject methods
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
 export interface IBooking extends Document {
@@ -27,6 +28,11 @@ export interface IBooking extends Document {
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  
+  // Instance methods
+  isExpired(): boolean;
+  approve(adminId: string, notes?: string): Promise<IBooking>;
+  reject(adminId: string, notes?: string): Promise<IBooking>;
 }
 
 const bookingSchema = new Schema({
@@ -71,8 +77,7 @@ const bookingSchema = new Schema({
   }
 }, { timestamps: true });
 
-// 🔧 ลบ index ซ้ำ - ใช้เฉพาะใน schema definition
-// bookingSchema.index({ bookingNumber: 1 }, { unique: true }); // <- ลบบรรทัดนี้
+// Indexes
 bookingSchema.index({ status: 1 });
 bookingSchema.index({ 'passengerInfo.phone': 1 });
 bookingSchema.index({ 'tripDetails.travelDate': 1 });
@@ -85,7 +90,6 @@ bookingSchema.statics.generateBookingNumber = async function(): Promise<string> 
   const month = (date.getMonth() + 1).toString().padStart(2, '0'); // "06"
   const day = date.getDate().toString().padStart(2, '0'); // "12"
   
-  // 🔧 แก้ไข: ใช้ตัวเลขแยกกันแทนการต่อ string
   const datePrefix = `B${year}${month}${day}`;
   
   // หา booking ล่าสุดในวันนี้
@@ -95,7 +99,6 @@ bookingSchema.statics.generateBookingNumber = async function(): Promise<string> 
   
   let counter = 1;
   if (latestBooking && latestBooking.bookingNumber) {
-    // 🔧 แก้ไข: ดึงตัวเลขท้ายแบบปลอดภัย
     const lastNumber = latestBooking.bookingNumber.replace(datePrefix, '');
     const lastCounter = parseInt(lastNumber, 10);
     if (!isNaN(lastCounter)) {
@@ -103,7 +106,6 @@ bookingSchema.statics.generateBookingNumber = async function(): Promise<string> 
     }
   }
   
-  // 🔧 แก้ไข: ใช้ padStart แทนการคำนวณ
   const counterStr = counter.toString().padStart(3, '0');
   const bookingNumber = `${datePrefix}${counterStr}`;
   
@@ -122,6 +124,146 @@ bookingSchema.statics.createBooking = async function(bookingData: Partial<IBooki
   });
   
   return await booking.save();
+};
+
+// ✅ เพิ่ม generateTicketNumber utility function
+async function generateTicketNumber(): Promise<string> {
+  const Ticket = mongoose.models.Ticket || mongoose.model('Ticket', new Schema({}));
+  
+  // ใช้ระบบ UUID สำหรับ ticket numbers เหมือนใน tickets/route.ts
+  const SAFE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const maxAttempts = 20;
+  let attempt = 0;
+  
+  while (attempt < maxAttempts) {
+    attempt++;
+    
+    // สร้าง ticket number: T + 5 หลักสุ่ม
+    let ticketNumber = 'T';
+    for (let i = 0; i < 5; i++) {
+      const randomIndex = Math.floor(Math.random() * SAFE_CHARS.length);
+      ticketNumber += SAFE_CHARS[randomIndex];
+    }
+    
+    console.log(`🎲 Generated candidate ticket: ${ticketNumber} (attempt ${attempt})`);
+    
+    // ตรวจสอบว่าซ้ำมั้ย
+    const existingTicket = await Ticket.findOne({ ticketNumber });
+    
+    if (!existingTicket) {
+      console.log(`✅ Unique ticket number found: ${ticketNumber}`);
+      return ticketNumber;
+    }
+    
+    console.log(`⚠️ ${ticketNumber} already exists, trying again...`);
+  }
+  
+  // 🆘 ถ้าลองแล้วยังซ้ำ ให้ใส่ timestamp
+  const timestamp = Date.now().toString().slice(-2);
+  const emergency = `T${SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)]}${timestamp}${SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)]}${SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)]}`;
+  
+  console.log(`🆘 Using emergency ticket number: ${emergency}`);
+  return emergency;
+}
+
+// ✅ Instance method: Approve booking
+bookingSchema.methods.approve = async function(adminId: string, adminNotes?: string): Promise<IBooking> {
+  console.log('🎯 Starting booking approval process for:', this.bookingNumber);
+  
+  if (this.status !== 'pending') {
+    throw new Error('เฉพาะการจองที่รอการอนุมัติเท่านั้นที่สามารถอนุมัติได้');
+  }
+  
+  if (this.isExpired()) {
+    this.status = 'expired';
+    await this.save();
+    throw new Error('การจองนี้หมดอายุแล้ว');
+  }
+  
+  if (!this.paymentSlip) {
+    throw new Error('ต้องมีสลิปการโอนเงินก่อนอนุมัติ');
+  }
+  
+  try {
+    // สร้างตั๋ว
+    const Ticket = mongoose.models.Ticket || mongoose.model('Ticket', new Schema({
+      ticketNumber: { type: String, required: true, unique: true },
+      price: { type: Number, required: true },
+      paymentMethod: { type: String, enum: ['cash', 'qr'], default: 'qr' },
+      soldBy: { type: String, required: true },
+      soldAt: { type: Date, default: Date.now },
+      bookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' }
+    }));
+    
+    const ticketNumbers: string[] = [];
+    const passengers = this.tripDetails.passengers;
+    const pricePerTicket = this.pricing.basePrice;
+    
+    console.log(`🎫 Creating ${passengers} tickets at ₭${pricePerTicket} each`);
+    
+    // สร้างตั๋วตามจำนวนผู้โดยสาร
+    for (let i = 0; i < passengers; i++) {
+      const ticketNumber = await generateTicketNumber();
+      
+      const ticket = await Ticket.create({
+        ticketNumber,
+        price: pricePerTicket,
+        paymentMethod: 'qr', // การจองล่วงหน้าถือว่าเป็น QR payment
+        soldBy: `Booking-${this.bookingNumber}`,
+        soldAt: new Date(),
+        bookingId: this._id
+      });
+      
+      ticketNumbers.push(ticketNumber);
+      console.log(`✅ Created ticket ${i + 1}/${passengers}: ${ticketNumber}`);
+    }
+    
+    // อัปเดตการจอง
+    this.status = 'approved';
+    this.approvedBy = new mongoose.Types.ObjectId(adminId);
+    this.approvedAt = new Date();
+    this.ticketNumbers = ticketNumbers;
+    if (adminNotes) this.adminNotes = adminNotes;
+    
+    await this.save();
+    
+    console.log('🎉 Booking approved successfully:', {
+      bookingNumber: this.bookingNumber,
+      ticketNumbers: ticketNumbers,
+      approvedBy: adminId
+    });
+    
+    return this;
+    
+  } catch (error) {
+    console.error('❌ Error in booking approval:', error);
+    throw new Error(`การอนุมัติล้มเหลว: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+// ✅ Instance method: Reject booking
+bookingSchema.methods.reject = async function(adminId: string, adminNotes?: string): Promise<IBooking> {
+  console.log('❌ Starting booking rejection process for:', this.bookingNumber);
+  
+  if (this.status !== 'pending') {
+    throw new Error('เฉพาะการจองที่รอการอนุมัติเท่านั้นที่สามารถปฏิเสธได้');
+  }
+  
+  // อัปเดตการจอง
+  this.status = 'rejected';
+  this.approvedBy = new mongoose.Types.ObjectId(adminId);
+  this.approvedAt = new Date();
+  if (adminNotes) this.adminNotes = adminNotes;
+  
+  await this.save();
+  
+  console.log('✅ Booking rejected successfully:', {
+    bookingNumber: this.bookingNumber,
+    rejectedBy: adminId,
+    reason: adminNotes
+  });
+  
+  return this;
 };
 
 // Virtual: Status in Lao
