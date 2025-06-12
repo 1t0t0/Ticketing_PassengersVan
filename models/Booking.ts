@@ -1,4 +1,3 @@
-// models/Booking.ts
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
 export interface IBooking extends Document {
@@ -72,36 +71,44 @@ const bookingSchema = new Schema({
   }
 }, { timestamps: true });
 
-// Create indexes for efficient queries
-bookingSchema.index({ bookingNumber: 1 }, { unique: true });
+// 🔧 ลบ index ซ้ำ - ใช้เฉพาะใน schema definition
+// bookingSchema.index({ bookingNumber: 1 }, { unique: true }); // <- ลบบรรทัดนี้
 bookingSchema.index({ status: 1 });
 bookingSchema.index({ 'passengerInfo.phone': 1 });
 bookingSchema.index({ 'tripDetails.travelDate': 1 });
 bookingSchema.index({ createdAt: -1 });
 
-// Static method: Generate unique booking number
+// 🔧 แก้ไข generateBookingNumber - หลีกเลี่ยง scientific notation
 bookingSchema.statics.generateBookingNumber = async function(): Promise<string> {
   const date = new Date();
-  const year = date.getFullYear().toString().slice(-2);
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
+  const year = date.getFullYear().toString().slice(-2); // "25"
+  const month = (date.getMonth() + 1).toString().padStart(2, '0'); // "06"
+  const day = date.getDate().toString().padStart(2, '0'); // "12"
   
-  // Find the last booking for today
+  // 🔧 แก้ไข: ใช้ตัวเลขแยกกันแทนการต่อ string
   const datePrefix = `B${year}${month}${day}`;
+  
+  // หา booking ล่าสุดในวันนี้
   const latestBooking = await this.findOne({
     bookingNumber: { $regex: `^${datePrefix}` }
   }).sort({ bookingNumber: -1 });
   
   let counter = 1;
   if (latestBooking && latestBooking.bookingNumber) {
-    const match = latestBooking.bookingNumber.match(/\d+$/);
-    if (match) {
-      counter = parseInt(match[0]) + 1;
+    // 🔧 แก้ไข: ดึงตัวเลขท้ายแบบปลอดภัย
+    const lastNumber = latestBooking.bookingNumber.replace(datePrefix, '');
+    const lastCounter = parseInt(lastNumber, 10);
+    if (!isNaN(lastCounter)) {
+      counter = lastCounter + 1;
     }
   }
   
+  // 🔧 แก้ไข: ใช้ padStart แทนการคำนวณ
   const counterStr = counter.toString().padStart(3, '0');
-  return `${datePrefix}${counterStr}`;
+  const bookingNumber = `${datePrefix}${counterStr}`;
+  
+  console.log('🎫 Generated booking number:', bookingNumber);
+  return bookingNumber;
 };
 
 // Static method: Create booking with auto-generated number
@@ -117,124 +124,6 @@ bookingSchema.statics.createBooking = async function(bookingData: Partial<IBooki
   return await booking.save();
 };
 
-// Static method: Find bookings by status
-bookingSchema.statics.findByStatus = function(status: string) {
-  return this.find({ status }).sort({ createdAt: -1 });
-};
-
-// Static method: Find bookings by phone
-bookingSchema.statics.findByPhone = function(phone: string) {
-  return this.find({ 'passengerInfo.phone': phone }).sort({ createdAt: -1 });
-};
-
-// Static method: Find bookings for today
-bookingSchema.statics.findTodayBookings = function() {
-  const today = new Date();
-  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
-  
-  return this.find({
-    'tripDetails.travelDate': { $gte: startOfDay, $lte: endOfDay }
-  }).sort({ 'tripDetails.travelTime': 1 });
-};
-
-// Instance method: Check if booking is expired
-bookingSchema.methods.isExpired = function(): boolean {
-  return new Date() > this.expiresAt && this.status === 'pending';
-};
-
-// Instance method: Approve booking and generate tickets
-bookingSchema.methods.approve = async function(approvedBy: string, adminNotes?: string): Promise<void> {
-  const Ticket = mongoose.models.Ticket || require('./Ticket').default;
-  
-  // Generate ticket numbers for each passenger
-  const ticketNumbers: string[] = [];
-  
-  for (let i = 0; i < this.tripDetails.passengers; i++) {
-    // Use existing ticket generation logic
-    const SAFE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let ticketNumber = 'R'; // R for Reserved tickets
-    
-    for (let j = 0; j < 5; j++) {
-      const randomIndex = Math.floor(Math.random() * SAFE_CHARS.length);
-      ticketNumber += SAFE_CHARS[randomIndex];
-    }
-    
-    // Ensure uniqueness
-    const existing = await Ticket.findOne({ ticketNumber });
-    if (existing) {
-      // Try again with timestamp
-      const timestamp = Date.now().toString().slice(-2);
-      ticketNumber = `R${timestamp}${SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)]}${SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)]}${SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)]}`;
-    }
-    
-    // Create ticket in database
-    await Ticket.create({
-      ticketNumber,
-      price: this.pricing.basePrice,
-      soldBy: 'booking-system',
-      paymentMethod: 'qr', // Assume online payment
-      soldAt: new Date(),
-      bookingId: this._id,
-      passengerName: this.passengerInfo.name,
-      isFromBooking: true
-    });
-    
-    ticketNumbers.push(ticketNumber);
-  }
-  
-  // Update booking
-  this.status = 'approved';
-  this.ticketNumbers = ticketNumbers;
-  this.approvedBy = approvedBy;
-  this.approvedAt = new Date();
-  if (adminNotes) {
-    this.adminNotes = adminNotes;
-  }
-  
-  await this.save();
-};
-
-// Instance method: Reject booking
-bookingSchema.methods.reject = async function(rejectedBy: string, adminNotes?: string): Promise<void> {
-  this.status = 'rejected';
-  this.approvedBy = rejectedBy;
-  this.approvedAt = new Date();
-  if (adminNotes) {
-    this.adminNotes = adminNotes;
-  }
-  
-  await this.save();
-};
-
-// Middleware: Auto-expire old pending bookings
-bookingSchema.pre('find', function() {
-  // Auto-mark expired bookings
-  this.updateMany(
-    { 
-      status: 'pending', 
-      expiresAt: { $lt: new Date() } 
-    },
-    { 
-      $set: { status: 'expired' } 
-    }
-  );
-});
-
-// Virtual: Format travel date
-bookingSchema.virtual('formattedTravelDate').get(function() {
-  return this.tripDetails.travelDate.toLocaleDateString('lo-LA');
-});
-
-// Virtual: Days until travel
-bookingSchema.virtual('daysUntilTravel').get(function() {
-  const today = new Date();
-  const travelDate = new Date(this.tripDetails.travelDate);
-  const diffTime = travelDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
-});
-
 // Virtual: Status in Lao
 bookingSchema.virtual('statusLao').get(function() {
   const statusMap = {
@@ -245,6 +134,11 @@ bookingSchema.virtual('statusLao').get(function() {
   };
   return statusMap[this.status] || this.status;
 });
+
+// Instance method: Check if booking is expired
+bookingSchema.methods.isExpired = function(): boolean {
+  return new Date() > this.expiresAt && this.status === 'pending';
+};
 
 // Ensure virtual fields are serialized
 bookingSchema.set('toJSON', { virtuals: true });

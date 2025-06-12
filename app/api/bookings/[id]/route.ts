@@ -1,19 +1,19 @@
-// app/api/bookings/[id]/route.ts - API สำหรับจัดการการจองเฉพาะ ID
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Booking from '@/models/Booking';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// GET - ดึงข้อมูลการจองเฉพาะ
+// GET - ดึงข้อมูลการจองเฉพาะ (แก้ไข async params)
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
     
-    const { id } = params;
+    // 🔧 แก้ไข: await params ก่อนใช้งาน
+    const { id } = await context.params;
     console.log('Fetching booking with ID:', id);
     
     // หาการจองด้วย ID หรือ booking number
@@ -55,15 +55,16 @@ export async function GET(
   }
 }
 
-// PUT - อัปเดตข้อมูลการจอง (สำหรับอัปโหลดสลิป)
+// PUT - อัปเดตข้อมูลการจอง (แก้ไข async params)
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
     
-    const { id } = params;
+    // 🔧 แก้ไข: await params ก่อนใช้งาน
+    const { id } = await context.params;
     const body = await request.json();
     
     console.log('Updating booking:', id, 'with data:', body);
@@ -138,10 +139,10 @@ export async function PUT(
   }
 }
 
-// DELETE - ยกเลิกการจอง (เฉพาะ admin)
+// DELETE - ยกเลิกการจอง (แก้ไข async params)
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // ตรวจสอบสิทธิ์ (เฉพาะ admin)
@@ -155,7 +156,8 @@ export async function DELETE(
 
     await connectDB();
     
-    const { id } = params;
+    // 🔧 แก้ไข: await params ก่อนใช้งาน
+    const { id } = await context.params;
     
     // หาและลบการจอง
     let booking;
