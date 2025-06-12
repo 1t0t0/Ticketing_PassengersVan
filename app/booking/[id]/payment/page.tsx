@@ -1,4 +1,4 @@
-// app/booking/[id]/payment/page.tsx - ปรับปรุงแล้ว
+// app/booking/[id]/payment/page.tsx - Updated Layout
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -65,8 +65,6 @@ export default function PaymentPage() {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // 🔥 เพิ่ม: Auto refresh สำหรับตรวจสอบสถานะ
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   // ดึงข้อมูลการจอง
@@ -93,17 +91,6 @@ export default function PaymentPage() {
     }
   }, [bookingId]);
 
-  // 🔥 เพิ่ม: Auto refresh ทุก 30 วินาที สำหรับ pending status
-  useEffect(() => {
-    if (!autoRefresh || !booking || booking.status !== 'pending') return;
-
-    const interval = setInterval(() => {
-      fetchBooking();
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, [booking?.status, autoRefresh]);
-
   // นับถอยหลังเวลาที่เหลือ
   useEffect(() => {
     if (!booking?.expiresAt) return;
@@ -128,14 +115,24 @@ export default function PaymentPage() {
     return () => clearInterval(interval);
   }, [booking]);
 
-  // 🔥 เพิ่ม: คัดลอกเลขบัญชี
+  // Auto refresh ทุก 30 วินาที สำหรับ pending status
+  useEffect(() => {
+    if (!autoRefresh || !booking || booking.status !== 'pending') return;
+
+    const interval = setInterval(() => {
+      fetchBooking();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [booking?.status, autoRefresh]);
+
+  // คัดลอกเลขบัญชี
   const copyAccountNumber = async () => {
     try {
       await navigator.clipboard.writeText('123-456-789-0');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      // Fallback สำหรับเบราว์เซอร์เก่า
       const textArea = document.createElement('textarea');
       textArea.value = '123-456-789-0';
       document.body.appendChild(textArea);
@@ -147,7 +144,7 @@ export default function PaymentPage() {
     }
   };
 
-  // 🔥 เพิ่ม: Manual refresh
+  // Manual refresh
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchBooking();
@@ -158,7 +155,6 @@ export default function PaymentPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // ตรวจสอบไฟล์
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
       alert('ຂະໜາດໄຟລ์ໃຫຍ່ເກີນໄປ (ບໍ່ເກີນ 5MB)');
@@ -179,7 +175,6 @@ export default function PaymentPage() {
       formData.append('slip', file);
       formData.append('bookingId', bookingId);
 
-      // จำลอง progress
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -205,7 +200,6 @@ export default function PaymentPage() {
 
       const result = await response.json();
 
-      // อัพเดทการจองด้วย URL ของสลิป
       const updateResponse = await fetch(`/api/bookings/${bookingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -213,7 +207,6 @@ export default function PaymentPage() {
       });
 
       if (updateResponse.ok) {
-        // รีเฟรชข้อมูลการจอง
         await fetchBooking();
         alert('ອັບໂຫລດສລິບສຳເລັດ! ລໍຖ້າການອະນຸມັດຈາກພະນັກງານ');
       }
@@ -303,7 +296,7 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header ปรับปรุงแล้ว */}
+      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
@@ -320,7 +313,6 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              {/* 🔥 เพิ่ม: ปุ่ม Refresh */}
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -340,13 +332,13 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* ข้อมูลการจอง */}
+          {/* ส่วนซ้าย - ข้อมูลการจอง */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* สถานะและเวลาที่เหลือ - ปรับปรุงแล้ว */}
+            {/* สถานะ */}
             <div className={`rounded-lg p-6 border-2 ${
               booking.status === 'approved' ? 'bg-green-50 border-green-200' :
               booking.status === 'pending' ? 'bg-yellow-50 border-yellow-200' :
@@ -368,13 +360,6 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                     }`}>
                       {booking.statusLao}
                     </p>
-                    {booking.status === 'pending' && !isExpired && (
-                      <div className="flex items-center text-sm text-gray-600 mt-1">
-                        <Clock className="h-4 w-4 mr-1" />
-                        ເວລາທີ່ເຫຼືອ: <span className="font-mono ml-1 text-red-600">{timeLeft}</span>
-                      </div>
-                    )}
-                    {/* 🔥 เพิ่ม: Auto refresh indicator */}
                     {booking.status === 'pending' && autoRefresh && (
                       <div className="flex items-center text-xs text-blue-600 mt-1">
                         <RefreshCw className="h-3 w-3 mr-1" />
@@ -386,239 +371,128 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
               </div>
             </div>
 
-            {/* 🔥 เพิ่ม: ขั้นตอนการชำระเงิน */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <Info className="mr-2 text-blue-600" />
+            {/* ขั้นตอนการชำระเงิน - แบบ Row แยกออกมา */}
+            <div className="bg-white rounded-lg shadow p-4">
+              <h3 className="text-base font-semibold mb-3 flex items-center">
+                <Info className="mr-2 text-blue-600 h-4 w-4" />
                 ຂັ້ນຕອນການຊຳລະເງິນ
               </h3>
-              <div className="space-y-4">
-                <div className={`flex items-center p-3 rounded-lg ${
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className={`flex items-center p-2 rounded-lg flex-1 ${
                   booking.status !== 'pending' ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'
                 }`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-bold mr-2 ${
                     booking.status !== 'pending' ? 'bg-green-500' : 'bg-blue-500'
                   }`}>
                     1
                   </div>
-                  <div>
-                    <p className="font-medium">ໂອນເງິນຜ່ານທະນາຄານ</p>
-                    <p className="text-sm text-gray-600">ໂອນຕາມຂໍ້ມູນດ້ານລຸ່ມ</p>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">ໂອນເງິນ</p>
                   </div>
-                  {booking.status !== 'pending' && <CheckCircle className="ml-auto h-5 w-5 text-green-500" />}
+                  {booking.status !== 'pending' && <CheckCircle className="h-4 w-4 text-green-500" />}
                 </div>
 
-                <div className={`flex items-center p-3 rounded-lg ${
+                <div className={`flex items-center p-2 rounded-lg flex-1 ${
                   hasPaymentSlip ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'
                 }`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-bold mr-2 ${
                     hasPaymentSlip ? 'bg-green-500' : 'bg-gray-400'
                   }`}>
                     2
                   </div>
-                  <div>
-                    <p className="font-medium">ອັບໂຫລດສລິບການໂອນ</p>
-                    <p className="text-sm text-gray-600">ຖ່າຍຮູບສລິບແລ້ວອັບໂຫລດ</p>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">ອັບໂຫລດສລິບ</p>
                   </div>
-                  {hasPaymentSlip && <CheckCircle className="ml-auto h-5 w-5 text-green-500" />}
+                  {hasPaymentSlip && <CheckCircle className="h-4 w-4 text-green-500" />}
                 </div>
 
-                <div className={`flex items-center p-3 rounded-lg ${
+                <div className={`flex items-center p-2 rounded-lg flex-1 ${
                   booking.status === 'approved' ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'
                 }`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-bold mr-2 ${
                     booking.status === 'approved' ? 'bg-green-500' : 'bg-gray-400'
                   }`}>
                     3
                   </div>
-                  <div>
-                    <p className="font-medium">ຮັບການອະນຸມັດ</p>
-                    <p className="text-sm text-gray-600">ພະນັກງານກວດສອບແລ້ວອະນຸມັດ</p>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">ຮັບອະນຸມັດ</p>
                   </div>
-                  {booking.status === 'approved' && <CheckCircle className="ml-auto h-5 w-5 text-green-500" />}
+                  {booking.status === 'approved' && <CheckCircle className="h-4 w-4 text-green-500" />}
                 </div>
               </div>
             </div>
 
-            {/* ข้อมูลการเดินทาง - ปรับปรุงแล้ว */}
+
+            {/* ข้อมูลการเดินทางและผู้ติดต่อ - รวมกัน */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <MapPin className="mr-2 text-blue-600" />
-                ຂໍ້ມູນການເດີນທາງ
+                ຂໍ້ມູນການເດີນທາງ ແລະ ຜູ້ຕິດຕໍ່
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">ຈຸດຂຶ້ນ:</span>
-                    <span className="font-medium">{booking.tripDetails.pickupLocation}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">ປາຍທາງ:</span>
-                    <span className="font-medium">{booking.tripDetails.destination}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">ເວລາ:</span>
-                    <span className="font-medium">{booking.tripDetails.travelTime}</span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 flex items-center">
-                      <Calendar className="mr-1 h-4 w-4" />
-                      ວັນທີ:
-                    </span>
-                    <span className="font-medium">
-                      {new Date(booking.tripDetails.travelDate).toLocaleDateString('lo-LA')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 flex items-center">
-                      <Users className="mr-1 h-4 w-4" />
-                      ຈຳນວນຄົນ:
-                    </span>
-                    <span className="font-medium">{booking.tripDetails.passengers} ຄົນ</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ข้อมูลผู้ติดต่อ */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <Phone className="mr-2 text-green-600" />
-                ຂໍ້ມູນຜູ້ຕິດຕໍ່
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ຊື່:</span>
-                  <span className="font-medium">{booking.passengerInfo.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ເບີໂທ:</span>
-                  <span className="font-medium">{booking.passengerInfo.phone}</span>
-                </div>
-                {booking.passengerInfo.email && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">ອີເມວ:</span>
-                    <span className="font-medium">{booking.passengerInfo.email}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ส่วนชำระเงิน */}
-          <div className="space-y-6">
-            
-            {/* อัปโหลดสลิป - ย้ายมาด้านบนและทำให้เรียบง่าย */}
-            {booking.status === 'pending' && !isExpired && !hasPaymentSlip && (
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-orange-400 p-6">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <AlertCircle className="h-6 w-6 text-orange-400" />
-                  </div>
-                  <div className="ml-3 flex-1">
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      ອັບໂຫລດສລິບການໂອນເງິນ
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      ກະລຸນາອັບໂຫລດສລິບການໂອນເງິນເພື່ອຢືນຢັນການຊຳລະ
-                    </p>
-                    <div className="text-sm text-orange-600 mb-4">
-                      ເວລາທີ່ເຫຼືອ: <span className="font-medium">{timeLeft}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* ข้อมูลการเดินทาง */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                    <Calendar className="mr-2 h-4 w-4 text-blue-500" />
+                    ການເດີນທາງ
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">ຈຸດຂຶ້ນ:</span>
+                      <span className="font-medium">{booking.tripDetails.pickupLocation}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">ປາຍທາງ:</span>
+                      <span className="font-medium">{booking.tripDetails.destination}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">ວັນທີ:</span>
+                      <span className="font-medium">
+                        {new Date(booking.tripDetails.travelDate).toLocaleDateString('lo-LA')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">ເວລາ:</span>
+                      <span className="font-medium">{booking.tripDetails.travelTime}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">ຈຳນວນຄົນ:</span>
+                      <span className="font-medium">{booking.tripDetails.passengers} ຄົນ</span>
                     </div>
                   </div>
                 </div>
-                
-                <div className="relative">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors bg-gray-50">
-                    {uploading ? (
-                      <div>
-                        <Upload className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-                        <p className="text-blue-600 font-medium mb-3">ກຳລັງອັບໂຫລດ...</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${uploadProgress}%` }}
-                          ></div>
-                        </div>
-                        <p className="text-sm text-gray-600">{uploadProgress}%</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-700 font-medium mb-2">ເລືອກໄຟລ์ຮູບພາບ</p>
-                        <p className="text-sm text-gray-500 mb-3">
-                          ຮູບແບບທີ່ຮອງຮັບ: JPG, PNG, WebP (ຂະໜາດສູງສຸດ 5MB)
-                        </p>
-                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors">
-                          ເລືອກໄຟລ์
-                        </button>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleSlipUpload}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
+
+                {/* ข้อมูลผู้ติดต่อ */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                    <Phone className="mr-2 h-4 w-4 text-green-500" />
+                    ຜູ້ຕິດຕໍ່
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">ຊື່:</span>
+                      <span className="font-medium">{booking.passengerInfo.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">ເບີໂທ:</span>
+                      <span className="font-medium">{booking.passengerInfo.phone}</span>
+                    </div>
+                    {booking.passengerInfo.email && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">ອີເມວ:</span>
+                        <span className="font-medium">{booking.passengerInfo.email}</span>
                       </div>
                     )}
-                  </div>
-
-                  {/* คำแนะนำการถ่ายรูป */}
-                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h5 className="font-medium text-blue-900 mb-2">ຄຳແນະນຳການຖ່າຍຮູບສລິບ:</h5>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                      <li>• ຮູບຕ້ອງຊັດເຈນ ອ່ານຂໍ້ມູນໄດ້ທຸກຕົວອັກສອນ</li>
-                      <li>• ປະກົດວັນທີ ເວລາ ແລະ ຈຳນວນເງິນໃຫ້ຄົບຖ້ວນ</li>
-                      <li>• ຖ່າຍໃນບ່ອນທີ່ມີແສງສະຫວ່າງພຽງພໍ</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* แสดงสลิปที่อัปโหลดแล้ว */}
-            {booking.status === 'pending' && !isExpired && hasPaymentSlip && (
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-green-400 p-6">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <CheckCircle className="h-6 w-6 text-green-400" />
-                  </div>
-                  <div className="ml-3 flex-1">
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      ອັບໂຫລດສລິບສຳເລັດແລ້ວ
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      ລໍຖ້າການອະນຸມັດຈາກພະນັກງານ (ປົກກະຕິໃຊ້ເວລາ 5-15 ນາທີ)
-                    </p>
-                    
-                    <div className="bg-gray-50 rounded-lg p-4 mb-4 inline-block">
-                      <img 
-                        src={booking.paymentSlip} 
-                        alt="Payment Slip" 
-                        className="max-w-full h-48 object-contain mx-auto rounded cursor-pointer"
-                        onClick={() => window.open(booking.paymentSlip, '_blank')}
-                      />
-                      <p className="text-xs text-gray-500 text-center mt-2">ກົດເພື່ອເບິ່ງຂະໜາດເຕັມ</p>
-                    </div>
-                    
-                    <div className="relative">
-                      <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                        ອັບໂຫລດໃໝ່
-                      </button>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleSlipUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">ລາຄາລວມ:</span>
+                      <span className="font-bold text-blue-600">₭{booking.pricing.totalAmount.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* สรุปการชำระเงิน */}
+  {/* สรุปการชำระเงิน */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">ສະຫຼຸບການຊຳລະ</h3>
               <div className="space-y-3">
@@ -638,7 +512,12 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
               </div>
             </div>
 
-            {/* ข้อมูลการโอนเงิน - ปรับปรุงแล้ว */}
+          </div>
+
+          {/* ส่วนขวา - การชำระเงินและข้อมูลการโอน */}
+          <div className="space-y-6">
+            
+            {/* ข้อมูลการโอนเงิน - ย้ายมาด้านบน + เพิ่มปุ่มอัปโหลด */}
             <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <Building className="mr-2 text-blue-600" />
@@ -675,7 +554,7 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                   </div>
                 </div>
 
-                {/* 🔥 เพิ่ม: QR Code พร้อม Link ไปแอปธนาคาร */}
+                {/* QR Code */}
                 <div className="bg-white p-4 rounded-lg text-center">
                   <div className="flex items-center justify-center mb-3">
                     <QrCode className="h-24 w-24 text-gray-400" />
@@ -687,7 +566,7 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                   </button>
                 </div>
 
-                {/* 🔥 เพิ่ม: คำแนะนำการโอนเงิน */}
+                {/* คำแนะนำ */}
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                   <p className="text-xs text-amber-800 font-medium mb-2">💡 ຄຳແນະນຳ:</p>
                   <ul className="text-xs text-amber-700 space-y-1">
@@ -696,9 +575,84 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                     <li>• ອັບໂຫລດທັນທີຫລັງໂອນເງິນ</li>
                   </ul>
                 </div>
+
+                {/* ปุ่มอัปโหลดสลิป - ย้ายมาด้านล่างของข้อมูลการโอน */}
+                {booking.status === 'pending' && !isExpired && !hasPaymentSlip && (
+                  <div className="bg-white rounded-lg p-4 border-2 border-dashed border-gray-300">
+                    <div className="relative">
+                      {uploading ? (
+                        <div className="text-center">
+                          <Upload className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+                          <p className="text-blue-600 font-medium mb-3">ກຳລັງອັບໂຫລດ...</p>
+                          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${uploadProgress}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-sm text-gray-600">{uploadProgress}%</p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                          <p className="text-gray-700 font-medium mb-2">ອັບໂຫລດສລິບການໂອນເງິນ</p>
+                          <p className="text-sm text-gray-500 mb-3">
+                            JPG, PNG, WebP (ສູງສຸດ 5MB)
+                          </p>
+                          <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md font-medium transition-colors">
+                            ເລືອກໄຟລ์ສລິບ
+                          </button>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleSlipUpload}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* แสดงสลิปที่อัปโหลดแล้ว */}
+                {booking.status === 'pending' && !isExpired && hasPaymentSlip && (
+                  <div className="bg-white rounded-lg p-4 border border-green-200">
+                    <div className="text-center">
+                      <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
+                      <p className="text-green-700 font-medium mb-2">ອັບໂຫລດສລິບສຳເລັດ</p>
+                      <div className="flex items-center justify-center text-sm text-yellow-600 mb-3">
+                        <Clock className="h-4 w-4 mr-1" />
+                        ລໍຖ້າການອະນຸມັດ - ເວລາທີ່ເຫຼືອ: <span className="font-mono ml-1 text-red-600">{timeLeft}</span>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                        <img 
+                          src={booking.paymentSlip} 
+                          alt="Payment Slip" 
+                          className="w-full h-32 object-contain rounded cursor-pointer"
+                          onClick={() => window.open(booking.paymentSlip, '_blank')}
+                        />
+                        <p className="text-xs text-gray-500 text-center mt-1">ກົດເພື່ອເບິ່ງຂະໜາດເຕັມ</p>
+                      </div>
+                      <div className="relative">
+                        <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                          ອັບໂຫລດໃໝ່
+                        </button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleSlipUpload}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
+          
+
+            {/* อัปโหลดสลิป - ลบส่วนนี้ออกเพราะย้ายไปไว้ในข้อมูลการโอนแล้ว */}
 
             {/* ผลการอนุมัติ */}
             {booking.status === 'approved' && (
@@ -708,7 +662,6 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                   <h3 className="text-lg font-semibold text-green-800 mb-2">ອະນຸມັດແລ້ວ! 🎉</h3>
                   <p className="text-green-700 mb-4">ການຈອງຂອງທ່ານໄດ້ຮັບການອະນຸມັດແລ້ວ</p>
                   
-                  {/* 🔥 เพิ่ม: แสดงเลขตั๋ว */}
                   {booking.ticketNumbers.length > 0 && (
                     <div className="mb-4">
                       <p className="text-sm text-green-600 mb-2">ເລກທີປີ້ຂອງທ່ານ:</p>
@@ -740,7 +693,6 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                   <h3 className="text-lg font-semibold text-red-800 mb-2">ປະຕິເສດ</h3>
                   <p className="text-red-700 mb-4">ການຈອງຂອງທ່ານຖືກປະຕິເສດ</p>
                   
-                  {/* 🔥 เพิ่ม: สร้างการจองใหม่ */}
                   <button
                     onClick={() => router.push('/booking')}
                     className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center mx-auto"
@@ -752,18 +704,6 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
               </div>
             )}
 
-            {/* 🔥 เพิ่ม: ความปลอดภัย */}
-            <div className="bg-gray-50 rounded-lg p-4 border">
-              <div className="flex items-center mb-2">
-                <Shield className="h-4 w-4 text-green-500 mr-2" />
-                <span className="text-sm font-medium text-gray-700">ຄວາມປອດໄພ</span>
-              </div>
-              <ul className="text-xs text-gray-600 space-y-1">
-                <li>• ຂໍ້ມູນຂອງທ່ານໄດ້ຮັບການປົກປ້ອງ</li>
-                <li>• ການໂອນເງິນຜ່ານທະນາຄານທີ່ເຊື່ອຖືໄດ້</li>
-                <li>• ລະບົບຕິດຕາມສະຖານະແບບ Real-time</li>
-              </ul>
-            </div>
           </div>
         </div>
       </div>
