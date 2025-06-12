@@ -1,4 +1,4 @@
-// app/booking/[id]/payment/page.tsx - หน้าชำระเงินและอัปโหลดสลิป
+// app/booking/[id]/payment/page.tsx - ปรับปรุงแล้ว
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,7 +12,16 @@ import {
   Download,
   QrCode,
   Phone,
-  Building
+  Building,
+  Copy,
+  ExternalLink,
+  ArrowLeft,
+  RefreshCw,
+  Info,
+  Shield,
+  Users,
+  Calendar,
+  MapPin
 } from 'lucide-react';
 
 interface BookingData {
@@ -36,8 +45,11 @@ interface BookingData {
   };
   paymentSlip?: string;
   status: 'pending' | 'approved' | 'rejected' | 'expired';
+  ticketNumbers: string[];
   expiresAt: string;
   statusLao: string;
+  createdAt: string;
+  approvedAt?: string;
 }
 
 export default function PaymentPage() {
@@ -51,28 +63,46 @@ export default function PaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [timeLeft, setTimeLeft] = useState<string>('');
+  const [copied, setCopied] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // 🔥 เพิ่ม: Auto refresh สำหรับตรวจสอบสถานะ
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   // ดึงข้อมูลการจอง
-  useEffect(() => {
-    const fetchBooking = async () => {
-      try {
-        const response = await fetch(`/api/bookings/${bookingId}`);
-        if (!response.ok) {
-          throw new Error('ບໍ່ພົບຂໍ້ມູນການຈອງ');
-        }
-        const data = await response.json();
-        setBooking(data);
-      } catch (error) {
-        setError(error instanceof Error ? error.message : 'ເກີດຂໍ້ຜິດພາດ');
-      } finally {
-        setLoading(false);
+  const fetchBooking = async () => {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}`);
+      if (!response.ok) {
+        throw new Error('ບໍ່ພົບຂໍ້ມູນການຈອງ');
       }
-    };
+      const data = await response.json();
+      setBooking(data);
+      setError(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'ເກີດຂໍ້ຜິດພາດ');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
+  useEffect(() => {
     if (bookingId) {
       fetchBooking();
     }
   }, [bookingId]);
+
+  // 🔥 เพิ่ม: Auto refresh ทุก 30 วินาที สำหรับ pending status
+  useEffect(() => {
+    if (!autoRefresh || !booking || booking.status !== 'pending') return;
+
+    const interval = setInterval(() => {
+      fetchBooking();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [booking?.status, autoRefresh]);
 
   // นับถอยหลังเวลาที่เหลือ
   useEffect(() => {
@@ -97,6 +127,31 @@ export default function PaymentPage() {
     const interval = setInterval(updateTimeLeft, 1000);
     return () => clearInterval(interval);
   }, [booking]);
+
+  // 🔥 เพิ่ม: คัดลอกเลขบัญชี
+  const copyAccountNumber = async () => {
+    try {
+      await navigator.clipboard.writeText('123-456-789-0');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback สำหรับเบราว์เซอร์เก่า
+      const textArea = document.createElement('textarea');
+      textArea.value = '123-456-789-0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // 🔥 เพิ่ม: Manual refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchBooking();
+  };
 
   // อัปโหลดสลิป
   const handleSlipUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,8 +214,7 @@ export default function PaymentPage() {
 
       if (updateResponse.ok) {
         // รีเฟรชข้อมูลการจอง
-        const updatedBooking = await updateResponse.json();
-        setBooking(updatedBooking);
+        await fetchBooking();
         alert('ອັບໂຫລດສລິບສຳເລັດ! ລໍຖ້າການອະນຸມັດຈາກພະນັກງານ');
       }
 
@@ -173,14 +227,45 @@ export default function PaymentPage() {
     }
   };
 
-  // กลับไปหน้าจอง
-  const handleBackToBooking = () => {
-    router.push('/booking');
-  };
+  // ดาวน์โหลดตั๋ว
+  const downloadTickets = () => {
+    if (!booking || booking.ticketNumbers.length === 0) return;
+    
+    const ticketContent = `
+ປີ້ລົດຕູ້ໂດຍສານ
+ລົດໄຟ ລາວ-ຈີນ
 
-  // ตรวจสอบสถานะ
-  const handleCheckStatus = () => {
-    router.push(`/booking/status?booking=${booking?.bookingNumber}`);
+การจอง: ${booking.bookingNumber}
+ຊື່ຜູ້ໂດຍສານ: ${booking.passengerInfo.name}
+ເບີໂທ: ${booking.passengerInfo.phone}
+
+ລາຍລະອຽດການເດີນທາງ:
+ຈຸດຂຶ້ນ: ${booking.tripDetails.pickupLocation}
+ປາຍທາງ: ${booking.tripDetails.destination}
+ວັນທີ: ${new Date(booking.tripDetails.travelDate).toLocaleDateString('lo-LA')}
+ເວລາ: ${booking.tripDetails.travelTime}
+ຈຳນວນຄົນ: ${booking.tripDetails.passengers}
+
+ເລກທີປີ້:
+${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('\n')}
+
+ລາຄາລວມ: ₭${booking.pricing.totalAmount.toLocaleString()}
+
+⚠️ ສຳຄັນ:
+- ໂຊວເລກທີປີ້ໃຫ້ຄົນຂັບເບິ່ງ
+- ມາຮອດກ່ອນເວລາ 15 ນາທີ
+- ບອກຈຸດໝາຍປາຍທາງໃຫ້ຄົນຂັບຟັງ
+`;
+
+    const blob = new Blob([ticketContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ປີ້-${booking.bookingNumber}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -202,9 +287,10 @@ export default function PaymentPage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-2">ເກີດຂໍ້ຜິດພາດ</h1>
           <p className="text-gray-600 mb-6">{error || 'ບໍ່ພົບຂໍ້ມູນການຈອງ'}</p>
           <button
-            onClick={handleBackToBooking}
-            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
+            onClick={() => router.push('/booking')}
+            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 flex items-center mx-auto"
           >
+            <ArrowLeft className="mr-2 h-4 w-4" />
             ກັບໄປໜ້າຈອງ
           </button>
         </div>
@@ -217,20 +303,39 @@ export default function PaymentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Header ปรับปรุงแล้ว */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">ຊຳລະເງິນ</h1>
-              <p className="text-gray-600">ການຈອງເລກທີ: {booking.bookingNumber}</p>
+            <div className="flex items-center">
+              <button
+                onClick={() => router.push('/booking')}
+                className="mr-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">ຊຳລະເງິນ</h1>
+                <p className="text-gray-600">ການຈອງເລກທີ: {booking.bookingNumber}</p>
+              </div>
             </div>
-            <button
-              onClick={handleCheckStatus}
-              className="text-blue-600 hover:text-blue-800 font-medium"
-            >
-              ກວດສອບສະຖານະ
-            </button>
+            <div className="flex items-center space-x-3">
+              {/* 🔥 เพิ่ม: ปุ่ม Refresh */}
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                title="อัปเดตสถานะ"
+              >
+                <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={() => router.push(`/booking/status?booking=${booking.bookingNumber}`)}
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                ກວດສອບສະຖານະ
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -239,22 +344,23 @@ export default function PaymentPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* ข้อมูลการจอง */}
-          <div className="lg:col-span-2">
-            {/* สถานะและเวลาที่เหลือ */}
-            <div className={`rounded-lg p-6 mb-6 ${
-              booking.status === 'approved' ? 'bg-green-50 border border-green-200' :
-              booking.status === 'pending' ? 'bg-yellow-50 border border-yellow-200' :
-              booking.status === 'rejected' ? 'bg-red-50 border border-red-200' :
-              'bg-gray-50 border border-gray-200'
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* สถานะและเวลาที่เหลือ - ปรับปรุงแล้ว */}
+            <div className={`rounded-lg p-6 border-2 ${
+              booking.status === 'approved' ? 'bg-green-50 border-green-200' :
+              booking.status === 'pending' ? 'bg-yellow-50 border-yellow-200' :
+              booking.status === 'rejected' ? 'bg-red-50 border-red-200' :
+              'bg-gray-50 border-gray-200'
             }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  {booking.status === 'approved' && <CheckCircle className="h-6 w-6 text-green-600 mr-2" />}
-                  {booking.status === 'pending' && <Clock className="h-6 w-6 text-yellow-600 mr-2" />}
-                  {booking.status === 'rejected' && <AlertCircle className="h-6 w-6 text-red-600 mr-2" />}
-                  {booking.status === 'expired' && <AlertCircle className="h-6 w-6 text-gray-600 mr-2" />}
+                  {booking.status === 'approved' && <CheckCircle className="h-6 w-6 text-green-600 mr-3" />}
+                  {booking.status === 'pending' && <Clock className="h-6 w-6 text-yellow-600 mr-3" />}
+                  {booking.status === 'rejected' && <AlertCircle className="h-6 w-6 text-red-600 mr-3" />}
+                  {booking.status === 'expired' && <AlertCircle className="h-6 w-6 text-gray-600 mr-3" />}
                   <div>
-                    <p className={`font-semibold ${
+                    <p className={`text-xl font-bold ${
                       booking.status === 'approved' ? 'text-green-800' :
                       booking.status === 'pending' ? 'text-yellow-800' :
                       booking.status === 'rejected' ? 'text-red-800' :
@@ -263,45 +369,125 @@ export default function PaymentPage() {
                       {booking.statusLao}
                     </p>
                     {booking.status === 'pending' && !isExpired && (
-                      <p className="text-sm text-gray-600">ເວລາທີ່ເຫຼືອ: {timeLeft}</p>
+                      <div className="flex items-center text-sm text-gray-600 mt-1">
+                        <Clock className="h-4 w-4 mr-1" />
+                        ເວລາທີ່ເຫຼືອ: <span className="font-mono ml-1 text-red-600">{timeLeft}</span>
+                      </div>
+                    )}
+                    {/* 🔥 เพิ่ม: Auto refresh indicator */}
+                    {booking.status === 'pending' && autoRefresh && (
+                      <div className="flex items-center text-xs text-blue-600 mt-1">
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        ກຳລັງຕິດຕາມສະຖານະ...
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* ข้อมูลการเดินทาง */}
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <h3 className="text-lg font-semibold mb-4">ຂໍ້ມູນການເດີນທາງ</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ຈຸດຂຶ້ນ:</span>
-                  <span className="font-medium">{booking.tripDetails.pickupLocation}</span>
+            {/* 🔥 เพิ่ม: ขั้นตอนการชำระเงิน */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Info className="mr-2 text-blue-600" />
+                ຂັ້ນຕອນການຊຳລະເງິນ
+              </h3>
+              <div className="space-y-4">
+                <div className={`flex items-center p-3 rounded-lg ${
+                  booking.status !== 'pending' ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'
+                }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
+                    booking.status !== 'pending' ? 'bg-green-500' : 'bg-blue-500'
+                  }`}>
+                    1
+                  </div>
+                  <div>
+                    <p className="font-medium">ໂອນເງິນຜ່ານທະນາຄານ</p>
+                    <p className="text-sm text-gray-600">ໂອນຕາມຂໍ້ມູນດ້ານລຸ່ມ</p>
+                  </div>
+                  {booking.status !== 'pending' && <CheckCircle className="ml-auto h-5 w-5 text-green-500" />}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ປາຍທາງ:</span>
-                  <span className="font-medium">{booking.tripDetails.destination}</span>
+
+                <div className={`flex items-center p-3 rounded-lg ${
+                  hasPaymentSlip ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'
+                }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
+                    hasPaymentSlip ? 'bg-green-500' : 'bg-gray-400'
+                  }`}>
+                    2
+                  </div>
+                  <div>
+                    <p className="font-medium">ອັບໂຫລດສລິບການໂອນ</p>
+                    <p className="text-sm text-gray-600">ຖ່າຍຮູບສລິບແລ້ວອັບໂຫລດ</p>
+                  </div>
+                  {hasPaymentSlip && <CheckCircle className="ml-auto h-5 w-5 text-green-500" />}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ວັນທີ:</span>
-                  <span className="font-medium">
-                    {new Date(booking.tripDetails.travelDate).toLocaleDateString('lo-LA')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ເວລາ:</span>
-                  <span className="font-medium">{booking.tripDetails.travelTime}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ຈຳນວນຄົນ:</span>
-                  <span className="font-medium">{booking.tripDetails.passengers} ຄົນ</span>
+
+                <div className={`flex items-center p-3 rounded-lg ${
+                  booking.status === 'approved' ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'
+                }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
+                    booking.status === 'approved' ? 'bg-green-500' : 'bg-gray-400'
+                  }`}>
+                    3
+                  </div>
+                  <div>
+                    <p className="font-medium">ຮັບການອະນຸມັດ</p>
+                    <p className="text-sm text-gray-600">ພະນັກງານກວດສອບແລ້ວອະນຸມັດ</p>
+                  </div>
+                  {booking.status === 'approved' && <CheckCircle className="ml-auto h-5 w-5 text-green-500" />}
                 </div>
               </div>
             </div>
 
-            {/* ข้อมูลผู้โดยสาร */}
+            {/* ข้อมูลการเดินทาง - ปรับปรุงแล้ว */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">ຂໍ້ມູນຜູ້ຕິດຕໍ່</h3>
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <MapPin className="mr-2 text-blue-600" />
+                ຂໍ້ມູນການເດີນທາງ
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">ຈຸດຂຶ້ນ:</span>
+                    <span className="font-medium">{booking.tripDetails.pickupLocation}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">ປາຍທາງ:</span>
+                    <span className="font-medium">{booking.tripDetails.destination}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">ເວລາ:</span>
+                    <span className="font-medium">{booking.tripDetails.travelTime}</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 flex items-center">
+                      <Calendar className="mr-1 h-4 w-4" />
+                      ວັນທີ:
+                    </span>
+                    <span className="font-medium">
+                      {new Date(booking.tripDetails.travelDate).toLocaleDateString('lo-LA')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 flex items-center">
+                      <Users className="mr-1 h-4 w-4" />
+                      ຈຳນວນຄົນ:
+                    </span>
+                    <span className="font-medium">{booking.tripDetails.passengers} ຄົນ</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ข้อมูลผู้ติดต่อ */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Phone className="mr-2 text-green-600" />
+                ຂໍ້ມູນຜູ້ຕິດຕໍ່
+              </h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">ຊື່:</span>
@@ -323,6 +509,115 @@ export default function PaymentPage() {
 
           {/* ส่วนชำระเงิน */}
           <div className="space-y-6">
+            
+            {/* อัปโหลดสลิป - ย้ายมาด้านบนและทำให้เรียบง่าย */}
+            {booking.status === 'pending' && !isExpired && !hasPaymentSlip && (
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-orange-400 p-6">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <AlertCircle className="h-6 w-6 text-orange-400" />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      ອັບໂຫລດສລິບການໂອນເງິນ
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      ກະລຸນາອັບໂຫລດສລິບການໂອນເງິນເພື່ອຢືນຢັນການຊຳລະ
+                    </p>
+                    <div className="text-sm text-orange-600 mb-4">
+                      ເວລາທີ່ເຫຼືອ: <span className="font-medium">{timeLeft}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="relative">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors bg-gray-50">
+                    {uploading ? (
+                      <div>
+                        <Upload className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+                        <p className="text-blue-600 font-medium mb-3">ກຳລັງອັບໂຫລດ...</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-sm text-gray-600">{uploadProgress}%</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-700 font-medium mb-2">ເລືອກໄຟລ์ຮູບພາບ</p>
+                        <p className="text-sm text-gray-500 mb-3">
+                          ຮູບແບບທີ່ຮອງຮັບ: JPG, PNG, WebP (ຂະໜາດສູງສຸດ 5MB)
+                        </p>
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors">
+                          ເລືອກໄຟລ์
+                        </button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleSlipUpload}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* คำแนะนำการถ่ายรูป */}
+                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h5 className="font-medium text-blue-900 mb-2">ຄຳແນະນຳການຖ່າຍຮູບສລິບ:</h5>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• ຮູບຕ້ອງຊັດເຈນ ອ່ານຂໍ້ມູນໄດ້ທຸກຕົວອັກສອນ</li>
+                      <li>• ປະກົດວັນທີ ເວລາ ແລະ ຈຳນວນເງິນໃຫ້ຄົບຖ້ວນ</li>
+                      <li>• ຖ່າຍໃນບ່ອນທີ່ມີແສງສະຫວ່າງພຽງພໍ</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* แสดงสลิปที่อัปโหลดแล้ว */}
+            {booking.status === 'pending' && !isExpired && hasPaymentSlip && (
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-green-400 p-6">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <CheckCircle className="h-6 w-6 text-green-400" />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      ອັບໂຫລດສລິບສຳເລັດແລ້ວ
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      ລໍຖ້າການອະນຸມັດຈາກພະນັກງານ (ປົກກະຕິໃຊ້ເວລາ 5-15 ນາທີ)
+                    </p>
+                    
+                    <div className="bg-gray-50 rounded-lg p-4 mb-4 inline-block">
+                      <img 
+                        src={booking.paymentSlip} 
+                        alt="Payment Slip" 
+                        className="max-w-full h-48 object-contain mx-auto rounded cursor-pointer"
+                        onClick={() => window.open(booking.paymentSlip, '_blank')}
+                      />
+                      <p className="text-xs text-gray-500 text-center mt-2">ກົດເພື່ອເບິ່ງຂະໜາດເຕັມ</p>
+                    </div>
+                    
+                    <div className="relative">
+                      <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                        ອັບໂຫລດໃໝ່
+                      </button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSlipUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* สรุปการชำระเงิน */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">ສະຫຼຸບການຊຳລະ</h3>
@@ -343,92 +638,94 @@ export default function PaymentPage() {
               </div>
             </div>
 
-            {/* ข้อมูลการโอนเงิน */}
+            {/* ข้อมูลการโอนเงิน - ปรับปรุงแล้ว */}
             <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <Building className="mr-2 text-blue-600" />
                 ຂໍ້ມູນການໂອນເງິນ
               </h3>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <span className="font-medium">ທະນາຄານ:</span>
-                  <span className="ml-2">BCEL One</span>
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-lg">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">ທະນາຄານ:</span>
+                      <span className="font-semibold">BCEL One</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-gray-600">ເລກບັນຊີ:</span>
+                      <div className="flex items-center">
+                        <span className="font-mono font-semibold mr-2">123-456-789-0</span>
+                        <button
+                          onClick={copyAccountNumber}
+                          className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded"
+                          title="คัดลอกเลขบัญชี"
+                        >
+                          {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">ຊື່ບັນຊີ:</span>
+                      <span className="font-semibold">ບໍລິສັດລົດຕູ້ໂດຍສານ</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-600">ຈຳນວນເງິນ:</span>
+                      <span className="font-bold text-blue-600">₭{booking.pricing.totalAmount.toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-medium">ເລກບັນຊີ:</span>
-                  <span className="ml-2 font-mono">123-456-789-0</span>
-                </div>
-                <div>
-                  <span className="font-medium">ຊື່ບັນຊີ:</span>
-                  <span className="ml-2">ບໍລິສັດລົດຕູ້ໂດຍສານ</span>
-                </div>
-                <div className="bg-white p-3 rounded mt-4">
-                  <div className="flex items-center justify-center">
+
+                {/* 🔥 เพิ่ม: QR Code พร้อม Link ไปแอปธนาคาร */}
+                <div className="bg-white p-4 rounded-lg text-center">
+                  <div className="flex items-center justify-center mb-3">
                     <QrCode className="h-24 w-24 text-gray-400" />
                   </div>
-                  <p className="text-center text-xs text-gray-500 mt-2">QR Code ສຳລັບໂອນເງິນ</p>
+                  <p className="text-sm text-gray-600 mb-2">QR Code ສຳລັບໂອນເງິນ</p>
+                  <button className="text-xs text-blue-600 hover:text-blue-800 flex items-center mx-auto">
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    ເປີດແອບທະນາຄານ
+                  </button>
+                </div>
+
+                {/* 🔥 เพิ่ม: คำแนะนำการโอนเงิน */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-xs text-amber-800 font-medium mb-2">💡 ຄຳແນະນຳ:</p>
+                  <ul className="text-xs text-amber-700 space-y-1">
+                    <li>• ໂອນເງິນຈຳນວນທີ່ແນ່ນອນ</li>
+                    <li>• ບັນທຶກຫລຽງຖ່າຍຮູບສລິບ</li>
+                    <li>• ອັບໂຫລດທັນທີຫລັງໂອນເງິນ</li>
+                  </ul>
                 </div>
               </div>
             </div>
 
-            {/* อัปโหลดสลิป */}
-            {booking.status === 'pending' && !isExpired && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold mb-4">ອັບໂຫລດສລິບການໂອນ</h3>
-                
-                {hasPaymentSlip ? (
-                  <div className="text-center">
-                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                    <p className="text-green-600 font-medium mb-2">ອັບໂຫລດສຳເລັດແລ້ວ</p>
-                    <p className="text-sm text-gray-600 mb-4">ລໍຖ້າການອະນຸມັດຈາກພະນັກງານ</p>
-                    <img 
-                      src={booking.paymentSlip} 
-                      alt="Payment Slip" 
-                      className="max-w-full h-48 object-contain mx-auto rounded border"
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                      {uploading ? (
-                        <div>
-                          <Upload className="h-12 w-12 text-blue-500 mx-auto mb-3 animate-pulse" />
-                          <p className="text-blue-600 font-medium mb-2">ກຳລັງອັບໂຫລດ...</p>
-                          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                            <div 
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${uploadProgress}%` }}
-                            ></div>
-                          </div>
-                          <p className="text-sm text-gray-600">{uploadProgress}%</p>
-                        </div>
-                      ) : (
-                        <div>
-                          <Upload className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                          <p className="text-gray-600 mb-2">ກົດເພື່ອເລືອກສລິບ</p>
-                          <p className="text-xs text-gray-500">รองรับ JPG, PNG, WebP (ไม่เกิน 5MB)</p>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleSlipUpload}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* ผลการอนุมัติ */}
             {booking.status === 'approved' && (
               <div className="bg-green-50 rounded-lg p-6 border border-green-200">
                 <div className="text-center">
                   <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-green-800 mb-2">ອະນຸມັດແລ້ວ!</h3>
+                  <h3 className="text-lg font-semibold text-green-800 mb-2">ອະນຸມັດແລ້ວ! 🎉</h3>
                   <p className="text-green-700 mb-4">ການຈອງຂອງທ່ານໄດ້ຮັບການອະນຸມັດແລ້ວ</p>
-                  <button className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center mx-auto">
+                  
+                  {/* 🔥 เพิ่ม: แสดงเลขตั๋ว */}
+                  {booking.ticketNumbers.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm text-green-600 mb-2">ເລກທີປີ້ຂອງທ່ານ:</p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {booking.ticketNumbers.map((ticket, index) => (
+                          <span key={index} className="bg-white px-3 py-1 rounded-full text-green-800 font-mono font-bold">
+                            {ticket}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button 
+                    onClick={downloadTickets}
+                    className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center mx-auto"
+                  >
                     <Download className="mr-2 h-4 w-4" />
                     ດາວໂຫລດປີ້
                   </button>
@@ -441,10 +738,32 @@ export default function PaymentPage() {
                 <div className="text-center">
                   <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-red-800 mb-2">ປະຕິເສດ</h3>
-                  <p className="text-red-700">ການຈອງຂອງທ່ານຖືກປະຕິເສດ</p>
+                  <p className="text-red-700 mb-4">ການຈອງຂອງທ່ານຖືກປະຕິເສດ</p>
+                  
+                  {/* 🔥 เพิ่ม: สร้างการจองใหม่ */}
+                  <button
+                    onClick={() => router.push('/booking')}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center mx-auto"
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    ຈອງໃໝ່
+                  </button>
                 </div>
               </div>
             )}
+
+            {/* 🔥 เพิ่ม: ความปลอดภัย */}
+            <div className="bg-gray-50 rounded-lg p-4 border">
+              <div className="flex items-center mb-2">
+                <Shield className="h-4 w-4 text-green-500 mr-2" />
+                <span className="text-sm font-medium text-gray-700">ຄວາມປອດໄພ</span>
+              </div>
+              <ul className="text-xs text-gray-600 space-y-1">
+                <li>• ຂໍ້ມູນຂອງທ່ານໄດ້ຮັບການປົກປ້ອງ</li>
+                <li>• ການໂອນເງິນຜ່ານທະນາຄານທີ່ເຊື່ອຖືໄດ້</li>
+                <li>• ລະບົບຕິດຕາມສະຖານະແບບ Real-time</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
