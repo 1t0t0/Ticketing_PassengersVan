@@ -1,4 +1,4 @@
-// components/DashboardLayout.tsx - Fixed Syntax Error
+// components/DashboardLayout.tsx - เพิ่ม Bookings Menu
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,7 +14,8 @@ import {
   FiX,
   FiFileText,
   FiPieChart,
-  FiLogIn
+  FiLogIn,
+  FiCalendar  // เพิ่ม icon สำหรับ bookings
 } from 'react-icons/fi';
 import { TbBus } from "react-icons/tb";
 import GoogleAlphabetIcon from '@/components/GoogleAlphabetIcon';
@@ -44,10 +45,11 @@ const menuItems: MenuItem[] = [
     roles: ['admin', 'staff'],
     description: 'ຂາຍແລະຈັດການປີ້'
   },
+  // 🔥 เพิ่ม Menu การจอง
   {
     name: 'ການຈອງ',
     href: '/dashboard/bookings',
-    icon: FiFileText,
+    icon: FiCalendar,
     roles: ['admin', 'staff'],
     description: 'ຈັດການການຈອງປີ້ລ່ວງໜ້າ'
   },
@@ -261,7 +263,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                  userRole === 'station' ? 'ສະຖານີ' : 
                  userRole === 'driver' ? 'ຄົນຂັບລົດ' : userRole}
               </p>
-              {/* แสดงสถานะ check-in เฉພาะ staff */}
+              {/* แสดงสถานะ check-in เฉพาะ staff */}
               {userRole === 'staff' && (
                 <div className="mt-1">
                   <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${

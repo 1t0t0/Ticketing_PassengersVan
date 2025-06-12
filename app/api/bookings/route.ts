@@ -1,4 +1,4 @@
-// app/api/bookings/route.ts - API หลักสำหรับการจอง
+// app/api/bookings/route.ts - Fixed API เพื่อแสดงข้อมูลได้
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Booking from '@/models/Booking';
@@ -24,36 +24,51 @@ export async function GET(request: Request) {
     const status = searchParams.get('status');
     const limit = parseInt(searchParams.get('limit') || '50');
     const page = parseInt(searchParams.get('page') || '1');
+    const search = searchParams.get('search');
     
     // สร้าง filter
     const filter: any = {};
+    
+    // 🔧 แก้ไข: ใช้ status filter ถูกต้อง
     if (status && status !== 'all') {
       filter.status = status;
+    }
+    
+    // 🔧 แก้ไข: เพิ่ม search functionality
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      filter.$or = [
+        { bookingNumber: { $regex: searchTerm, $options: 'i' } },
+        { 'passengerInfo.name': { $regex: searchTerm, $options: 'i' } },
+        { 'passengerInfo.phone': { $regex: searchTerm, $options: 'i' } }
+      ];
     }
     
     // คำนวณ pagination
     const skip = (page - 1) * limit;
     
-    console.log('Fetching bookings with filter:', filter, 'Page:', page, 'Limit:', limit);
+    console.log('🔍 Bookings API filter:', filter, 'Page:', page, 'Limit:', limit);
     
     // ดึงข้อมูลการจอง
     const bookings = await Booking.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('approvedBy', 'name email employeeId');
+      .populate('approvedBy', 'name email employeeId')
+      .lean(); // เพิ่ม lean() เพื่อประสิทธิภาพ
     
     // นับจำนวนทั้งหมด
     const totalCount = await Booking.countDocuments(filter);
     const totalPages = Math.ceil(totalCount / limit);
     
-    console.log(`Found ${bookings.length} bookings (${totalCount} total)`);
+    console.log(`✅ Found ${bookings.length} bookings from ${totalCount} total`);
     
-    // อัปเดตสถานะการหมดอายุอัตโนมัติ
+    // 🔧 แก้ไข: อัปเดตสถานะการหมดอายุอัตโนมัติ
+    const now = new Date();
     const expiredCount = await Booking.updateMany(
       { 
         status: 'pending', 
-        expiresAt: { $lt: new Date() } 
+        expiresAt: { $lt: now } 
       },
       { 
         $set: { status: 'expired' } 
@@ -61,11 +76,37 @@ export async function GET(request: Request) {
     );
     
     if (expiredCount.modifiedCount > 0) {
-      console.log(`Updated ${expiredCount.modifiedCount} expired bookings`);
+      console.log(`⏰ Updated ${expiredCount.modifiedCount} expired bookings`);
+      
+      // ถ้ามีการอัปเดต ให้ดึงข้อมูลใหม่
+      const updatedBookings = await Booking.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('approvedBy', 'name email employeeId')
+        .lean();
+        
+      const updatedTotalCount = await Booking.countDocuments(filter);
+      
+      return NextResponse.json({
+        bookings: updatedBookings.map(booking => ({
+          ...booking,
+          statusLao: getStatusLao(booking.status)
+        })),
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(updatedTotalCount / limit),
+          totalCount: updatedTotalCount,
+          limit
+        }
+      });
     }
     
     return NextResponse.json({
-      bookings,
+      bookings: bookings.map(booking => ({
+        ...booking,
+        statusLao: getStatusLao(booking.status)
+      })),
       pagination: {
         currentPage: page,
         totalPages,
@@ -75,7 +116,7 @@ export async function GET(request: Request) {
     });
     
   } catch (error) {
-    console.error('Get Bookings Error:', error);
+    console.error('❌ Get Bookings Error:', error);
     return NextResponse.json(
       { 
         error: 'ເກີດຂໍ້ຜິດພາດໃນການດຶງຂໍ້ມູນການຈອງ',
@@ -86,7 +127,18 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - สร้างการจองใหม่ (สำหรับ Public)
+// 🔧 เพิ่ม helper function สำหรับแปลงสถานะ
+function getStatusLao(status: string): string {
+  const statusMap = {
+    'pending': 'ລໍຖ້າການອະນຸມັດ',
+    'approved': 'ອະນຸມັດແລ້ວ',
+    'rejected': 'ປະຕິເສດ',
+    'expired': 'ໝົດອາຍຸ'
+  };
+  return statusMap[status as keyof typeof statusMap] || status;
+}
+
+// POST - สร้างการจองใหม่ (สำหรับ Public) - เหมือนเดิม
 export async function POST(request: Request) {
   try {
     await connectDB();
