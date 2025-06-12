@@ -1,8 +1,8 @@
+// app/booking/page.tsx - Updated with Modal Design
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import * as React from 'react';
 import { 
   Calendar, 
   Users, 
@@ -11,10 +11,12 @@ import {
   Mail,
   CreditCard,
   Bus,
-  Plus,
-  Minus,
-  UserCheck
+  UserCheck,
+  Edit3,
+  MapPin,
+  Clock
 } from 'lucide-react';
+import PassengerModal from '@/components/PassengerModal';
 
 interface PassengerInfo {
   name: string;
@@ -24,24 +26,20 @@ interface PassengerInfo {
 }
 
 interface BookingFormData {
-  // Trip Details
   travelDate: string;
   passengers: string;
-  
-  // Main Contact (ผู้ติดต่อหลัก)
   mainContact: {
     name: string;
     phone: string;
     email: string;
   };
-  
-  // Passenger Details (ข้อมูลผู้โดยสารแต่ละคน)
   passengerList: PassengerInfo[];
 }
 
 export default function BookingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showPassengerModal, setShowPassengerModal] = useState(false);
   const [formData, setFormData] = useState<BookingFormData>({
     travelDate: '',
     passengers: '1',
@@ -50,20 +48,8 @@ export default function BookingPage() {
       phone: '',
       email: ''
     },
-    passengerList: [
-      { name: '', phone: '', email: '', age: '' }
-    ]
+    passengerList: []
   });
-
-  // 🔧 Debug Effect เพื่อดู state changes
-  React.useEffect(() => {
-    console.log('🔄 FormData changed:', {
-      passengers: formData.passengers,
-      passengersNum: parseInt(formData.passengers) || 1,
-      passengerListLength: formData.passengerList.length,
-      passengerList: formData.passengerList
-    });
-  }, [formData]);
 
   const basePrice = 45000;
   const passengersNum = parseInt(formData.passengers) || 1;
@@ -72,29 +58,13 @@ export default function BookingPage() {
   // อัปเดตจำนวนผู้โดยสาร
   const handlePassengersChange = (value: string) => {
     const newCount = parseInt(value) || 1;
-    const currentList = [...formData.passengerList];
-    
-    console.log('🎯 Changing passengers from', currentList.length, 'to', newCount);
-    
-    if (newCount > currentList.length) {
-      // เพิ่มผู้โดยสาร
-      for (let i = currentList.length; i < newCount; i++) {
-        currentList.push({ name: '', phone: '', email: '', age: '' });
-        console.log('➕ Added passenger', i + 1);
-      }
-    } else if (newCount < currentList.length) {
-      // ลดผู้โดยสาร
-      currentList.splice(newCount);
-      console.log('➖ Removed passengers, now have', newCount);
-    }
     
     setFormData(prev => ({
       ...prev,
       passengers: value,
-      passengerList: currentList
+      // รีเซ็ต passenger list ถ้าจำนวนเปลี่ยน
+      passengerList: prev.passengerList.length !== newCount ? [] : prev.passengerList
     }));
-    
-    console.log('📋 Updated passenger list:', currentList);
   };
 
   // อัปเดตข้อมูลผู้ติดต่อหลัก
@@ -108,36 +78,16 @@ export default function BookingPage() {
     }));
   };
 
-  // อัปเดตข้อมูลผู้โดยสารแต่ละคน
-  const handlePassengerChange = (index: number, field: keyof PassengerInfo, value: string) => {
+  // บันทึกข้อมูลผู้โดยสารจาก Modal
+  const handlePassengersSave = (passengers: PassengerInfo[]) => {
     setFormData(prev => ({
       ...prev,
-      passengerList: prev.passengerList.map((passenger, i) => 
-        i === index ? { ...passenger, [field]: value } : passenger
-      )
+      passengerList: passengers
     }));
   };
 
-  // คัดลอกข้อมูลจากผู้ติดต่อหลักไปยังผู้โดยสารคนแรก
-  const copyMainContactToFirstPassenger = () => {
-    if (formData.passengerList.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        passengerList: prev.passengerList.map((passenger, index) => 
-          index === 0 ? {
-            ...passenger,
-            name: prev.mainContact.name,
-            phone: prev.mainContact.phone,
-            email: prev.mainContact.email
-          } : passenger
-        )
-      }));
-    }
-  };
-
+  // ตรวจสอบความถูกต้องของฟอร์ม
   const validateForm = () => {
-    console.log('🔍 Validating form data:', formData);
-    
     const passengersNum = parseInt(formData.passengers) || 0;
     const phoneClean = formData.mainContact.phone.trim().replace(/\s+/g, '');
     
@@ -150,15 +100,9 @@ export default function BookingPage() {
            formData.mainContact.phone.trim().length > 0 && 
            phoneClean.length >= 6;
     
-    // ตรวจสอบข้อมูลผู้โดยสารแต่ละคน
-    const passengersValid = formData.passengerList.every((passenger, index) => {
-      if (index >= passengersNum) return true; // ไม่ต้องตรวจสอบคนที่เกิน
-      return passenger.name.trim().length > 0; // อย่างน้อยต้องมีชื่อ
-    });
-    
-    console.log('Basic valid:', basicValid);
-    console.log('Passengers valid:', passengersValid);
-    console.log('🎯 Form is valid:', basicValid && passengersValid);
+    // ตรวจสอบข้อมูลผู้โดยสาร
+    const passengersValid = formData.passengerList.length === passengersNum &&
+           formData.passengerList.every(passenger => passenger.name.trim().length > 0);
     
     return basicValid && passengersValid;
   };
@@ -170,16 +114,11 @@ export default function BookingPage() {
   };
 
   const handleSubmit = async () => {
-    console.log('📝 Submit button clicked');
-    console.log('Current form data:', formData);
-    
     if (!validateForm()) {
-      console.log('❌ Validation failed');
       alert('ກະລຸນາກຮອກຂໍ້ມູນໃຫ້ຄົບຖ້ວນ');
       return;
     }
 
-    console.log('✅ Validation passed, proceeding with submission');
     setLoading(true);
     
     try {
@@ -197,11 +136,8 @@ export default function BookingPage() {
           passengers: parseInt(formData.passengers)
         },
         basePrice: basePrice,
-        // เพิ่มข้อมูลผู้โดยสารทุกคน
-        passengerDetails: formData.passengerList.slice(0, passengersNum)
+        passengerDetails: formData.passengerList
       };
-      
-      console.log('📤 Sending request:', requestBody);
 
       const response = await fetch('/api/bookings', {
         method: 'POST',
@@ -211,19 +147,15 @@ export default function BookingPage() {
         body: JSON.stringify(requestBody),
       });
 
-      console.log('📥 Response status:', response.status);
       const result = await response.json();
-      console.log('📥 Response data:', result);
 
       if (response.ok) {
-        console.log('✅ Booking created successfully');
         router.push(`/booking/${result.booking._id}/payment`);
       } else {
-        console.log('❌ API Error:', result.error);
         alert(result.error || 'ເກີດຂໍ້ຜິດພາດໃນການສ້າງການຈອງ');
       }
     } catch (error) {
-      console.error('💥 Network/JS Error:', error);
+      console.error('Network/JS Error:', error);
       alert('ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່ ກະລຸນາລອງໃໝ່');
     } finally {
       setLoading(false);
@@ -262,12 +194,42 @@ export default function BookingPage() {
               <h2 className="text-xl font-semibold text-gray-900 mb-6">ຂໍ້ມູນການຈອງ</h2>
               
               <div className="space-y-8">
+                
+                {/* Trip Information */}
+                <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+                  <h3 className="text-lg font-medium text-blue-900 mb-4 flex items-center">
+                    <MapPin className="w-5 h-5 mr-2" />
+                    ຂໍ້ມູນການເດີນທາງ
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">ຈຸດຂຶ້ນ:</span>
+                      <span className="font-medium">ຈຸດນັດພົບ</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">ປາຍທາງ:</span>
+                      <span className="font-medium">ຕົວເມືອງ</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">ເວລາອອກ:</span>
+                      <span className="font-medium flex items-center">
+                        <Clock className="w-4 h-4 mr-1" />
+                        08:00 ໂມງເຊົ້າ
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">ລາຄາ:</span>
+                      <span className="font-medium">₭{basePrice.toLocaleString()}/ຄົນ</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Date and Passengers */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="flex items-center text-sm font-medium text-gray-700 mb-3">
                       <Calendar className="w-4 h-4 mr-2 text-blue-600" />
-                      ວັນທີເດີນທາງ
+                      ວັນທີເດີນທາງ *
                     </label>
                     <input
                       type="date"
@@ -281,17 +243,14 @@ export default function BookingPage() {
                   <div>
                     <label className="flex items-center text-sm font-medium text-gray-700 mb-3">
                       <Users className="w-4 h-4 mr-2 text-purple-600" />
-                      ຈຳນວນຜູ້ໂດຍສານ
+                      ຈຳນວນຜູ້ໂດຍສານ *
                     </label>
                     <input
                       type="number"
                       min="1"
                       max="10"
                       value={formData.passengers}
-                      onChange={(e) => {
-                        console.log('🔢 Passengers input changed to:', e.target.value);
-                        handlePassengersChange(e.target.value);
-                      }}
+                      onChange={(e) => handlePassengersChange(e.target.value)}
                       className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
                       placeholder="1"
                     />
@@ -299,7 +258,7 @@ export default function BookingPage() {
                   </div>
                 </div>
 
-                {/* ข้อมูลผู้ติดต่อหลัก */}
+                {/* Main Contact */}
                 <div className="border-t border-gray-200 pt-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
                     <UserCheck className="w-5 h-5 mr-2 text-green-600" />
@@ -352,96 +311,56 @@ export default function BookingPage() {
                   </div>
                 </div>
 
-                {/* ข้อมูลผู้โดยสารแต่ละคน */}
-                {passengersNum > 0 && (
-                  <div className="border-t border-gray-200 pt-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                        <Users className="w-5 h-5 mr-2 text-blue-600" />
-                        ຂໍ້ມູນຜູ້ໂດຍສານ ({passengersNum} ຄົນ)
-                      </h3>
-                      {formData.passengerList.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={copyMainContactToFirstPassenger}
-                          className="text-sm text-blue-600 hover:text-blue-800 underline"
-                        >
-                          📋 ຄັດລອກຜູ້ຕິດຕໍ່ຫຼັກໄປຄົນທີ 1
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-6">
-                      {formData.passengerList.slice(0, passengersNum).map((passenger, index) => (
-                        <div key={`passenger-${index}`} className="bg-gray-50 rounded-lg p-4 border border-gray-200 animate-fadeIn">
-                          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                            <span className="bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">
-                              {index + 1}
-                            </span>
-                            ຜູ້ໂດຍສານຄົນທີ {index + 1}
-                            {index === 0 && (
-                              <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                                ຫຼັກ
-                              </span>
-                            )}
-                          </h4>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                ຊື່ ແລະ ນາມສະກຸນ *
-                              </label>
-                              <input
-                                type="text"
-                                value={passenger.name}
-                                onChange={(e) => handlePassengerChange(index, 'name', e.target.value)}
-                                placeholder={`ໃສ່ຊື່ຜູ້ໂດຍສານຄົນທີ ${index + 1}`}
-                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                required
-                              />
-                            </div>
-                            
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                ເບີໂທ (ບໍ່ບັງຄັບ)
-                              </label>
-                              <input
-                                type="tel"
-                                value={passenger.phone || ''}
-                                onChange={(e) => handlePassengerChange(index, 'phone', e.target.value)}
-                                placeholder="020 1234 5678"
-                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            </div>
-                            
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                ອາຍຸ (ບໍ່ບັງຄັບ)
-                              </label>
-                              <input
-                                type="number"
-                                value={passenger.age || ''}
-                                onChange={(e) => handlePassengerChange(index, 'age', e.target.value)}
-                                placeholder="25"
-                                min="1"
-                                max="100"
-                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Debug Info */}
-                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                      <strong>Debug:</strong> 
-                      <br />จำนวนที่เลือก: {passengersNum}
-                      <br />จำนวนในอาร์เรย์: {formData.passengerList.length}
-                      <br />แสดงฟอร์ม: {formData.passengerList.slice(0, passengersNum).length} คน
-                    </div>
+                {/* Passenger List Section */}
+                <div className="border-t border-gray-200 pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                      <Users className="w-5 h-5 mr-2 text-blue-600" />
+                      ຂໍ້ມູນຜູ້ໂດຍສານ ({passengersNum} ຄົນ)
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassengerModal(true)}
+                      className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Edit3 className="w-4 h-4 mr-2" />
+                      {formData.passengerList.length === 0 ? 'ເພີ່ມຜູ້ໂດຍສານ' : 'ແກ້ໄຂຂໍ້ມູນ'}
+                    </button>
                   </div>
-                )}
+
+                  {/* Passenger Summary */}
+                  {formData.passengerList.length > 0 ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h4 className="font-medium text-green-800 mb-3">✅ ຂໍ້ມູນຜູ້ໂດຍສານ ({formData.passengerList.length} ຄົນ)</h4>
+                      <div className="space-y-2">
+                        {formData.passengerList.map((passenger, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white rounded p-3">
+                            <div className="flex items-center">
+                              <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">
+                                {index + 1}
+                              </span>
+                              <div>
+                                <div className="font-medium">{passenger.name}</div>
+                                {passenger.phone && (
+                                  <div className="text-sm text-gray-600">{passenger.phone}</div>
+                                )}
+                              </div>
+                            </div>
+                            {passenger.age && (
+                              <span className="text-sm text-gray-500">{passenger.age} ປີ</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                      <Users className="w-12 h-12 text-yellow-400 mx-auto mb-2" />
+                      <p className="text-yellow-800 font-medium">ຍັງບໍ່ໄດ້ເພີ່ມຂໍ້ມູນຜູ້ໂດຍສານ</p>
+                      <p className="text-yellow-600 text-sm">ກົດປຸ່ມ "ເພີ່ມຜູ້ໂດຍສານ" ເພື່ອເພີ່ມຂໍ້ມູນ {passengersNum} ຄົນ</p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Submit Button */}
                 <button
@@ -508,38 +427,23 @@ export default function BookingPage() {
                 </div>
               </div>
 
-              {/* Passenger List Preview */}
-              {passengersNum > 0 && formData.passengerList.length > 0 && (
-                <div className="mt-6 pt-4 border-t border-gray-200">
-                  <h4 className="font-medium text-gray-900 mb-3">ລາຍຊື່ຜູ້ໂດຍສານ:</h4>
-                  <div className="space-y-2">
-                    {formData.passengerList.slice(0, passengersNum).map((passenger, index) => (
-                      <div key={index} className="flex items-center text-sm">
-                        <span className="w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-xs mr-2">
-                          {index + 1}
-                        </span>
-                        <span className="text-gray-700">
-                          {passenger.name || `ຜູ້ໂດຍສານຄົນທີ ${index + 1}`}
-                          {passenger.age && ` (${passenger.age} ປີ)`}
-                        </span>
-                        {index === 0 && (
-                          <span className="ml-2 text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded">
-                            ຫຼັກ
-                          </span>
-                        )}
-                      </div>
-                    ))}
+              {/* Validation Status */}
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="space-y-2">
+                  <div className={`flex items-center text-sm ${formData.travelDate ? 'text-green-600' : 'text-gray-400'}`}>
+                    <div className={`w-4 h-4 rounded-full mr-2 ${formData.travelDate ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                    ວັນທີເດີນທາງ
                   </div>
-                  
-                  {/* ตัวอย่างการแสดงข้อมูล Debug */}
-                  <div className="mt-3 p-2 bg-gray-100 rounded text-xs">
-                    <strong>Debug Summary:</strong>
-                    <br />✅ ผู้โดยสาร: {passengersNum} คน
-                    <br />✅ ฟอร์มที่มี: {formData.passengerList.length} ชุด
-                    <br />✅ แสดงผล: {formData.passengerList.slice(0, passengersNum).length} คน
+                  <div className={`flex items-center text-sm ${formData.mainContact.name && formData.mainContact.phone ? 'text-green-600' : 'text-gray-400'}`}>
+                    <div className={`w-4 h-4 rounded-full mr-2 ${formData.mainContact.name && formData.mainContact.phone ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                    ຂໍ້ມູນຜູ້ຕິດຕໍ່
+                  </div>
+                  <div className={`flex items-center text-sm ${formData.passengerList.length === passengersNum && formData.passengerList.every(p => p.name.trim()) ? 'text-green-600' : 'text-gray-400'}`}>
+                    <div className={`w-4 h-4 rounded-full mr-2 ${formData.passengerList.length === passengersNum && formData.passengerList.every(p => p.name.trim()) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                    ຂໍ້ມູນຼູ້ໂດຍສານ ({formData.passengerList.length}/{passengersNum})
                   </div>
                 </div>
-              )}
+              </div>
 
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <div className="bg-blue-50 rounded-lg p-4">
@@ -557,6 +461,16 @@ export default function BookingPage() {
           </div>
         </div>
       </div>
+
+      {/* Passenger Modal */}
+      <PassengerModal
+        isOpen={showPassengerModal}
+        onClose={() => setShowPassengerModal(false)}
+        passengers={formData.passengerList}
+        onSave={handlePassengersSave}
+        maxPassengers={passengersNum}
+        mainContact={formData.mainContact}
+      />
     </div>
   );
 }
