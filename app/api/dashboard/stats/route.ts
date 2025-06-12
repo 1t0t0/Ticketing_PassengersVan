@@ -1,8 +1,9 @@
-// app/api/dashboard/stats/route.ts - ปรับปรุงให้คำนวณสถิติได้แม่นยำยิ่งขึ้น
+// app/api/dashboard/stats/route.ts - Updated with Booking Integration
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
 import User from '@/models/User';
+import Booking from '@/models/Booking';
 
 export async function GET(request: Request) {
   try {
@@ -44,38 +45,92 @@ export async function GET(request: Request) {
       } 
     };
 
-    // **Debug: ตรวจสอบจำนวนตั๋วทั้งหมดในฐานข้อมูล**
-    const allTicketsCount = await Ticket.countDocuments();
-    console.log('Total tickets in database:', allTicketsCount);
-
-    // Count tickets and calculate revenue in date range
+    // **Original Ticket Stats (Walk-in + Booking tickets)**
     const totalTicketsSold = await Ticket.countDocuments(dateFilter);
-    console.log('Tickets sold in date range:', totalTicketsSold);
-    
-    // **Debug: ดึงตั๋วจริงๆ เพื่อตรวจสอบ**
-    const actualTickets = await Ticket.find(dateFilter).select('soldAt price paymentMethod');
-    console.log('Actual tickets found:', actualTickets.length);
-    if (actualTickets.length > 0) {
-      console.log('Sample tickets:', actualTickets.slice(0, 3).map(t => ({
-        soldAt: t.soldAt,
-        price: t.price,
-        paymentMethod: t.paymentMethod
-      })));
-    }
     
     const totalRevenueResult = await Ticket.aggregate([
       { $match: dateFilter },
       { $group: { _id: null, total: { $sum: '$price' } } }
     ]);
     const totalRevenue = totalRevenueResult.length > 0 ? totalRevenueResult[0].total : 0;
-    
-    console.log('Total revenue calculated:', totalRevenue);
 
-    // Count total drivers and staff (ticket sellers)
+    // **🆕 Booking Statistics**
+    const bookingDateFilter = {
+      createdAt: { $gte: startDate, $lte: endDate }
+    };
+
+    // Booking counts by status
+    const bookingStats = await Booking.aggregate([
+      { $match: bookingDateFilter },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          revenue: { $sum: '$pricing.totalAmount' }
+        }
+      }
+    ]);
+
+    // Transform booking stats into readable format
+    const bookingStatsFormatted = {
+      pending: { count: 0, revenue: 0 },
+      approved: { count: 0, revenue: 0 },
+      rejected: { count: 0, revenue: 0 },
+      expired: { count: 0, revenue: 0 }
+    };
+
+    bookingStats.forEach(stat => {
+      if (bookingStatsFormatted[stat._id as keyof typeof bookingStatsFormatted]) {
+        bookingStatsFormatted[stat._id as keyof typeof bookingStatsFormatted] = {
+          count: stat.count,
+          revenue: stat.revenue
+        };
+      }
+    });
+
+    // Total bookings
+    const totalBookings = bookingStats.reduce((sum, stat) => sum + stat.count, 0);
+    const totalBookingRevenue = bookingStats.reduce((sum, stat) => sum + stat.revenue, 0);
+    const approvedBookingRevenue = bookingStatsFormatted.approved.revenue;
+
+    // **🆕 Revenue Breakdown by Channel**
+    const walkInTickets = await Ticket.countDocuments({ 
+      ...dateFilter, 
+      $or: [
+        { isFromBooking: { $ne: true } },
+        { isFromBooking: { $exists: false } }
+      ]
+    });
+
+    const bookingTickets = await Ticket.countDocuments({ 
+      ...dateFilter, 
+      isFromBooking: true 
+    });
+
+    const walkInRevenueResult = await Ticket.aggregate([
+      { 
+        $match: { 
+          ...dateFilter,
+          $or: [
+            { isFromBooking: { $ne: true } },
+            { isFromBooking: { $exists: false } }
+          ]
+        }
+      },
+      { $group: { _id: null, total: { $sum: '$price' } } }
+    ]);
+    const walkInRevenue = walkInRevenueResult.length > 0 ? walkInRevenueResult[0].total : 0;
+
+    const bookingTicketRevenueResult = await Ticket.aggregate([
+      { $match: { ...dateFilter, isFromBooking: true } },
+      { $group: { _id: null, total: { $sum: '$price' } } }
+    ]);
+    const bookingTicketRevenue = bookingTicketRevenueResult.length > 0 ? bookingTicketRevenueResult[0].total : 0;
+
+    // **Staff & Driver Stats (unchanged)**
     const totalDrivers = await User.countDocuments({ role: 'driver' });
     const totalStaff = await User.countDocuments({ role: 'staff' });
     
-    // Count checked-in drivers and staff
     const checkedInDrivers = await User.countDocuments({ 
       role: 'driver',
       checkInStatus: 'checked-in'
@@ -86,11 +141,9 @@ export async function GET(request: Request) {
       checkInStatus: 'checked-in'
     });
 
-    // Hourly ticket sales data (for the date range)
+    // **Hourly ticket sales data (unchanged)**
     const hourlyTickets = await Ticket.aggregate([
-      {
-        $match: dateFilter
-      },
+      { $match: dateFilter },
       {
         $group: {
           _id: { $hour: "$soldAt" },
@@ -101,7 +154,7 @@ export async function GET(request: Request) {
       { $sort: { _id: 1 } }
     ]);
 
-    // Payment method statistics
+    // **Payment method statistics (unchanged)**
     const paymentMethodStats = await Ticket.aggregate([
       { $match: dateFilter },
       {
@@ -112,7 +165,6 @@ export async function GET(request: Request) {
       }
     ]);
 
-    // Convert payment stats to the expected format
     let cashCount = 0;
     let qrCount = 0;
 
@@ -128,14 +180,15 @@ export async function GET(request: Request) {
     const cashPercentage = totalPayments > 0 ? Math.round((cashCount / totalPayments) * 100) : 50;
     const qrPercentage = totalPayments > 0 ? Math.round((qrCount / totalPayments) * 100) : 50;
 
-    // Format hourly tickets data
     const formattedHourlyTickets = hourlyTickets.map(item => ({
       _id: item._id,
       count: item.count,
       revenue: item.revenue
     }));
 
+    // **🆕 Enhanced Result with Booking Data**
     const result = {
+      // Original stats
       totalTicketsSold,
       totalRevenue,
       totalDrivers,
@@ -146,12 +199,40 @@ export async function GET(request: Request) {
       paymentMethodStats: {
         cash: cashPercentage,
         qr: qrPercentage
+      },
+      
+      // 🆕 Booking System Stats
+      bookingSystem: {
+        totalBookings,
+        totalBookingRevenue,
+        approvedBookingRevenue,
+        bookingsByStatus: bookingStatsFormatted,
+        
+        // Revenue breakdown
+        revenueBreakdown: {
+          walkIn: {
+            tickets: walkInTickets,
+            revenue: walkInRevenue,
+            percentage: totalRevenue > 0 ? Math.round((walkInRevenue / totalRevenue) * 100) : 0
+          },
+          booking: {
+            tickets: bookingTickets,
+            revenue: bookingTicketRevenue,
+            percentage: totalRevenue > 0 ? Math.round((bookingTicketRevenue / totalRevenue) * 100) : 0
+          }
+        },
+        
+        // Conversion metrics
+        conversionRate: totalBookings > 0 ? Math.round((bookingStatsFormatted.approved.count / totalBookings) * 100) : 0,
+        avgBookingValue: bookingStatsFormatted.approved.count > 0 ? Math.round(approvedBookingRevenue / bookingStatsFormatted.approved.count) : 0
       }
     };
     
-    console.log('Returning dashboard stats:', {
+    console.log('Returning enhanced dashboard stats with booking data:', {
       totalTicketsSold: result.totalTicketsSold,
       totalRevenue: result.totalRevenue,
+      totalBookings: result.bookingSystem.totalBookings,
+      bookingRevenue: result.bookingSystem.totalBookingRevenue,
       dateRange: `${startDate} to ${endDate}`
     });
 
