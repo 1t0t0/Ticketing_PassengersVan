@@ -1,4 +1,4 @@
-// app/dashboard/bookings/page.tsx - Admin Bookings Management
+// app/dashboard/bookings/page.tsx - Fixed undefined property access
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -101,11 +101,30 @@ export default function AdminBookingsPage() {
       if (!response.ok) throw new Error('Failed to fetch bookings');
       
       const data = await response.json();
-      setBookings(data.bookings || []);
+      
+      // ✅ เพิ่มการตรวจสอบและ validation ข้อมูล
+      const validBookings = (data.bookings || []).map((booking: any) => ({
+        ...booking,
+        // ป้องกัน undefined errors
+        passengerInfo: booking.passengerInfo || { name: 'N/A', phone: 'N/A' },
+        tripDetails: booking.tripDetails || { 
+          pickupLocation: 'N/A', 
+          destination: 'N/A', 
+          travelDate: new Date().toISOString(), 
+          travelTime: '08:00', 
+          passengers: 1 
+        },
+        pricing: booking.pricing || { basePrice: 0, totalAmount: 0 },
+        ticketNumbers: booking.ticketNumbers || [],
+        approvedBy: booking.approvedBy || null
+      }));
+
+      setBookings(validBookings);
       setPagination(data.pagination || pagination);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       alert('เกิดข้อผิดพลาดในการดึงข้อมูล');
+      setBookings([]); // ✅ ตั้งค่าเป็น empty array เมื่อ error
     } finally {
       setLoading(false);
     }
@@ -204,11 +223,27 @@ export default function AdminBookingsPage() {
     };
 
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${styles[status as keyof typeof styles]}`}>
-        {icons[status as keyof typeof icons]}
-        <span className="ml-1">{labels[status as keyof typeof labels]}</span>
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${styles[status as keyof typeof styles] || styles.expired}`}>
+        {icons[status as keyof typeof icons] || icons.expired}
+        <span className="ml-1">{labels[status as keyof typeof labels] || status}</span>
       </span>
     );
+  };
+
+  // ✅ Safe date formatting function
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('lo-LA');
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  // ✅ Safe number formatting function
+  const formatNumber = (num: number | undefined) => {
+    if (num === undefined || num === null || isNaN(num)) return '0';
+    return num.toLocaleString();
   };
 
   return (
@@ -389,7 +424,7 @@ export default function AdminBookingsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {booking.bookingNumber}
+                          {booking.bookingNumber || 'N/A'}
                         </div>
                         {booking.paymentSlip && (
                           <div className="text-xs text-green-600 flex items-center mt-1">
@@ -402,11 +437,11 @@ export default function AdminBookingsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {booking.passengerInfo.name}
+                          {booking.passengerInfo?.name || 'N/A'}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center">
                           <Phone className="w-3 h-3 mr-1" />
-                          {booking.passengerInfo.phone}
+                          {booking.passengerInfo?.phone || 'N/A'}
                         </div>
                       </div>
                     </td>
@@ -414,24 +449,24 @@ export default function AdminBookingsPage() {
                       <div>
                         <div className="text-sm text-gray-900 flex items-center">
                           <Calendar className="w-3 h-3 mr-1" />
-                          {new Date(booking.tripDetails.travelDate).toLocaleDateString('lo-LA')}
+                          {formatDate(booking.tripDetails?.travelDate)}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center">
                           <Users className="w-3 h-3 mr-1" />
-                          {booking.tripDetails.passengers} ຄົນ
+                          {booking.tripDetails?.passengers || 0} ຄົນ
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        ₭{booking.pricing.totalAmount.toLocaleString()}
+                        ₭{formatNumber(booking.pricing?.totalAmount)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={booking.status} />
+                      <StatusBadge status={booking.status || 'pending'} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(booking.createdAt).toLocaleDateString('lo-LA')}
+                      {formatDate(booking.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
@@ -529,7 +564,7 @@ export default function AdminBookingsPage() {
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    ລາຍລະອຽດການຈອງ: {selectedBooking.bookingNumber}
+                    ລາຍລະອຽດການຈອງ: {selectedBooking.bookingNumber || 'N/A'}
                   </h3>
                   <button
                     onClick={() => setShowModal(false)}
@@ -545,9 +580,9 @@ export default function AdminBookingsPage() {
                     <h4 className="font-medium text-gray-900">ຂໍ້ມູນຜູ້ໂດຍສານ</h4>
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <div className="space-y-2">
-                        <div><span className="font-medium">ຊື່:</span> {selectedBooking.passengerInfo.name}</div>
-                        <div><span className="font-medium">ເບີໂທ:</span> {selectedBooking.passengerInfo.phone}</div>
-                        {selectedBooking.passengerInfo.email && (
+                        <div><span className="font-medium">ຊື່:</span> {selectedBooking.passengerInfo?.name || 'N/A'}</div>
+                        <div><span className="font-medium">ເບີໂທ:</span> {selectedBooking.passengerInfo?.phone || 'N/A'}</div>
+                        {selectedBooking.passengerInfo?.email && (
                           <div><span className="font-medium">ອີເມວ:</span> {selectedBooking.passengerInfo.email}</div>
                         )}
                       </div>
@@ -556,10 +591,10 @@ export default function AdminBookingsPage() {
                     <h4 className="font-medium text-gray-900">ຂໍ້ມູນການເດີນທາງ</h4>
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <div className="space-y-2">
-                        <div><span className="font-medium">ວັນທີ:</span> {new Date(selectedBooking.tripDetails.travelDate).toLocaleDateString('lo-LA')}</div>
-                        <div><span className="font-medium">ເວລາ:</span> {selectedBooking.tripDetails.travelTime}</div>
-                        <div><span className="font-medium">ຈຳນວນຄົນ:</span> {selectedBooking.tripDetails.passengers} ຄົນ</div>
-                        <div><span className="font-medium">ລາຄາລວມ:</span> ₭{selectedBooking.pricing.totalAmount.toLocaleString()}</div>
+                        <div><span className="font-medium">ວັນທີ:</span> {formatDate(selectedBooking.tripDetails?.travelDate)}</div>
+                        <div><span className="font-medium">ເວລາ:</span> {selectedBooking.tripDetails?.travelTime || 'N/A'}</div>
+                        <div><span className="font-medium">ຈຳນວນຄົນ:</span> {selectedBooking.tripDetails?.passengers || 0} ຄົນ</div>
+                        <div><span className="font-medium">ລາຄາລວມ:</span> ₭{formatNumber(selectedBooking.pricing?.totalAmount)}</div>
                       </div>
                     </div>
                   </div>
@@ -572,13 +607,13 @@ export default function AdminBookingsPage() {
                         <div>
                           <span className="font-medium">ສະຖານະ:</span>
                           <div className="mt-1">
-                            <StatusBadge status={selectedBooking.status} />
+                            <StatusBadge status={selectedBooking.status || 'pending'} />
                           </div>
                         </div>
-                        <div><span className="font-medium">ວັນທີສ້າງ:</span> {new Date(selectedBooking.createdAt).toLocaleString('lo-LA')}</div>
-                        <div><span className="font-medium">ໝົດອາຍຸ:</span> {new Date(selectedBooking.expiresAt).toLocaleString('lo-LA')}</div>
+                        <div><span className="font-medium">ວັນທີສ້າງ:</span> {formatDate(selectedBooking.createdAt)}</div>
+                        <div><span className="font-medium">ໝົດອາຍຸ:</span> {formatDate(selectedBooking.expiresAt)}</div>
                         {selectedBooking.approvedAt && (
-                          <div><span className="font-medium">ວັນທີອະນຸມັດ:</span> {new Date(selectedBooking.approvedAt).toLocaleString('lo-LA')}</div>
+                          <div><span className="font-medium">ວັນທີອະນຸມັດ:</span> {formatDate(selectedBooking.approvedAt)}</div>
                         )}
                       </div>
                     </div>
@@ -597,7 +632,7 @@ export default function AdminBookingsPage() {
                       </div>
                     )}
 
-                    {selectedBooking.ticketNumbers.length > 0 && (
+                    {selectedBooking.ticketNumbers && selectedBooking.ticketNumbers.length > 0 && (
                       <div>
                         <h4 className="font-medium text-gray-900 mb-2">ເລກທີປີ້</h4>
                         <div className="bg-green-50 p-4 rounded-lg">
