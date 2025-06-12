@@ -1,4 +1,4 @@
-// app/booking/status/page.tsx - หน้าตรวจสอบสถานะการจอง
+// app/booking/status/page.tsx - Updated with Better Booking Number Display
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,7 +15,9 @@ import {
   MapPin,
   Ticket as TicketIcon,
   Download,
-  RefreshCw
+  RefreshCw,
+  Copy,
+  Check
 } from 'lucide-react';
 
 interface BookingData {
@@ -44,6 +46,68 @@ interface BookingData {
   statusLao: string;
   createdAt: string;
   approvedAt?: string;
+}
+
+// ✅ Reusable Booking Number Component
+function BookingNumberDisplay({ 
+  bookingNumber, 
+  size = 'md',
+  variant = 'card'
+}: { 
+  bookingNumber: string; 
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'card' | 'inline';
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(bookingNumber);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      const textArea = document.createElement('textarea');
+      textArea.value = bookingNumber;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const sizeClasses = {
+    sm: { text: 'text-sm', padding: 'px-2 py-1', icon: 'h-3 w-3' },
+    md: { text: 'text-base', padding: 'px-3 py-2', icon: 'h-4 w-4' },
+    lg: { text: 'text-lg', padding: 'px-4 py-3', icon: 'h-5 w-5' }
+  };
+
+  const variantClasses = {
+    default: 'bg-gray-50 border border-gray-200 hover:bg-blue-50 hover:border-blue-300',
+    card: 'bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-400',
+    inline: 'bg-transparent border border-gray-300 hover:bg-gray-50'
+  };
+
+  const sizeClass = sizeClasses[size];
+
+  return (
+    <div className={`inline-flex items-center ${variantClasses[variant]} rounded-lg ${sizeClass.padding} group transition-colors cursor-pointer`}>
+      <span 
+        className={`font-mono font-bold ${sizeClass.text} text-blue-700 mr-2 select-all`}
+        onClick={handleCopy}
+      >
+        {bookingNumber}
+      </span>
+      <button
+        onClick={handleCopy}
+        className={`${copied ? 'text-green-600' : 'text-gray-400 hover:text-blue-600'} hover:bg-blue-100 rounded p-1 transition-colors`}
+        title={copied ? 'ຄັດລອກແລ້ວ!' : 'ຄັດລອກເລກການຈອງ'}
+      >
+        {copied ? <Check className={sizeClass.icon} /> : <Copy className={sizeClass.icon} />}
+      </button>
+    </div>
+  );
 }
 
 export default function BookingStatusPage() {
@@ -80,7 +144,7 @@ export default function BookingStatusPage() {
       const data = await response.json();
       
       if (Array.isArray(data) && data.length > 0) {
-        setBooking(data[0]); // ใช้ผลลัพธ์แรก
+        setBooking(data[0]);
       } else if (data._id) {
         setBooking(data);
       } else {
@@ -110,7 +174,6 @@ export default function BookingStatusPage() {
   const downloadTickets = () => {
     if (!booking || booking.ticketNumbers.length === 0) return;
     
-    // สร้าง content สำหรับตั๋ว
     const ticketContent = `
 ປີ້ລົດຕູ້ໂດຍສານ
 ລົດໄຟ ລາວ-ຈີນ
@@ -230,7 +293,7 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
         {/* ผลลัพธ์การค้นหา */}
         {booking && (
           <div className="space-y-6">
-            {/* สถานะการจอง */}
+            {/* สถานะการจอง - ✅ ปรับปรุงการแสดง Booking Number */}
             <div className={`rounded-lg p-6 border-2 ${
               booking.status === 'approved' ? 'bg-green-50 border-green-200' :
               booking.status === 'pending' ? 'bg-yellow-50 border-yellow-200' :
@@ -249,7 +312,15 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                     }`}>
                       {booking.statusLao}
                     </h2>
-                    <p className="text-gray-600">ການຈອງເລກທີ: {booking.bookingNumber}</p>
+                    {/* ✅ แสดง Booking Number แบบใหม่ */}
+                    <div className="flex items-center mt-2">
+                      <span className="text-gray-600 text-sm mr-2">ການຈອງເລກທີ:</span>
+                      <BookingNumberDisplay 
+                        bookingNumber={booking.bookingNumber} 
+                        size="md"
+                        variant="card"
+                      />
+                    </div>
                   </div>
                 </div>
                 
@@ -342,12 +413,15 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                   {booking.ticketNumbers.map((ticketNumber, index) => (
                     <div 
                       key={index}
-                      className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 text-center"
+                      className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 text-center group hover:from-blue-100 hover:to-purple-100 transition-colors"
                     >
-                      <div className="text-lg font-bold text-blue-700">
-                        {ticketNumber}
-                      </div>
-                      <div className="text-sm text-gray-600">ປີ້ທີ {index + 1}</div>
+                      {/* ✅ ทำให้เลขตั๋วคัดลอกได้ด้วย */}
+                      <BookingNumberDisplay 
+                        bookingNumber={ticketNumber}
+                        size="sm"
+                        variant="inline"
+                      />
+                      <div className="text-sm text-gray-600 mt-1">ປີ້ທີ {index + 1}</div>
                     </div>
                   ))}
                 </div>

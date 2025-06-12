@@ -1,8 +1,8 @@
-// app/booking/page.tsx - Updated with Modal Design
+// app/booking/page.tsx - Updated (ลบส่วนวันที่และจำนวนคน)
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Calendar, 
   Users, 
@@ -14,7 +14,8 @@ import {
   UserCheck,
   Edit3,
   MapPin,
-  Clock
+  Clock,
+  ArrowLeft
 } from 'lucide-react';
 import PassengerModal from '@/components/PassengerModal';
 
@@ -38,11 +39,17 @@ interface BookingFormData {
 
 export default function BookingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // รับค่าจาก URL parameters
+  const dateFromUrl = searchParams.get('date') || '';
+  const passengersFromUrl = searchParams.get('passengers') || '1';
+  
   const [loading, setLoading] = useState(false);
   const [showPassengerModal, setShowPassengerModal] = useState(false);
   const [formData, setFormData] = useState<BookingFormData>({
-    travelDate: '',
-    passengers: '1',
+    travelDate: dateFromUrl,
+    passengers: passengersFromUrl,
     mainContact: {
       name: '',
       phone: '',
@@ -51,21 +58,24 @@ export default function BookingPage() {
     passengerList: []
   });
 
-  const basePrice = 45000;
-  const passengersNum = parseInt(formData.passengers) || 1;
-  const totalAmount = basePrice * passengersNum;
-
-  // อัปเดตจำนวนผู้โดยสาร
-  const handlePassengersChange = (value: string) => {
-    const newCount = parseInt(value) || 1;
+  // ตรวจสอบว่ามีข้อมูลจาก Homepage หรือไม่
+  useEffect(() => {
+    if (!dateFromUrl) {
+      // ถ้าไม่มีวันที่จาก URL ให้กลับไปหน้า Homepage
+      router.push('/');
+      return;
+    }
     
     setFormData(prev => ({
       ...prev,
-      passengers: value,
-      // รีเซ็ต passenger list ถ้าจำนวนเปลี่ยน
-      passengerList: prev.passengerList.length !== newCount ? [] : prev.passengerList
+      travelDate: dateFromUrl,
+      passengers: passengersFromUrl
     }));
-  };
+  }, [dateFromUrl, passengersFromUrl]);
+
+  const basePrice = 45000;
+  const passengersNum = parseInt(formData.passengers) || 1;
+  const totalAmount = basePrice * passengersNum;
 
   // อัปเดตข้อมูลผู้ติดต่อหลัก
   const handleMainContactChange = (field: keyof BookingFormData['mainContact'], value: string) => {
@@ -105,12 +115,6 @@ export default function BookingPage() {
            formData.passengerList.every(passenger => passenger.name.trim().length > 0);
     
     return basicValid && passengersValid;
-  };
-
-  const getTomorrowDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
   };
 
   const handleSubmit = async () => {
@@ -169,6 +173,12 @@ export default function BookingPage() {
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
+              <button
+                onClick={() => router.push('/')}
+                className="mr-4 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
               <Bus className="w-8 h-8 text-blue-600 mr-3" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">ຈອງປີ້ລົດໂດຍສານ</h1>
@@ -195,11 +205,11 @@ export default function BookingPage() {
               
               <div className="space-y-8">
                 
-                {/* Trip Information */}
+                {/* Selected Trip Information - แสดงข้อมูลที่เลือกจาก Homepage */}
                 <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
                   <h3 className="text-lg font-medium text-blue-900 mb-4 flex items-center">
                     <MapPin className="w-5 h-5 mr-2" />
-                    ຂໍ້ມູນການເດີນທາງ
+                    ຂໍ້ມູນການເດີນທາງທີ່ເລືອກ
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div className="flex justify-between">
@@ -211,6 +221,12 @@ export default function BookingPage() {
                       <span className="font-medium">ຕົວເມືອງ</span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-blue-700">ວັນທີ:</span>
+                      <span className="font-medium">
+                        {formData.travelDate ? new Date(formData.travelDate).toLocaleDateString('lo-LA') : 'ບໍ່ໄດ້ເລືອກ'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-blue-700">ເວລາອອກ:</span>
                       <span className="font-medium flex items-center">
                         <Clock className="w-4 h-4 mr-1" />
@@ -218,43 +234,23 @@ export default function BookingPage() {
                       </span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-blue-700">ຈຳນວນຄົນ:</span>
+                      <span className="font-medium">{passengersNum} ຄົນ</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-blue-700">ລາຄາ:</span>
                       <span className="font-medium">₭{basePrice.toLocaleString()}/ຄົນ</span>
                     </div>
                   </div>
-                </div>
-
-                {/* Date and Passengers */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="flex items-center text-sm font-medium text-gray-700 mb-3">
-                      <Calendar className="w-4 h-4 mr-2 text-blue-600" />
-                      ວັນທີເດີນທາງ *
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.travelDate}
-                      onChange={(e) => setFormData(prev => ({ ...prev, travelDate: e.target.value }))}
-                      min={getTomorrowDate()}
-                      className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="flex items-center text-sm font-medium text-gray-700 mb-3">
-                      <Users className="w-4 h-4 mr-2 text-purple-600" />
-                      ຈຳນວນຜູ້ໂດຍສານ *
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={formData.passengers}
-                      onChange={(e) => handlePassengersChange(e.target.value)}
-                      className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                      placeholder="1"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">ສູງສຸດ 10 ຄົນ</p>
+                  
+                  {/* ปุ่มเปลี่ยนข้อมูล */}
+                  <div className="mt-4 pt-4 border-t border-blue-200">
+                    <button
+                      onClick={() => router.push('/')}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      ← ກັບໄປເປີ່ນວັນທີ ຫຼື ຈຳນວນຄົນ
+                    </button>
                   </div>
                 </div>
 
@@ -270,7 +266,7 @@ export default function BookingPage() {
                     <div>
                       <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
                         <User className="w-4 h-4 mr-2 text-blue-600" />
-                        ຊື່ຜູ້ຕິດຕໍ່ *
+                        ຊື່ຂອງທ່ານ *
                       </label>
                       <input
                         type="text"
@@ -398,7 +394,7 @@ export default function BookingPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">ວັນທີ:</span>
                   <span className="font-medium">
-                    {formData.travelDate ? new Date(formData.travelDate).toLocaleDateString('lo-LA') : 'ຍັງບໍ່ໄດ້ເລືອກ'}
+                    {formData.travelDate ? new Date(formData.travelDate).toLocaleDateString('lo-LA') : 'ບໍ່ໄດ້ເລືອກ'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -430,17 +426,13 @@ export default function BookingPage() {
               {/* Validation Status */}
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <div className="space-y-2">
-                  <div className={`flex items-center text-sm ${formData.travelDate ? 'text-green-600' : 'text-gray-400'}`}>
-                    <div className={`w-4 h-4 rounded-full mr-2 ${formData.travelDate ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                    ວັນທີເດີນທາງ
-                  </div>
                   <div className={`flex items-center text-sm ${formData.mainContact.name && formData.mainContact.phone ? 'text-green-600' : 'text-gray-400'}`}>
                     <div className={`w-4 h-4 rounded-full mr-2 ${formData.mainContact.name && formData.mainContact.phone ? 'bg-green-500' : 'bg-gray-300'}`}></div>
                     ຂໍ້ມູນຜູ້ຕິດຕໍ່
                   </div>
                   <div className={`flex items-center text-sm ${formData.passengerList.length === passengersNum && formData.passengerList.every(p => p.name.trim()) ? 'text-green-600' : 'text-gray-400'}`}>
                     <div className={`w-4 h-4 rounded-full mr-2 ${formData.passengerList.length === passengersNum && formData.passengerList.every(p => p.name.trim()) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                    ຂໍ້ມູນຼູ້ໂດຍສານ ({formData.passengerList.length}/{passengersNum})
+                    ຂໍ້ມູນຜູ້ໂດຍສານ ({formData.passengerList.length}/{passengersNum})
                   </div>
                 </div>
               </div>

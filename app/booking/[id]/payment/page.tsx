@@ -1,4 +1,4 @@
-// app/booking/[id]/payment/page.tsx - Updated Layout
+// app/booking/[id]/payment/page.tsx - Updated with Countdown Timer
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -52,6 +52,13 @@ interface BookingData {
   approvedAt?: string;
 }
 
+interface TimeLeft {
+  hours: number;
+  minutes: number;
+  seconds: number;
+  total: number;
+}
+
 export default function PaymentPage() {
   const router = useRouter();
   const params = useParams();
@@ -62,7 +69,7 @@ export default function PaymentPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [timeLeft, setTimeLeft] = useState<string>('');
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>({ hours: 0, minutes: 0, seconds: 0, total: 0 });
   const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -91,29 +98,41 @@ export default function PaymentPage() {
     }
   }, [bookingId]);
 
+  // ✅ ฟังก์ชันคำนวณเวลาที่เหลือ
+  const calculateTimeLeft = (expiresAt: string): TimeLeft => {
+    const now = new Date().getTime();
+    const expiry = new Date(expiresAt).getTime();
+    const difference = expiry - now;
+
+    if (difference > 0) {
+      const hours = Math.floor(difference / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+      
+      return {
+        hours,
+        minutes,
+        seconds,
+        total: difference
+      };
+    } else {
+      return { hours: 0, minutes: 0, seconds: 0, total: 0 };
+    }
+  };
+
   // นับถอยหลังเวลาที่เหลือ
   useEffect(() => {
     if (!booking?.expiresAt) return;
 
     const updateTimeLeft = () => {
-      const now = new Date().getTime();
-      const expiry = new Date(booking.expiresAt).getTime();
-      const difference = expiry - now;
-
-      if (difference > 0) {
-        const hours = Math.floor(difference / (1000 * 60 * 60));
-        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-        setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-      } else {
-        setTimeLeft('ໝົດອາຍຸແລ້ວ');
-      }
+      const newTimeLeft = calculateTimeLeft(booking.expiresAt);
+      setTimeLeft(newTimeLeft);
     };
 
     updateTimeLeft();
     const interval = setInterval(updateTimeLeft, 1000);
     return () => clearInterval(interval);
-  }, [booking]);
+  }, [booking?.expiresAt]);
 
   // Auto refresh ทุก 30 วินาที สำหรับ pending status
   useEffect(() => {
@@ -261,6 +280,26 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
     URL.revokeObjectURL(url);
   };
 
+  // ✅ ฟังก์ชันจัดรูปแบบเวลา
+  const formatTimeLeft = (timeLeft: TimeLeft): string => {
+    if (timeLeft.total <= 0) {
+      return 'ໝົດອາຍຸແລ້ວ';
+    }
+    
+    const { hours, minutes, seconds } = timeLeft;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // ✅ ฟังก์ชันสำหรับสี countdown
+  const getCountdownColor = (timeLeft: TimeLeft): string => {
+    if (timeLeft.total <= 0) return 'text-red-600';
+    
+    const totalHours = timeLeft.total / (1000 * 60 * 60);
+    if (totalHours <= 2) return 'text-red-600';
+    if (totalHours <= 6) return 'text-yellow-600';
+    return 'text-green-600';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -291,7 +330,7 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
     );
   }
 
-  const isExpired = new Date() > new Date(booking.expiresAt);
+  const isExpired = timeLeft.total <= 0;
   const hasPaymentSlip = !!booking.paymentSlip;
 
   return (
@@ -309,7 +348,41 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">ຊຳລະເງິນ</h1>
-                <p className="text-gray-600">ການຈອງເລກທີ: {booking.bookingNumber}</p>
+                {/* ✅ ปรับปรุง Booking Number ให้คัดลอกได้ */}
+                <div className="flex items-center mt-1">
+                  <span className="text-gray-600 mr-2">ການຈອງເລກທີ:</span>
+                  <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 group hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                    <span className="font-mono font-bold text-blue-700 mr-2 select-all">
+                      {booking.bookingNumber}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(booking.bookingNumber);
+                          // แสดงการแจ้งเตือนสั้นๆ
+                          const button = event?.target as HTMLElement;
+                          const originalIcon = button.innerHTML;
+                          button.innerHTML = '<svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>';
+                          setTimeout(() => {
+                            button.innerHTML = originalIcon;
+                          }, 1500);
+                        } catch (err) {
+                          // Fallback สำหรับ browser ที่ไม่รองรับ
+                          const textArea = document.createElement('textarea');
+                          textArea.value = booking.bookingNumber;
+                          document.body.appendChild(textArea);
+                          textArea.select();
+                          document.execCommand('copy');
+                          document.body.removeChild(textArea);
+                        }
+                      }}
+                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                      title="ຄັດລອກເລກການຈອງ"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -360,7 +433,23 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                     }`}>
                       {booking.statusLao}
                     </p>
-                    {booking.status === 'pending' && autoRefresh && (
+                    {/* ✅ แสดง countdown timer แทนข้อความ autoRefresh */}
+                    {booking.status === 'pending' && !isExpired && (
+                      <div className="flex items-center text-sm mt-1">
+                        <Clock className="h-4 w-4 mr-1" />
+                        <span className="text-gray-600 mr-2">ເວລາທີ່ເຫຼືອ:</span>
+                        <span className={`font-mono font-bold ${getCountdownColor(timeLeft)}`}>
+                          {formatTimeLeft(timeLeft)}
+                        </span>
+                      </div>
+                    )}
+                    {booking.status === 'pending' && isExpired && (
+                      <div className="flex items-center text-sm mt-1 text-red-600">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        ໝົດອາຍຸແລ້ວ
+                      </div>
+                    )}
+                    {booking.status === 'pending' && autoRefresh && !isExpired && (
                       <div className="flex items-center text-xs text-blue-600 mt-1">
                         <RefreshCw className="h-3 w-3 mr-1" />
                         ກຳລັງຕິດຕາມສະຖານະ...
@@ -421,7 +510,6 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                 </div>
               </div>
             </div>
-
 
             {/* ข้อมูลการเดินทางและผู้ติดต่อ - รวมกัน */}
             <div className="bg-white rounded-lg shadow p-6">
@@ -492,7 +580,7 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
               </div>
             </div>
 
-  {/* สรุปการชำระเงิน */}
+            {/* สรุปการชำระเงิน */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">ສະຫຼຸບການຊຳລະ</h3>
               <div className="space-y-3">
@@ -517,7 +605,7 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
           {/* ส่วนขวา - การชำระเงินและข้อมูลการโอน */}
           <div className="space-y-6">
             
-            {/* ข้อมูลการโอนเงิน - ย้ายมาด้านบน + เพิ่มปุ่มอัปโหลด */}
+            {/* ข้อมูลการโอนเงิน */}
             <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <Building className="mr-2 text-blue-600" />
@@ -576,7 +664,7 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                   </ul>
                 </div>
 
-                {/* ปุ่มอัปโหลดสลิป - ย้ายมาด้านล่างของข้อมูลการโอน */}
+                {/* ปุ่มอัปโหลดสลิป */}
                 {booking.status === 'pending' && !isExpired && !hasPaymentSlip && (
                   <div className="bg-white rounded-lg p-4 border-2 border-dashed border-gray-300">
                     <div className="relative">
@@ -620,9 +708,13 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                     <div className="text-center">
                       <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
                       <p className="text-green-700 font-medium mb-2">ອັບໂຫລດສລິບສຳເລັດ</p>
-                      <div className="flex items-center justify-center text-sm text-yellow-600 mb-3">
+                      {/* ✅ แสดง countdown ในส่วนนี้ด้วย */}
+                      <div className={`flex items-center justify-center text-sm mb-3 ${getCountdownColor(timeLeft)}`}>
                         <Clock className="h-4 w-4 mr-1" />
-                        ລໍຖ້າການອະນຸມັດ - ເວລາທີ່ເຫຼືອ: <span className="font-mono ml-1 text-red-600">{timeLeft}</span>
+                        ລໍຖ້າການອະນຸມັດ - ເວລາທີ່ເຫຼືອ: 
+                        <span className="font-mono ml-1 font-bold">
+                          {formatTimeLeft(timeLeft)}
+                        </span>
                       </div>
                       <div className="bg-gray-50 rounded-lg p-3 mb-3">
                         <img 
@@ -649,10 +741,6 @@ ${booking.ticketNumbers.map((ticket, index) => `${index + 1}. ${ticket}`).join('
                 )}
               </div>
             </div>
-
-          
-
-            {/* อัปโหลดสลิป - ลบส่วนนี้ออกเพราะย้ายไปไว้ในข้อมูลการโอนแล้ว */}
 
             {/* ผลการอนุมัติ */}
             {booking.status === 'approved' && (
