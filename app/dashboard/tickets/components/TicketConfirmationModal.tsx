@@ -1,4 +1,4 @@
-// app/dashboard/tickets/components/TicketConfirmationModal.tsx - Enhanced with Group Ticket Support
+// app/dashboard/tickets/components/TicketConfirmationModal.tsx - ลบ Auto Focus
 import React, { useState, useEffect, useRef } from 'react';
 import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser } from 'react-icons/fi';
 
@@ -30,7 +30,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const MIN_QUANTITY = isGroupTicket ? 2 : 1;      // กลุ่มขั้นต่ำ 2 คน, ปกติขั้นต่ำ 1 ใบ
   const MAX_QUANTITY = isGroupTicket ? 10 : 20;    // กลุ่มสูงสุด 10 คน, ปกติสูงสุด 50 ใบ
 
-  // Sync กับ quantity prop
+  // Sync กับ quantity prop - ลบ auto focus ออก
   useEffect(() => {
     if (isOpen) {
       // เมื่อเปลี่ยนประเภทตั๋ว ให้ปรับ quantity ให้เหมาะสม
@@ -45,11 +45,11 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
       onQuantityChange(newQuantity);
       setError('');
       
-      // Focus input เมื่อเปิด modal
-      setTimeout(() => {
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }, 100);
+      // ✅ ลบ auto focus ออก
+      // setTimeout(() => {
+      //   inputRef.current?.focus();
+      //   inputRef.current?.select();
+      // }, 100);
     }
   }, [isOpen, quantity, isGroupTicket, MIN_QUANTITY, onQuantityChange]);
 
@@ -120,8 +120,9 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const totalAmount = ticketPrice * quantity;
   const hasValidQuantity = !error && inputValue && quantity >= MIN_QUANTITY && quantity <= MAX_QUANTITY;
 
+  // ✅ ลบ auto select ออกจาก focus handler
   const handleInputFocus = () => {
-    inputRef.current?.select();
+    // inputRef.current?.select(); // ลบออก
   };
 
   const handleInputBlur = () => {
@@ -281,8 +282,6 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
               </p>
             </div>
           </div>
-
-
 
           {/* ส่วนวิธีการชำระเงิน */}
           <div className="mb-6">
