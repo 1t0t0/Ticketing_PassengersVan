@@ -1,4 +1,4 @@
-// app/api/auth/[...nextauth]/route.ts
+// app/api/auth/[...nextauth]/route.ts - Updated for phone-based authentication
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import connectDB from "@/lib/mongodb";
@@ -8,7 +8,8 @@ import bcrypt from "bcryptjs";
 // สร้าง interface สำหรับ extended session user
 interface ExtendedSessionUser {
   id: string;
-  email: string;
+  email?: string;
+  phone: string;
   name?: string | null;
   role: string;
   driverId?: string;
@@ -20,24 +21,30 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        phone: { label: "Phone", type: "tel" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Please enter email and password");
+        if (!credentials?.phone || !credentials?.password) {
+          throw new Error("Please enter phone number and password");
         }
 
         await connectDB();
-        const user = await User.findOne({ email: credentials.email });
+        
+        // Clean phone number (remove any formatting)
+        const cleanPhone = credentials.phone.replace(/\D/g, '');
+        
+        // Find user by phone number
+        const user = await User.findOne({ phone: cleanPhone });
 
         if (!user || !await bcrypt.compare(credentials.password, user.password)) {
-          throw new Error("Invalid email or password");
+          throw new Error("Invalid phone number or password");
         }
 
         return {
           id: user._id.toString(),
-          email: user.email,
+          phone: user.phone,
+          email: user.email, // Keep email as optional for compatibility
           name: user.name,
           role: user.role,
         };
@@ -49,6 +56,8 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        token.phone = user.phone;
+        token.email = user.email; // Keep for compatibility
       }
       console.log('JWT Token:', token); // เพิ่ม log เพื่อ debug
       return token;
@@ -57,6 +66,12 @@ export const authOptions: NextAuthOptions = {
       if (session?.user) {
         session.user.role = token.role as string;
         session.user.id = token.id as string;
+        session.user.phone = token.phone as string;
+        
+        // Keep email if available for compatibility
+        if (token.email) {
+          session.user.email = token.email as string;
+        }
       }
       console.log('Session:', session); // เพิ่ม log เพื่อ debug
       return session;

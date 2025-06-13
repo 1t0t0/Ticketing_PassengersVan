@@ -1,4 +1,4 @@
-// app/dashboard/users/components/forms/shared.tsx - Optimized
+// app/dashboard/users/components/forms/shared.tsx - Updated with phone number formatting
 import React, { useState } from 'react';
 import { FiRefreshCw, FiCamera, FiX } from 'react-icons/fi';
 import { resetUserPassword } from '../../api/user';
@@ -15,10 +15,11 @@ interface FormFieldProps {
   icon?: React.ReactNode;
   disabled?: boolean;
   className?: string;
+  maxLength?: number;
 }
 
 export const FormField: React.FC<FormFieldProps> = ({ 
-  label, type = 'text', value, onChange, placeholder, required, min, icon, disabled, className = ''
+  label, type = 'text', value, onChange, placeholder, required, min, icon, disabled, className = '', maxLength
 }) => {
   const baseClasses = `w-full border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none ${icon ? 'pl-10' : ''} ${className}`;
 
@@ -40,8 +41,74 @@ export const FormField: React.FC<FormFieldProps> = ({
           required={required}
           min={min}
           disabled={disabled}
+          maxLength={maxLength}
         />
       </div>
+    </div>
+  );
+};
+
+// Phone Number Input Component with formatting
+interface PhoneFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  disabled?: boolean;
+  icon?: React.ReactNode;
+}
+
+export const PhoneField: React.FC<PhoneFieldProps> = ({
+  label, value, onChange, required, disabled, icon
+}) => {
+  // Format phone number as user types
+  const formatPhoneNumber = (val: string) => {
+    // Remove all non-digits
+    const phoneNumber = val.replace(/\D/g, '');
+    
+    // Limit to 10 digits for Lao phone numbers
+    if (phoneNumber.length <= 10) {
+      // Format as XXX-XXX-XXXX
+      if (phoneNumber.length >= 7) {
+        return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
+      } else if (phoneNumber.length >= 4) {
+        return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3)}`;
+      }
+      return phoneNumber;
+    }
+    return value; // Don't update if too long
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    onChange(formatted);
+  };
+
+  const baseClasses = `w-full border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none ${icon ? 'pl-10' : ''}`;
+
+  return (
+    <div>
+      <label className="block text-sm font-bold mb-2">{label}</label>
+      <div className="relative">
+        {icon && (
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+            {icon}
+          </div>
+        )}
+        <input
+          type="tel"
+          className={baseClasses}
+          placeholder="020-5555-5555"
+          value={value}
+          onChange={handleChange}
+          required={required}
+          disabled={disabled}
+          maxLength={12} // XXX-XXX-XXXX format
+        />
+      </div>
+      <p className="text-xs text-gray-500 mt-1">
+        ກະລຸນາໃສ່ເບີໂທ 10 ຫຼັກ (ຕົວຢ່າງ: 020-5555-5555)
+      </p>
     </div>
   );
 };

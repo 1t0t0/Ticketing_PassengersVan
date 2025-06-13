@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "node scripts/seed.js",
+    "seed": "node scripts/seed-phone-users.js",
     "seed:settings": "node scripts/seed-settings.js"
   },
   "dependencies": {

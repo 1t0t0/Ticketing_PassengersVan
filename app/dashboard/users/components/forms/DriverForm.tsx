@@ -1,7 +1,7 @@
-// app/dashboard/users/components/forms/DriverForm.tsx - Updated with handleRemoveImage
+// app/dashboard/users/components/forms/DriverForm.tsx - Updated with phone-based fields
 import React, { useState, useEffect } from 'react';
-import { FiUser, FiMail, FiPhone, FiCalendar, FiCreditCard, FiCamera, FiTruck, FiPlus } from 'react-icons/fi';
-import { FormField, PasswordField, usePasswordReset } from './shared';
+import { FiUser, FiPhone, FiCalendar, FiCreditCard, FiCamera, FiTruck, FiMail } from 'react-icons/fi';
+import { FormField, PhoneField, PasswordField, usePasswordReset } from './shared';
 import { User } from '../../types';
 import notificationService from '@/lib/notificationService';
 
@@ -20,7 +20,7 @@ interface DriverFormProps {
   userImagePreview?: string | null;
   isEditing?: boolean;
   handleFileChange?: (e: React.ChangeEvent<HTMLInputElement>, type: 'idCard' | 'user') => void;
-  handleRemoveImage?: (type: 'idCard' | 'user') => void; // เพิ่ม prop นี้
+  handleRemoveImage?: (type: 'idCard' | 'user') => void;
   onCarDataChange?: (carData: CarData | null) => void;
   carData?: CarData | null;
 }
@@ -132,14 +132,25 @@ const DriverForm: React.FC<DriverFormProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="ຊື່ ແລະ ນາມສະກຸນ" icon={<FiUser />} value={user.name || ''} 
                      onChange={(e) => updateUser('name', e.target.value)} required />
+          
           <FormField label="ວັນເດືອນປີເກີດ" type="date" icon={<FiCalendar />} value={user.birthDate || ''} 
                      onChange={(e) => updateUser('birthDate', e.target.value)} required />
-          <FormField label="ອີເມວ" type="email" icon={<FiMail />} value={user.email || ''} 
-                     onChange={(e) => updateUser('email', e.target.value)} required />
-          <FormField label="ເບີໂທລະສັບ" type="tel" icon={<FiPhone />} value={user.phone || ''} 
-                     onChange={(e) => updateUser('phone', e.target.value)} />
+          
+          <PhoneField 
+            label="ເບີໂທລະສັບ" 
+            icon={<FiPhone />} 
+            value={user.phone || ''} 
+            onChange={(value) => updateUser('phone', value)} 
+            required 
+          />
+          
+          <FormField label="ອີເມວ (ທາງເລືອກ)" type="email" icon={<FiMail />} value={user.email || ''} 
+                     onChange={(e) => updateUser('email', e.target.value)} 
+                     placeholder="driver@example.com" />
+          
           <FormField label="ເລກບັດປະຈຳຕົວ" icon={<FiCreditCard />} value={user.idCardNumber || ''} 
                      onChange={(e) => updateUser('idCardNumber', e.target.value)} required />
+          
           <PasswordField value={user.password || ''} onChange={(value) => updateUser('password', value)}
                          isEditing={isEditing} onReset={handleReset} loading={resetLoading}
                          showTempPassword={showTempPassword} tempPassword={tempPassword} />
@@ -205,6 +216,14 @@ const DriverForm: React.FC<DriverFormProps> = ({
             </select>
           </div>
         </div>
+      </div>
+
+      {/* Important Note */}
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <h5 className="font-semibold text-blue-800 mb-2">📱 ຂໍ້ມູນສຳຄັນ:</h5>
+        <p className="text-sm text-blue-700">
+          ເບີໂທລະສັບຈະຖືກນຳໃຊ້ເປັນຊື່ຜູ້ໃຊ້ສຳລັບການເຂົ້າສູ່ລະບົບ. ກະລຸນາກວດສອບໃຫ້ຖືກຕ້ອງ.
+        </p>
       </div>
     </div>
   );

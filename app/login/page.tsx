@@ -1,17 +1,41 @@
+// app/login/page.tsx - Updated to use phone number instead of email
 'use client';
 
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSession } from 'next-auth/react';
-import { TbBus, TbUser, TbLock } from "react-icons/tb";
+import { TbBus, TbPhone, TbLock } from "react-icons/tb";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Format phone number as user types
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-digits
+    const phoneNumber = value.replace(/\D/g, '');
+    
+    // Limit to 10 digits for Lao phone numbers
+    if (phoneNumber.length <= 10) {
+      // Format as XXX-XXX-XXXX or similar
+      if (phoneNumber.length >= 7) {
+        return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
+      } else if (phoneNumber.length >= 4) {
+        return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3)}`;
+      }
+      return phoneNumber;
+    }
+    return phone; // Don't update if too long
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setPhone(formatted);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,8 +43,11 @@ export default function LoginPage() {
     setError('');
     
     try {
+      // Remove formatting for login
+      const cleanPhone = phone.replace(/\D/g, '');
+      
       const result = await signIn('credentials', {
-        email,
+        phone: cleanPhone,
         password,
         redirect: false,
       });
@@ -35,13 +62,15 @@ export default function LoginPage() {
         
         if (session?.user?.role === 'driver') {
           router.push('/driver-portal');
+        } else if (session?.user?.role === 'station') {
+          router.push('/station-portal');
         } else {
           router.push('/dashboard');
         }
       }
     } catch (error) {
       console.error('Login error:', error);
-      setError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+      setError('ເກີດຂໍ້ຜິດພາດໃນການເຂົ້າສູ່ລະບົບ');
     } finally {
       setIsLoading(false);
     }
@@ -75,22 +104,26 @@ export default function LoginPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ອີເມວ
+                  ເບີໂທລະສັບ
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <TbUser className="h-5 w-5 text-gray-400" />
+                    <TbPhone className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    type="tel"
+                    value={phone}
+                    onChange={handlePhoneChange}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="admin@busticketing.com"
+                    placeholder="020-5555-5555"
                     required
                     disabled={isLoading}
+                    maxLength={12} // XXX-XXX-XXXX format
                   />
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  ກະລຸນາໃສ່ເບີໂທ 10 ຫຼັກ (ຕົວຢ່າງ: 020-5555-5555)
+                </p>
               </div>
 
               <div>
@@ -131,7 +164,33 @@ export default function LoginPage() {
           </form>
 
           {/* Demo Account Info */}
-          
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+              🔐 ບັນຊີທົດລອງ:
+            </h4>
+            <div className="space-y-2 text-xs text-gray-600">
+              <div className="flex justify-between">
+                <span>ແອດມິນ:</span>
+                <span className="font-mono">020-1111-1111</span>
+              </div>
+              <div className="flex justify-between">
+                <span>ພະນັກງານ:</span>
+                <span className="font-mono">020-2222-2222</span>
+              </div>
+              <div className="flex justify-between">
+                <span>ຄົນຂັບ:</span>
+                <span className="font-mono">020-3333-3333</span>
+              </div>
+              <div className="flex justify-between">
+                <span>ສະຖານີ:</span>
+                <span className="font-mono">020-4444-4444</span>
+              </div>
+              <div className="text-center mt-2 pt-2 border-t border-gray-200">
+                <span>ລະຫັດຜ່ານ: </span>
+                <span className="font-mono font-semibold">123456</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
