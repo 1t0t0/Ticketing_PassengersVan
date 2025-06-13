@@ -27,8 +27,10 @@ import {
   TrendingUp,
   Building2,
   Smartphone,
-  Banknote
+  Banknote,
+  RefreshCw
 } from 'lucide-react';
+import NeoCard from '@/components/ui/NotionCard';
 
 ChartJS.register(
   CategoryScale, 
@@ -53,28 +55,6 @@ interface DashboardStats {
   hourlyTickets: Array<{ _id: number; count: number; revenue: number }>;
   paymentMethodStats: { cash: number; qr: number };
 }
-
-// Enhanced Card Component
-const NeoCard = ({ children, className = "", gradient = false, ...props }: {
-  children: React.ReactNode;
-  className?: string;
-  gradient?: boolean;
-  [key: string]: any;
-}) => (
-  <div 
-    className={`
-      ${gradient 
-        ? 'bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200' 
-        : 'bg-white border-gray-200'
-      }
-      border rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300
-      backdrop-blur-sm ${className}
-    `} 
-    {...props}
-  >
-    {children}
-  </div>
-);
 
 export default function EnhancedDashboardPage() {
   const { data: session, status } = useSession();
@@ -107,6 +87,7 @@ export default function EnhancedDashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`/api/dashboard/stats?startDate=${startDate}&endDate=${endDate}`);
       
       if (!response.ok) {
@@ -117,6 +98,8 @@ export default function EnhancedDashboardPage() {
       setStats(data);
     } catch (error) {
       console.error('Dashboard Error:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -250,12 +233,12 @@ export default function EnhancedDashboardPage() {
           <div className="mb-4 lg:mb-0">
             <div className="flex items-center mb-2">
               <BarChart3 className="w-8 h-8 text-blue-600 mr-3" />
-              <h1 className="text-3xl font-bold text-gray-900">ໜ້າຫຼັກລະບົບຂາຍປີ້</h1>
+              <h1 className="text-3xl font-bold text-gray-900">ໜ້າສະແດງຂໍ້ມູນລວມ</h1>
             </div>
             <p className="text-gray-600">ພາບລວມການດຳເນີນງານ ແລະ ສະຖິຕິການຂາຍປະຈຳວັນ</p>
           </div>
           
-          {/* Date Range Controls */}
+          {/* Date Range Controls & Refresh Button */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
             <div className="flex space-x-2">
               {['today', 'week', 'month'].map((range) => (
@@ -287,6 +270,19 @@ export default function EnhancedDashboardPage() {
                 onChange={(e) => setEndDate(e.target.value)}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+              
+              <button
+                onClick={fetchDashboardData}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm flex items-center"
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                {loading ? 'ກຳລັງໂຫລດ...' : 'ອັບເດດຂໍ້ມູນ'}
+              </button>
             </div>
           </div>
         </div>

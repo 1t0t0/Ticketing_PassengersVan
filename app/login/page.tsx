@@ -163,34 +163,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo Account Info */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">
-              🔐 ບັນຊີທົດລອງ:
-            </h4>
-            <div className="space-y-2 text-xs text-gray-600">
-              <div className="flex justify-between">
-                <span>ແອດມິນ:</span>
-                <span className="font-mono">020-1111-1111</span>
-              </div>
-              <div className="flex justify-between">
-                <span>ພະນັກງານ:</span>
-                <span className="font-mono">020-2222-2222</span>
-              </div>
-              <div className="flex justify-between">
-                <span>ຄົນຂັບ:</span>
-                <span className="font-mono">020-3333-3333</span>
-              </div>
-              <div className="flex justify-between">
-                <span>ສະຖານີ:</span>
-                <span className="font-mono">020-4444-4444</span>
-              </div>
-              <div className="text-center mt-2 pt-2 border-t border-gray-200">
-                <span>ລະຫັດຜ່ານ: </span>
-                <span className="font-mono font-semibold">123456</span>
-              </div>
-            </div>
-          </div>
+         
         </div>
 
         {/* Footer */}
