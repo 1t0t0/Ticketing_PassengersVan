@@ -1,4 +1,4 @@
-// app/api/driver/trip/scan/route.ts - แก้ไขให้ตรวจสอบ ticket ทั้งระบบ
+// app/api/driver/trip/scan/route.ts - Enhanced with Group Ticket Support
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
@@ -6,7 +6,7 @@ import Ticket from '@/models/Ticket';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// POST - สแกน QR Code หรือเลขตั๋ว (ตรวจสอบ duplicate ทั้งระบบ)
+// POST - สแกน QR Code หรือเลขตั๋ว (รองรับ Group Ticket)
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -25,25 +25,31 @@ export async function POST(request: Request) {
     console.log('Scan request:', { ticketId, qrData });
     
     let ticketNumber = ticketId;
+    let groupTicketData = null;
     
-    // ✅ ปรับการตรวจสอบ QR Code Data
+    // ✅ ปรับการตรวจสอบ QR Code Data รองรับ Group Ticket
     if (qrData) {
       try {
-        // ❌ เดิม: พยายาม parse JSON
-        // const parsedQRData = JSON.parse(qrData);
-        // if (parsedQRData.forDriverOnly && parsedQRData.ticketNumber) {
-        //   ticketNumber = parsedQRData.ticketNumber;
-        //   console.log('Using ticket number from QR:', ticketNumber);
-        // }
-
-        // ✅ ใหม่: ใช้ QR data โดยตรง (เพราะเป็นหมายเลขตั๋วแล้ว)
-        if (typeof qrData === 'string' && qrData.trim()) {
-          ticketNumber = qrData.trim();
-          console.log('Using ticket number from QR:', ticketNumber);
+        // ลองตรวจสอบว่าเป็น JSON ของ Group Ticket หรือไม่
+        const parsedQRData = JSON.parse(qrData);
+        
+        if (parsedQRData.ticketType === 'group' && parsedQRData.ticketNumber) {
+          // เป็น Group Ticket QR Code
+          ticketNumber = parsedQRData.ticketNumber;
+          groupTicketData = parsedQRData;
+          console.log('✅ Group Ticket QR detected:', {
+            ticketNumber,
+            passengerCount: parsedQRData.passengerCount,
+            totalPrice: parsedQRData.totalPrice
+          });
+        } else if (parsedQRData.ticketNumber) {
+          // เป็น Individual Ticket QR Code แบบ JSON
+          ticketNumber = parsedQRData.ticketNumber;
+          console.log('✅ Individual Ticket QR (JSON) detected:', ticketNumber);
         }
       } catch (error) {
-        // ✅ ถ้า parse ไม่ได้ ให้ใช้เป็น string ธรรมดา
-        console.log('QR data is not JSON, using as plain string:', qrData);
+        // ถ้า parse ไม่ได้ ให้ใช้เป็น string ธรรมดา (Individual Ticket)
+        console.log('QR data is plain string (Individual Ticket):', qrData);
         if (typeof qrData === 'string' && qrData.trim()) {
           ticketNumber = qrData.trim();
         }
@@ -57,7 +63,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ ส่วนที่เหลือเหมือนเดิม
     const driverId = session.user.id;
     const today = new Date().toISOString().split('T')[0];
     
@@ -118,15 +123,18 @@ export async function POST(request: Request) {
       );
     }
     
-    // ตรวจสอบว่าเกินความจุหรือไม่
-    if (activeTrip.current_passengers >= activeTrip.car_capacity) {
+    // ✅ ตรวจสอบความจุรถรองรับ Group Ticket
+    const passengersToAdd = ticket.ticketType === 'group' ? ticket.passengerCount : 1;
+    const newTotalPassengers = activeTrip.current_passengers + passengersToAdd;
+    
+    if (newTotalPassengers > activeTrip.car_capacity) {
       return NextResponse.json(
-        { error: `ລົດເຕັມແລ້ວ! ຄວາມຈຸສູງສຸດ ${activeTrip.car_capacity} ຄົນ` },
+        { error: `ລົດຈະເຕັມ! ປັດຈຸບັນ ${activeTrip.current_passengers} ຄົນ + ${passengersToAdd} ຄົນ = ${newTotalPassengers} ຄົນ (ຄວາມຈຸ: ${activeTrip.car_capacity} ຄົນ)` },
         { status: 400 }
       );
     }
     
-    // เพิ่มผู้โดยสาร
+    // ✅ เพิ่มผู้โดยสาร (รองรับ Group Ticket)
     const passengerOrder = activeTrip.current_passengers + 1;
     
     activeTrip.scanned_tickets.push({
@@ -135,7 +143,7 @@ export async function POST(request: Request) {
       passenger_order: passengerOrder
     });
     
-    activeTrip.current_passengers = passengerOrder;
+    activeTrip.current_passengers = newTotalPassengers;
     
     // อัพเดท is_80_percent_reached
     const is80PercentReached = activeTrip.current_passengers >= activeTrip.required_passengers;
@@ -143,12 +151,18 @@ export async function POST(request: Request) {
     
     await activeTrip.save();
     
-    // สร้างข้อความแจ้งเตือน
-    let message = `✅ ສະແກນສຳເລັດ: ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ`;
+    // ✅ สร้างข้อความแจ้งเตือนรองรับ Group Ticket
+    let message = '';
     let statusMessage = '';
     
+    if (ticket.ticketType === 'group') {
+      message = `✅ สแกนปี้กลุ่มสำเร็จ: +${passengersToAdd} ຄົນ (รวม ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ)`;
+    } else {
+      message = `✅ ສະແກນສຳເລັດ: ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ`;
+    }
+    
     if (is80PercentReached && activeTrip.current_passengers < activeTrip.car_capacity) {
-      statusMessage = `🎯 ຄົບເປົ້าໝາຍ ${activeTrip.required_passengers} ຄົນແລ້ວ! ສາມາດສືບຕໍ່ສະແກນຫຼືປິດຮອບໄດ້`;
+      statusMessage = `🎯 ຄົບເປົ້າໝາຍ ${activeTrip.required_passengers} ຄົນແລ້ວ! ສາມາດສືບຕໍ່ສະແກນຫຼືປິດຮອບໄດ້`;
     } else if (activeTrip.current_passengers === activeTrip.car_capacity) {
       statusMessage = `🚌 ລົດເຕັມແລ້ວ! ກະລຸນາປິດຮອບ`;
     } else {
@@ -163,9 +177,12 @@ export async function POST(request: Request) {
       currentPassengers: activeTrip.current_passengers,
       requiredPassengers: activeTrip.required_passengers,
       is80PercentReached: is80PercentReached,
-      ticketScanned: ticket.ticketNumber
+      ticketScanned: ticket.ticketNumber,
+      ticketType: ticket.ticketType,
+      passengersAdded: passengersToAdd
     });
     
+    // ✅ Response รองรับ Group Ticket
     return NextResponse.json({
       success: true,
       trip_number: activeTrip.trip_number,
@@ -179,11 +196,30 @@ export async function POST(request: Request) {
       trip_completed: false,
       message: message,
       status_message: statusMessage,
+      
+      // ✅ ข้อมูล ticket ที่สแกน
       ticket_info: {
         ticket_id: ticket._id,
         ticket_number: ticket.ticketNumber,
+        ticket_type: ticket.ticketType,
+        passenger_count: ticket.passengerCount,
         price: ticket.price,
-        passenger_order: passengerOrder
+        price_per_person: ticket.pricePerPerson,
+        passenger_order: passengerOrder,
+        passengers_added: passengersToAdd
+      },
+      
+      // ✅ ข้อมูลเพิ่มเติมสำหรับ Group Ticket
+      group_ticket_info: ticket.ticketType === 'group' ? {
+        is_group_ticket: true,
+        total_passengers_in_group: ticket.passengerCount,
+        price_breakdown: {
+          price_per_person: ticket.pricePerPerson,
+          total_group_price: ticket.price,
+          calculation: `₭${ticket.pricePerPerson.toLocaleString()} × ${ticket.passengerCount} = ₭${ticket.price.toLocaleString()}`
+        }
+      } : {
+        is_group_ticket: false
       }
     });
 

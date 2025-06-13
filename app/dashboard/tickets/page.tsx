@@ -1,4 +1,4 @@
-// page.tsx - Reduced with consistent layout
+// app/dashboard/tickets/page.tsx - Enhanced with Group Ticket Support
 'use client';
 
 import { useEffect } from 'react';
@@ -12,7 +12,6 @@ import { FiRefreshCw } from 'react-icons/fi';
 
 import useTicketSales from './hooks/useTicketSales';
 import useTicketStats from './hooks/useTicketStats';
-import { Ticket } from 'lucide-react';
 
 export default function TicketSalesPage() {
   const { data: session, status } = useSession();
@@ -21,7 +20,10 @@ export default function TicketSalesPage() {
   const { 
     ticketPrice, paymentMethod, setPaymentMethod, createdTickets,
     showConfirmation, cancelConfirmation, confirmSellTicket, showConfirmModal,
-    quantity, updateQuantity, loading, printRef
+    quantity, updateQuantity, loading,
+    
+    // ✅ Group Ticket related
+    ticketType, updateTicketType
   } = useTicketSales();
   
   const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
@@ -50,21 +52,25 @@ export default function TicketSalesPage() {
     }
   };
 
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2"> ຫນ້າການອອກປີ້</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">🎫 ຫນ້າການອອກປີ້</h1>
             <p className="text-gray-600">ລະບົບອອກປີ້ລົດໂດຍສານ ແລະ ຈັດການຂໍ້ມູນສະຖິຕິ</p>
           </div>
-          <button
-            onClick={() => fetchData()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm"
-            disabled={statsLoading}
-          >
-            {statsLoading ? 'ກຳລັງໂຫລດ...' : 'ອັບເດດຂໍ້ມູນ'}
-          </button>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => fetchData()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm"
+              disabled={statsLoading}
+            >
+              {statsLoading ? 'ກຳລັງໂຫລດ...' : 'ອັບເດດຂໍ້ມູນ'}
+            </button>
+          </div>
         </div>
       </div>
       
@@ -98,18 +104,20 @@ export default function TicketSalesPage() {
                 </span>
               </div>
               
-              <button
-                onClick={() => fetchData()}
-                className="p-2 text-gray-400 hover:text-blue-600 transition rounded-lg hover:bg-blue-50"
-                disabled={statsLoading}
-                title="ໂຫລດຂໍ້ມູນໃໝ່"
-              >
-                {statsLoading ? (
-                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <FiRefreshCw className="h-4 w-4" />
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fetchData()}
+                  className="p-2 text-gray-400 hover:text-blue-600 transition rounded-lg hover:bg-blue-50"
+                  disabled={statsLoading}
+                  title="ໂຫລດຂໍ້ມູນໃໝ່"
+                >
+                  {statsLoading ? (
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <FiRefreshCw className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
             
             <RecentTicketsList 
@@ -120,6 +128,7 @@ export default function TicketSalesPage() {
         </div>
       </div>
 
+      {/* ✅ Enhanced Confirmation Modal with Group Ticket Support */}
       <TicketConfirmationModal
         isOpen={showConfirmModal}
         ticketPrice={ticketPrice}
@@ -129,9 +138,14 @@ export default function TicketSalesPage() {
         onConfirm={handleConfirmSellTicket}
         onCancel={cancelConfirmation}
         loading={loading}
+        
+        // ✅ Group Ticket Props
+        ticketType={ticketType}
+        onTicketTypeChange={updateTicketType}
       />
 
-      <div ref={printRef} className="hidden">
+      {/* ✅ Print Area - รองรับ Group Ticket */}
+      <div className="hidden">
         {createdTickets.length > 0 && createdTickets.map((ticket, index) => (
           <PrintableTicket
             key={index}
@@ -140,6 +154,11 @@ export default function TicketSalesPage() {
             soldAt={new Date(ticket.soldAt)}
             soldBy={ticket.soldBy}
             paymentMethod={ticket.paymentMethod}
+            
+            // ✅ เพิ่ม Props สำหรับ Group Ticket
+            ticketType={ticket.ticketType}
+            passengerCount={ticket.passengerCount}
+            pricePerPerson={ticket.pricePerPerson}
           />
         ))}
       </div>

@@ -1,4 +1,4 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts - Enhanced with QR Code
+// app/dashboard/tickets/hooks/useTicketSales.ts - Enhanced with Group Ticket Support
 import { useState, useCallback } from 'react';
 import { createTicket } from '../api/ticket';
 import { DEFAULT_TICKET_PRICE, PAYMENT_METHODS } from '../config/constants';
@@ -6,7 +6,7 @@ import { Ticket } from '../types';
 import notificationService from '@/lib/notificationService';
 
 /**
- * Hook สำหรับจัดการการขายตั๋ว พร้อม QR Code
+ * Hook สำหรับจัดการการขายตั๋ว พร้อม Group Ticket Support และ QR Code
  */
 export default function useTicketSales() {
   // State
@@ -16,6 +16,9 @@ export default function useTicketSales() {
   const [createdTickets, setCreatedTickets] = useState<Ticket[]>([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  
+  // ✅ เพิ่ม State สำหรับ Group Ticket
+  const [ticketType, setTicketType] = useState<'individual' | 'group'>('individual');
   
   // Helper functions สำหรับการพิมพ์
   const formatDateShort = (date: Date) => {
@@ -44,30 +47,46 @@ export default function useTicketSales() {
     }
   };
 
-  // ฟังก์ชันสร้าง QR Code Data สำหรับ Driver เท่านั้น
+  // ✅ ฟังก์ชันสร้าง QR Code Data สำหรับ Group Ticket
   const generateQRCodeData = (ticket: Ticket) => {
-    return ticket.ticketNumber;
+    if (ticket.ticketType === 'group') {
+      // สำหรับ Group Ticket ให้ส่งข้อมูลครบถ้วน
+      return JSON.stringify({
+        ticketNumber: ticket.ticketNumber,
+        ticketType: 'group',
+        passengerCount: ticket.passengerCount,
+        totalPrice: ticket.price,
+        pricePerPerson: ticket.pricePerPerson,
+        soldAt: ticket.soldAt,
+        paymentMethod: ticket.paymentMethod,
+        soldBy: ticket.soldBy,
+        validationKey: `GRP-${ticket.ticketNumber}-${new Date(ticket.soldAt).getTime()}`
+      });
+    } else {
+      // สำหรับ Individual Ticket ใช้แค่ ticketNumber
+      return ticket.ticketNumber;
+    }
   };
 
   // ฟังก์ชันสร้าง QR Code SVG
-const generateQRCodeSVG = async (data: string) => {
-  try {
-    const QRCode = await import('qrcode');
-    const qrCodeDataURL = await QRCode.toDataURL(data, {
-      width: 150,                    // ✅ เพิ่มขนาดจาก 80 เป็น 150
-      margin: 3,                     // ✅ เพิ่มขอบจาก 1 เป็น 3
-      errorCorrectionLevel: 'H',     // ✅ เพิ่ม error correction สูงสุด
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    });
-    return qrCodeDataURL;
-  } catch (error) {
-    console.error('Error generating QR code:', error);
-    return null;
-  }
-};
+  const generateQRCodeSVG = async (data: string) => {
+    try {
+      const QRCode = await import('qrcode');
+      const qrCodeDataURL = await QRCode.toDataURL(data, {
+        width: 200,                    // ✅ เพิ่มขนาดสำหรับ Group Ticket
+        margin: 4,                     
+        errorCorrectionLevel: 'H',     
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      return qrCodeDataURL;
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      return null;
+    }
+  };
   
   /**
    * ฟังก์ชันแสดง Modal ยืนยัน
@@ -81,33 +100,67 @@ const generateQRCodeSVG = async (data: string) => {
    */
   const cancelConfirmation = useCallback(() => {
     setShowConfirmModal(false);
-    setQuantity(1);
-  }, []);
+    setQuantity(ticketType === 'group' ? 2 : 1); // ✅ รีเซ็ตตามประเภทตั๋ว
+  }, [ticketType]);
 
   /**
-   * ฟังก์ชันเปลี่ยนจำนวนตั๋ว
+   * ฟังก์ชันเปลี่ยนจำนวนตั๋ว/คน
    */
   const updateQuantity = useCallback((newQuantity: number) => {
     setQuantity(newQuantity);
   }, []);
 
   /**
-   * ฟังก์ชันยืนยันการขายตั๋ว - เปิด print dialog ทันที พร้อม QR Code
+   * ✅ ฟังก์ชันเปลี่ยนประเภทตั๋ว
+   */
+  const updateTicketType = useCallback((type: 'individual' | 'group') => {
+    setTicketType(type);
+    // ปรับ quantity ให้เหมาะสมกับประเภทตั๋ว
+    if (type === 'group' && quantity < 2) {
+      setQuantity(2); // กลุ่มขั้นต่ำ 2 คน
+    } else if (type === 'individual' && quantity > 50) {
+      setQuantity(1); // ปกติเริ่มต้น 1 ใบ
+    }
+  }, [quantity]);
+
+  /**
+   * ฟังก์ชันยืนยันการขายตั๋ว - รองรับ Group Ticket
    */
   const confirmSellTicket = useCallback(async () => {
     setLoading(true);
     try {
-      // ลูปสร้างตั๋วตามจำนวนที่กำหนด
-      const tickets: Ticket[] = [];
+      let tickets: Ticket[] = [];
       
-      for (let i = 0; i < quantity; i++) {
-        const ticketData = {
-          price: ticketPrice,
+      if (ticketType === 'group') {
+        // ✅ สำหรับ Group Ticket: สร้าง 1 ใบสำหรับหลายคน
+        const groupTicketData = {
+          price: ticketPrice * quantity,      // ราคารวม
           paymentMethod,
+          ticketType: 'group' as const,
+          passengerCount: quantity,           // จำนวนคน
+          pricePerPerson: ticketPrice         // ราคาต่อคน
         };
         
-        const newTicket = await createTicket(ticketData);
-        tickets.push(newTicket);
+        const groupTicket = await createTicket(groupTicketData);
+        tickets.push(groupTicket);
+        
+        notificationService.success(`ອອກປີ້ກຸ່ມສຳເລັດ: ${quantity} ຄົນ`);
+      } else {
+        // ✅ สำหรับ Individual Ticket: สร้างหลายใบ
+        for (let i = 0; i < quantity; i++) {
+          const individualTicketData = {
+            price: ticketPrice,
+            paymentMethod,
+            ticketType: 'individual' as const,
+            passengerCount: 1,
+            pricePerPerson: ticketPrice
+          };
+          
+          const individualTicket = await createTicket(individualTicketData);
+          tickets.push(individualTicket);
+        }
+        
+        notificationService.success(`ອອກປີ້ສຳເລັດ ${quantity} ໃບ`);
       }
       
       // เก็บตั๋วทั้งหมดที่สร้าง
@@ -115,12 +168,9 @@ const generateQRCodeSVG = async (data: string) => {
       
       // ปิด Modal และรีเซ็ตจำนวน
       setShowConfirmModal(false);
-      setQuantity(1);
+      setQuantity(ticketType === 'group' ? 2 : 1);
       
-      // แสดงข้อความสำเร็จ
-      notificationService.success(`ອອກປີ້สຳເລັດ ${quantity} ໃບ`);
-      
-      // เปิด print dialog ทันทีด้วยตั๋วที่เพิ่งสร้าง พร้อม QR Code
+      // เปิด print dialog ทันทีด้วยตั๋วที่เพิ่งสร้าง
       setTimeout(() => {
         handlePrintWithTickets(tickets);
       }, 100);
@@ -133,10 +183,10 @@ const generateQRCodeSVG = async (data: string) => {
     } finally {
       setLoading(false);
     }
-  }, [ticketPrice, paymentMethod, quantity]);
+  }, [ticketPrice, paymentMethod, quantity, ticketType]);
 
   /**
-   * ฟังก์ชันพิมพ์ตั๋วแบบใช้ iframe พร้อม QR Code
+   * ฟังก์ชันพิมพ์ตั๋วแบบใช้ iframe พร้อม QR Code - รองรับ Group Ticket
    */
   const handlePrintWithTickets = useCallback(async (tickets: Ticket[]) => {
     if (tickets && tickets.length > 0) {
@@ -259,6 +309,33 @@ const generateQRCodeSVG = async (data: string) => {
               margin-left: auto;
             }
             
+            /* ✅ Styles สำหรับ Group Ticket */
+            .group-ticket-header {
+              background: #e8f5e8;
+              border: 2px solid #4ade80;
+              border-radius: 4px;
+              padding: 3mm;
+              margin-bottom: 2mm;
+              text-align: center;
+            }
+            
+            .group-badge {
+              background: #4ade80;
+              color: white;
+              padding: 2px 6px;
+              border-radius: 8px;
+              font-size: 10px;
+              font-weight: bold;
+              display: inline-block;
+              margin-bottom: 2px;
+            }
+            
+            .passenger-count {
+              font-size: 18px;
+              font-weight: bold;
+              color: #16a34a;
+            }
+            
             .qr-section {
               text-align: center;
               margin: 0mm 0;
@@ -271,8 +348,8 @@ const generateQRCodeSVG = async (data: string) => {
             }
             
             .qr-code img {
-              width: 150px;
-              height: 150px;
+              width: 200px;
+              height: 200px;
               border: 1px solid #ddd;
               background: white;
               padding: 2px;
@@ -319,12 +396,33 @@ const generateQRCodeSVG = async (data: string) => {
               
               <div class="divider"></div>
               
+              ${ticket.ticketType === 'group' ? `
+                <div class="group-ticket-header">
+                  <div class="group-badge">ປີ້ກຸ່ມ GROUP TICKET</div>
+                  <div class="passenger-count">${ticket.passengerCount} ຄົນ / ${ticket.passengerCount} Persons</div>
+                </div>
+              ` : ''}
+              
               <div class="content-section">
                 <div class="detail-item">
                   <span class="detail-label">ເລກທີ/No</span>
                   <span class="detail-colon">:</span>
                   <span class="detail-value">${ticket.ticketNumber}</span>
                 </div>
+                
+                ${ticket.ticketType === 'group' ? `
+                  <div class="detail-item">
+                    <span class="detail-label">ຈຳນວນຄົນ/Persons</span>
+                    <span class="detail-colon">:</span>
+                    <span class="detail-value">${ticket.passengerCount} ຄົນ</span>
+                  </div>
+                  
+                  <div class="detail-item">
+                    <span class="detail-label">ລາຄາ/ຄົນ/Per Person</span>
+                    <span class="detail-colon">:</span>
+                    <span class="detail-value">₭${ticket.pricePerPerson.toLocaleString()}</span>
+                  </div>
+                ` : ''}
                 
                 <div class="detail-item">
                   <span class="detail-label">ວັນເວລາ/DateTime</span>
@@ -333,7 +431,7 @@ const generateQRCodeSVG = async (data: string) => {
                 </div>
                 
                 <div class="detail-item">
-                  <span class="detail-label">ລາຄາ/Price</span>
+                  <span class="detail-label">ລາຄາລວມ/Total</span>
                   <span class="detail-colon">:</span>
                   <span class="detail-value">₭${ticket.price.toLocaleString()}</span>
                 </div>
@@ -344,11 +442,11 @@ const generateQRCodeSVG = async (data: string) => {
                   <span class="detail-value">${getPaymentMethodText(ticket.paymentMethod)}</span>
                 </div>
 
-                 <div class="detail-item" >
-                  <span class="detail-label">ອອກໂດຍ/Payment</span>
+                <div class="detail-item">
+                  <span class="detail-label">ອອກໂດຍ/Sold By</span>
                   <span class="detail-colon">:</span>
                   <span class="detail-value">${ticket.soldBy || 'System'}</span>
-                  </div>
+                </div>
                 
               </div>
               
@@ -367,8 +465,8 @@ const generateQRCodeSVG = async (data: string) => {
                     <img src="${ticket.qrCodeImage}" alt="QR Code" />
                   </div>
                   <div class="qr-note">
-                    <strong>QRສຳລັບພະນັກງານຂັບລົດເທົ່ານັ້ນ</strong><br>
-                    QR For Driver Verification Only<br>
+                    <strong>${ticket.ticketType === 'group' ? 'QR ສຳລັບກຸ່ມ' : 'QR ສຳລັບພະນັກງານຂັບລົດ'}</strong><br>
+                    ${ticket.ticketType === 'group' ? `Group QR - ${ticket.passengerCount} Passengers` : 'QR For Driver Verification Only'}<br>
                   </div>
                 </div>
                 
@@ -377,6 +475,7 @@ const generateQRCodeSVG = async (data: string) => {
               
               <div class="receipt-footer">
                 <div style="margin-bottom: 1mm;">( ຂໍໃຫ້ທ່ານເດີນທາງປອດໄພ )</div>
+                ${ticket.ticketType === 'group' ? '<div style="font-size: 10px; color: #666;">ໝາຍເຫດ: ກຸ່ມຄົນເດີນທາງຮ່ວມກັນ</div>' : ''}
               </div>
               
               ${index < ticketsWithQR.length - 1 ? `
@@ -401,7 +500,6 @@ const generateQRCodeSVG = async (data: string) => {
         iframe.onload = () => {
           setTimeout(() => {
             try {
-              // Focus iframe และพิมพ์
               iframe.contentWindow?.focus();
               iframe.contentWindow?.print();
             } catch (error) {
@@ -440,6 +538,10 @@ const generateQRCodeSVG = async (data: string) => {
     showConfirmModal,
     quantity,
     updateQuantity,
-    handlePrintWithTickets
+    handlePrintWithTickets,
+    
+    // ✅ เพิ่ม Group Ticket related functions
+    ticketType,
+    updateTicketType
   };
 }

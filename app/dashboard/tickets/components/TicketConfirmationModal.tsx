@@ -1,6 +1,6 @@
-// app/dashboard/tickets/components/TicketConfirmationModal.tsx - Enhanced with keyboard input
+// app/dashboard/tickets/components/TicketConfirmationModal.tsx - Enhanced with Group Ticket Support
 import React, { useState, useEffect, useRef } from 'react';
-import { FiX, FiPrinter, FiAlertCircle } from 'react-icons/fi';
+import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser } from 'react-icons/fi';
 
 interface TicketConfirmationModalProps {
   isOpen: boolean;
@@ -11,44 +11,57 @@ interface TicketConfirmationModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   loading: boolean;
+  
+  // ✅ เพิ่ม Props สำหรับ Group Ticket
+  ticketType: 'individual' | 'group';
+  onTicketTypeChange: (type: 'individual' | 'group') => void;
 }
 
 const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
-  isOpen, ticketPrice, paymentMethod, quantity, onQuantityChange, onConfirm, onCancel, loading
+  isOpen, ticketPrice, paymentMethod, quantity, onQuantityChange, onConfirm, onCancel, loading,
+  ticketType, onTicketTypeChange
 }) => {
   const [inputValue, setInputValue] = useState(quantity.toString());
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // ขีดจำกัดสูงสุด - กำหนดให้พิมพ์ได้ไม่เกิน 50 ใบต่อครั้ง
-  const MAX_QUANTITY = 50;
-  const MIN_QUANTITY = 1;
+  // ✅ กำหนดขีดจำกัดตามประเภทตั๋ว
+  const isGroupTicket = ticketType === 'group';
+  const MIN_QUANTITY = isGroupTicket ? 2 : 1;      // กลุ่มขั้นต่ำ 2 คน, ปกติขั้นต่ำ 1 ใบ
+  const MAX_QUANTITY = isGroupTicket ? 10 : 20;    // กลุ่มสูงสุด 10 คน, ปกติสูงสุด 50 ใบ
 
   // Sync กับ quantity prop
   useEffect(() => {
     if (isOpen) {
-      setInputValue(quantity.toString());
+      // เมื่อเปลี่ยนประเภทตั๋ว ให้ปรับ quantity ให้เหมาะสม
+      let newQuantity = quantity;
+      if (isGroupTicket && quantity < MIN_QUANTITY) {
+        newQuantity = MIN_QUANTITY;
+      } else if (!isGroupTicket && quantity < MIN_QUANTITY) {
+        newQuantity = MIN_QUANTITY;
+      }
+      
+      setInputValue(newQuantity.toString());
+      onQuantityChange(newQuantity);
       setError('');
+      
       // Focus input เมื่อเปิด modal
       setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
       }, 100);
     }
-  }, [isOpen, quantity]);
+  }, [isOpen, quantity, isGroupTicket, MIN_QUANTITY, onQuantityChange]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Enter เพื่อยืนยัน
       if (e.key === 'Enter' && !loading && !error && inputValue) {
         e.preventDefault();
         onConfirm();
-      }
-      // Escape เพื่อยกเลิก
-      else if (e.key === 'Escape' && !loading) {
+      } else if (e.key === 'Escape' && !loading) {
         e.preventDefault();
         onCancel();
       }
@@ -66,15 +79,10 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const handleInputChange = (value: string) => {
     setInputValue(value);
     
-    // ลบ error เมื่อเริ่มพิมพ์ใหม่
     if (error) setError('');
     
-    // ตรวจสอบว่าเป็นตัวเลขเท่านั้น
-    if (value === '') {
-      return;
-    }
+    if (value === '') return;
     
-    // ตรวจสอบรูปแบบตัวเลข
     const numericValue = parseInt(value, 10);
     
     if (isNaN(numericValue)) {
@@ -83,22 +91,21 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
     }
     
     if (numericValue < MIN_QUANTITY) {
-      setError(`ຈຳນວນຕໍ່າສຸດ ${MIN_QUANTITY} ໃບ`);
+      const unit = isGroupTicket ? 'ຄົນ' : 'ໃບ';
+      setError(`ຈຳນວນຕໍ່າສຸດ ${MIN_QUANTITY} ${unit}`);
       return;
     }
     
     if (numericValue > MAX_QUANTITY) {
-      setError(`ຈຳນວນສູງສຸດ ${MAX_QUANTITY} ໃບຕໍ່ການພິມພ໌ 1 ຄັ້ງ`);
+      const unit = isGroupTicket ? 'ຄົນ' : 'ໃບ';
+      const limitText = isGroupTicket ? 'ຕໍ່ກຸ່ມ' : 'ຕໍ່ການພິມພ໌ 1 ຄັ້ງ';
+      setError(`ຈຳນວນສູງສຸດ ${MAX_QUANTITY} ${unit}${limitText}`);
       return;
     }
     
-    // ถ้าผ่านการตรวจสอบทั้งหมด
     setError('');
     onQuantityChange(numericValue);
   };
-
-  const totalAmount = ticketPrice * quantity;
-  const hasValidQuantity = !error && inputValue && quantity >= MIN_QUANTITY && quantity <= MAX_QUANTITY;
 
   // ปุ่ม +/- สำหรับปรับจำนวน
   const changeQuantity = (change: number) => {
@@ -110,16 +117,17 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
     }
   };
 
-  // Handle input focus/blur
+  const totalAmount = ticketPrice * quantity;
+  const hasValidQuantity = !error && inputValue && quantity >= MIN_QUANTITY && quantity <= MAX_QUANTITY;
+
   const handleInputFocus = () => {
     inputRef.current?.select();
   };
 
   const handleInputBlur = () => {
-    // ถ้าช่องว่าง ให้กลับไปเป็น 1
     if (!inputValue || inputValue === '0') {
-      setInputValue('1');
-      handleInputChange('1');
+      setInputValue(MIN_QUANTITY.toString());
+      handleInputChange(MIN_QUANTITY.toString());
     }
   };
 
@@ -142,12 +150,58 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
         </div>
         
         <div className="p-6">
+          {/* ✅ ส่วนเลือกประเภทตั๋ว */}
+          <div className="mb-6">
+            <div className="text-sm font-semibold mb-3 text-gray-700">ປະເພດປີ້</div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => onTicketTypeChange('individual')}
+                className={`relative py-3 px-4 text-center font-semibold rounded-lg transition border-2 ${
+                  ticketType === 'individual'
+                    ? 'bg-blue-500 text-white border-blue-500 shadow-md' 
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                }`}
+                disabled={loading}
+              >
+                <div className="flex flex-col items-center space-y-1">
+                  <FiUser className="h-5 w-5" />
+                  <span className="text-sm">ປີ້ປົກກະຕິ</span>
+                </div>
+                {ticketType === 'individual' && (
+                  <div className="absolute top-2 right-2 w-2 h-2 bg-white rounded-full"></div>
+                )}
+              </button>
+              
+              <button
+                onClick={() => onTicketTypeChange('group')}
+                className={`relative py-3 px-4 text-center font-semibold rounded-lg transition border-2 ${
+                  ticketType === 'group'
+                    ? 'bg-green-500 text-white border-green-500 shadow-md' 
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-green-300 hover:bg-green-50'
+                }`}
+                disabled={loading}
+              >
+                <div className="flex flex-col items-center space-y-1">
+                  <FiUsers className="h-5 w-5" />
+                  <span className="text-sm">ປີ້ກຸ່ມ</span>
+                </div>
+                {ticketType === 'group' && (
+                  <div className="absolute top-2 right-2 w-2 h-2 bg-white rounded-full"></div>
+                )}
+              </button>
+            </div>
+          </div>
+
           {/* ส่วนแสดงราคา */}
           <div className="mb-6">
-            <div className="text-sm text-gray-500 mb-1">ລາຄາຕໍ່ໃບ</div>
+            <div className="text-sm text-gray-500 mb-1">
+              {isGroupTicket ? 'ລາຄາຕໍ່ຄົນ' : 'ລາຄາຕໍ່ໃບ'}
+            </div>
             <div className="bg-gray-50 rounded-lg p-4 border-2">
               <div className="text-xl font-bold text-gray-800 mb-1">₭{ticketPrice.toLocaleString()}</div>
-              <div className="text-sm text-gray-500 mb-3">{quantity} ໃບ x ₭{ticketPrice.toLocaleString()}</div>
+              <div className="text-sm text-gray-500 mb-3">
+                {quantity} {isGroupTicket ? 'ຄົນ' : 'ໃບ'} x ₭{ticketPrice.toLocaleString()}
+              </div>
               <div className="border-t pt-3">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">ລາຄາລວມທັງໝົດ:</span>
@@ -157,17 +211,18 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </div>
           </div>
 
-          {/* ส่วนจำนวนใบ - Enhanced */}
+          {/* ส่วนจำนวน - ปรับตามประเภทตั๋ว */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-semibold">ຈຳນວນໃບ</label>
+              <label className="text-sm font-semibold">
+                {isGroupTicket ? 'ຈຳນວນຄົນ' : 'ຈຳນວນໃບ'}
+              </label>
               <div className="text-xs text-gray-500">
-                ສູງສຸດ {MAX_QUANTITY} ໃບ/ຄັ້ງ
+                {isGroupTicket ? 'ສູງສຸດ 10 ຄົນ/ກຸ່ມ' : 'ສູງສຸດ 20 ໃບ/ຄັ້ງ'}
               </div>
             </div>
             
             <div className="flex items-center justify-center space-x-4">
-              {/* ปุ่ม - */}
               <button
                 onClick={() => changeQuantity(-1)}
                 disabled={quantity <= MIN_QUANTITY || loading}
@@ -176,12 +231,10 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                     ? 'border-gray-300 text-gray-300 cursor-not-allowed bg-gray-100' 
                     : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50'
                 }`}
-                title="ລົດ 1 ໃບ"
               >
                 −
               </button>
               
-              {/* Input field */}
               <div className="flex flex-col items-center">
                 <input
                   ref={inputRef}
@@ -198,11 +251,9 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                       ? 'border-red-500 bg-red-50 text-red-700' 
                       : 'border-gray-300 bg-white hover:border-blue-300 focus:border-blue-500'
                   } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  placeholder="1"
-                  title="ພິມພ໌ຕົວເລກຈຳນວນໃບ (Enter ເພື່ອຢືນຢັນ)"
+                  placeholder={MIN_QUANTITY.toString()}
                 />
                 
-                {/* แสดง error */}
                 {error && (
                   <div className="flex items-center mt-1 text-xs text-red-600">
                     <FiAlertCircle className="w-3 h-3 mr-1" />
@@ -211,7 +262,6 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                 )}
               </div>
               
-              {/* ปุ่ม + */}
               <button
                 onClick={() => changeQuantity(1)}
                 disabled={quantity >= MAX_QUANTITY || loading}
@@ -220,19 +270,19 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                     ? 'border-gray-300 text-gray-300 cursor-not-allowed bg-gray-100' 
                     : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50'
                 }`}
-                title="ເພີ່ມ 1 ໃບ"
               >
                 +
               </button>
             </div>
             
-            {/* คำแนะนำการใช้งาน */}
             <div className="mt-2 text-center">
               <p className="text-xs text-gray-500">
-                💡 ສາມາດພິມພ໌ຕົວເລກໂດຍກົງ ຫຼື ໃຊ້ປຸ່ມ +/- • Enter ເພື່ອຢືນຢັນ
+                💡 {isGroupTicket ? 'ກຸ່ມ 2-10 ຄົນ' : 'ປົກກະຕິ 1-50 ໃບ'} • Enter ເພື່ອຢືນຢັນ
               </p>
             </div>
           </div>
+
+
 
           {/* ส่วนวิธีการชำระเงิน */}
           <div className="mb-6">
@@ -244,19 +294,6 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
               </div>
             </div>
           </div>
-
-          {/* คำเตือนเมื่อพิมพ์จำนวนมาก */}
-          {quantity > 20 && (
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-              <div className="flex items-start">
-                <FiAlertCircle className="text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
-                <div className="text-yellow-700 text-sm">
-                  <strong>ໝາຍເຫດ:</strong> ທ່ານກຳລັງພິມພ໌ປີ້ຈຳນວນຫລາຍ ({quantity} ໃບ) 
-                  ກະລຸນາກວດສອບຄວາມຖືກຕ້ອງ
-                </div>
-              </div>
-            </div>
-          )}
 
           <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
             <div className="flex items-start">
@@ -297,7 +334,6 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
           <div className="mt-4 pt-3 border-t border-gray-200">
             <div className="text-xs text-gray-500 text-center space-y-1">
               <div>⌨️ <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> ເພື່ອຢືນຢັນ • <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">ESC</kbd> ເພື່ອຍົກເລີກ</div>
-              <div>🖱️ ຄລິກໃສ່ຊ່ອງຕົວເລກເພື່ອພິມພ໌ໂດຍກົງ</div>
             </div>
           </div>
         </div>
