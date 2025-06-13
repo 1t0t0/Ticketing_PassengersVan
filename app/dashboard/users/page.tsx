@@ -4,7 +4,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { FiClock } from 'react-icons/fi';
 
 // Components
 import UserTabs from './components/UserTabs';
@@ -17,6 +16,7 @@ import AutoCheckoutModal from './components/AutoCheckoutModal';
 import useUserData from './hooks/useUserData';
 import useUserPermissions from './hooks/useUserPermissions';
 import useUserSearch from './hooks/useUserSearch';
+import { User2 } from 'lucide-react';
 
 export default function UserManagementPage() {
   const { data: session, status } = useSession();

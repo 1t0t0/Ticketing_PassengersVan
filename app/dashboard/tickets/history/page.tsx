@@ -85,7 +85,7 @@ export default function TicketHistoryPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">🎫 ລາຍການປີ້</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">ລາຍການປີ້</h1>
         <p className="text-gray-600">ຈັດການແລະເບິ່ງປະຫວັດການຂາຍປີ້ລົດໂດຍສານ</p>
         
         {/* แสดงข้อความแจ้งเตือนสำหรับ Staff */}

@@ -12,6 +12,7 @@ import { FiRefreshCw } from 'react-icons/fi';
 
 import useTicketSales from './hooks/useTicketSales';
 import useTicketStats from './hooks/useTicketStats';
+import { Ticket } from 'lucide-react';
 
 export default function TicketSalesPage() {
   const { data: session, status } = useSession();
@@ -58,7 +59,7 @@ export default function TicketSalesPage() {
       <div className="mb-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">🎫 ຫນ້າການອອກປີ້</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2"> ຫນ້າການອອກປີ້</h1>
             <p className="text-gray-600">ລະບົບອອກປີ້ລົດໂດຍສານ ແລະ ຈັດການຂໍ້ມູນສະຖິຕິ</p>
           </div>
           

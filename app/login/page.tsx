@@ -115,14 +115,14 @@ export default function LoginPage() {
                     value={phone}
                     onChange={handlePhoneChange}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="020-5555-5555"
+                    placeholder="20-5555-5555"
                     required
                     disabled={isLoading}
                     maxLength={12} // XXX-XXX-XXXX format
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  ກະລຸນາໃສ່ເບີໂທ 10 ຫຼັກ (ຕົວຢ່າງ: 020-5555-5555)
+                  ກະລຸນາໃສ່ເບີໂທ 10 ຫຼັກ (ຕົວຢ່າງ: 20-5555-5555)
                 </p>
               </div>
 
