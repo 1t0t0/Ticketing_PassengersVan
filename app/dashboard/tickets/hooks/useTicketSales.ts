@@ -52,7 +52,6 @@ export default function useTicketSales() {
   if (ticket.ticketType === 'group') {
     return JSON.stringify({
       ticketNumber: ticket.ticketNumber,
-      ticketType: 'group',
       passengerCount: ticket.passengerCount
     });
   } else {
@@ -326,7 +325,7 @@ export default function useTicketSales() {
             }
             
             .qr-code {
-              margin: 2mm 0;
+              margin: 0mm 0;
             }
             
             .qr-code img {
@@ -435,10 +434,7 @@ export default function useTicketSales() {
                   <div class="qr-code">
                     <img src="${ticket.qrCodeImage}" alt="QR Code" />
                   </div>
-                  <div class="qr-note">
-                    <strong>${ticket.ticketType === 'group' ? 'QR ສຳລັບກຸ່ມ' : 'QR ສຳລັບພະນັກງານຂັບລົດ'}</strong><br>
-                    ${ticket.ticketType === 'group' ? `Group QR - ${ticket.passengerCount} Passengers` : 'QR For Driver Verification Only'}<br>
-                  </div>
+                 
                 </div>
                 
                 <div class="divider"></div>
@@ -446,7 +442,6 @@ export default function useTicketSales() {
               
               <div class="receipt-footer">
                 <div style="margin-bottom: 1mm;">( ຂໍໃຫ້ທ່ານເດີນທາງປອດໄພ )</div>
-                ${ticket.ticketType === 'group' ? '<div style="font-size: 10px; color: #666;">ໝາຍເຫດ: ກຸ່ມຄົນເດີນທາງຮ່ວມກັນ</div>' : ''}
               </div>
               
               ${index < ticketsWithQR.length - 1 ? `
