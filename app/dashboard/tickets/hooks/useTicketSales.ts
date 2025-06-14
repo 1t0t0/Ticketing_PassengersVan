@@ -49,24 +49,16 @@ export default function useTicketSales() {
 
   // ✅ ฟังก์ชันสร้าง QR Code Data สำหรับ Group Ticket
   const generateQRCodeData = (ticket: Ticket) => {
-    if (ticket.ticketType === 'group') {
-      // สำหรับ Group Ticket ให้ส่งข้อมูลครบถ้วน
-      return JSON.stringify({
-        ticketNumber: ticket.ticketNumber,
-        ticketType: 'group',
-        passengerCount: ticket.passengerCount,
-        totalPrice: ticket.price,
-        pricePerPerson: ticket.pricePerPerson,
-        soldAt: ticket.soldAt,
-        paymentMethod: ticket.paymentMethod,
-        soldBy: ticket.soldBy,
-        validationKey: `GRP-${ticket.ticketNumber}-${new Date(ticket.soldAt).getTime()}`
-      });
-    } else {
-      // สำหรับ Individual Ticket ใช้แค่ ticketNumber
-      return ticket.ticketNumber;
-    }
-  };
+  if (ticket.ticketType === 'group') {
+    return JSON.stringify({
+      ticketNumber: ticket.ticketNumber,
+      ticketType: 'group',
+      passengerCount: ticket.passengerCount
+    });
+  } else {
+    return ticket.ticketNumber;
+  }
+};
 
   // ฟังก์ชันสร้าง QR Code SVG
   const generateQRCodeSVG = async (data: string) => {
@@ -308,17 +300,7 @@ export default function useTicketSales() {
               text-align: right;
               margin-left: auto;
             }
-            
-            /* ✅ Styles สำหรับ Group Ticket */
-            .group-ticket-header {
-              background: #e8f5e8;
-              border: 2px solid #4ade80;
-              border-radius: 4px;
-              padding: 3mm;
-              margin-bottom: 2mm;
-              text-align: center;
-            }
-            
+           
             .group-badge {
               background: #4ade80;
               color: white;
@@ -396,12 +378,7 @@ export default function useTicketSales() {
               
               <div class="divider"></div>
               
-              ${ticket.ticketType === 'group' ? `
-                <div class="group-ticket-header">
-                  <div class="group-badge">ປີ້ກຸ່ມ GROUP TICKET</div>
-                  <div class="passenger-count">${ticket.passengerCount} ຄົນ / ${ticket.passengerCount} Persons</div>
-                </div>
-              ` : ''}
+             
               
               <div class="content-section">
                 <div class="detail-item">
@@ -415,12 +392,6 @@ export default function useTicketSales() {
                     <span class="detail-label">ຈຳນວນຄົນ/Persons</span>
                     <span class="detail-colon">:</span>
                     <span class="detail-value">${ticket.passengerCount} ຄົນ</span>
-                  </div>
-                  
-                  <div class="detail-item">
-                    <span class="detail-label">ລາຄາ/ຄົນ/Per Person</span>
-                    <span class="detail-colon">:</span>
-                    <span class="detail-value">₭${ticket.pricePerPerson.toLocaleString()}</span>
                   </div>
                 ` : ''}
                 
