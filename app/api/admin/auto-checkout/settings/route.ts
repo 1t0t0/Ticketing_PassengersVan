@@ -1,34 +1,10 @@
-// app/api/admin/auto-checkout/settings/route.ts
+// app/api/admin/auto-checkout/settings/route.ts - แก้ไขให้ไม่ใช้ Models
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// Collection สำหรับเก็บการตั้งค่า Auto Checkout
-let AutoCheckoutSettings: any;
-
-const getAutoCheckoutModel = async () => {
-  if (AutoCheckoutSettings) return AutoCheckoutSettings;
-  
-  const mongoose = require('mongoose');
-  
-  const autoCheckoutSchema = new mongoose.Schema({
-    enabled: { type: Boolean, default: false },
-    checkoutTime: { type: String, default: '17:30' },
-    timezone: { type: String, default: 'Asia/Vientiane' },
-    lastRun: { type: Date },
-    affectedUsers: { type: Number, default: 0 },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-  }, { timestamps: true });
-  
-  AutoCheckoutSettings = mongoose.models.AutoCheckoutSettings || 
-                        mongoose.model('AutoCheckoutSettings', autoCheckoutSchema);
-  
-  return AutoCheckoutSettings;
-};
-
-// GET - ดึงการตั้งค่าปัจจุบัน
+// GET - ดึงการตั้งค่าปัจจุบัน (ใช้ default values)
 export async function GET(request: Request) {
   try {
     // ตรวจสอบสิทธิ์ (เฉพาะ admin)
@@ -41,20 +17,17 @@ export async function GET(request: Request) {
     }
 
     await connectDB();
-    const AutoCheckoutSettings = await getAutoCheckoutModel();
     
-    // ดึงการตั้งค่าล่าสุด หรือสร้างค่าเริ่มต้นถ้าไม่มี
-    let settings = await AutoCheckoutSettings.findOne().sort({ createdAt: -1 });
+    // ✅ ใช้ default settings แทนการอ่านจาก Database
+    const settings = {
+      enabled: process.env.AUTO_CHECKOUT_ENABLED === 'true' || false,
+      checkoutTime: process.env.AUTO_CHECKOUT_TIME || '17:30',
+      timezone: process.env.AUTO_CHECKOUT_TIMEZONE || 'Asia/Vientiane',
+      lastRun: 'ไม่มีข้อมูล', // ไม่เก็บข้อมูลนี้แล้ว
+      affectedUsers: 0 // ไม่เก็บข้อมูลนี้แล้ว
+    };
     
-    if (!settings) {
-      settings = {
-        enabled: false,
-        checkoutTime: '17:30',
-        timezone: 'Asia/Vientiane',
-        lastRun: null,
-        affectedUsers: 0
-      };
-    }
+    console.log('📖 Auto Checkout Settings loaded:', settings);
     
     return NextResponse.json(settings);
   } catch (error) {
@@ -66,7 +39,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - บันทึกการตั้งค่าใหม่
+// POST - บันทึกการตั้งค่าใหม่ (แค่ log แทนการบันทึกจริง)
 export async function POST(request: Request) {
   try {
     // ตรวจสอบสิทธิ์ (เฉพาะ admin)
@@ -79,7 +52,6 @@ export async function POST(request: Request) {
     }
 
     await connectDB();
-    const AutoCheckoutSettings = await getAutoCheckoutModel();
     
     // รับข้อมูลจาก request body
     const body = await request.json();
@@ -101,46 +73,30 @@ export async function POST(request: Request) {
       );
     }
     
-    // สร้างหรือแก้ไขการตั้งค่า
+    // ✅ แค่ log การตั้งค่าแทนการบันทึกใน Database
     const settingsData = {
       enabled: Boolean(enabled),
       checkoutTime: checkoutTime || '17:30',
-timezone: timezone || process.env.APP_TIMEZONE || 'Asia/Vientiane',
-      updatedBy: session.user.id
+      timezone: timezone || process.env.APP_TIMEZONE || 'Asia/Vientiane',
+      updatedBy: session.user.email || session.user.name,
+      updatedAt: new Date().toISOString()
     };
     
-    // ลองหาการตั้งค่าเดิม
-    const existingSettings = await AutoCheckoutSettings.findOne().sort({ createdAt: -1 });
+    console.log('💾 Auto checkout settings updated (logged only):', settingsData);
     
-    let savedSettings;
-    if (existingSettings) {
-      // อัพเดทการตั้งค่าเดิม
-      savedSettings = await AutoCheckoutSettings.findByIdAndUpdate(
-        existingSettings._id,
-        { $set: settingsData },
-        { new: true }
-      );
-    } else {
-      // สร้างการตั้งค่าใหม่
-      savedSettings = await AutoCheckoutSettings.create({
-        ...settingsData,
-        createdBy: session.user.id
-      });
-    }
+    // ข้อความแจ้งให้ผู้ใช้ทราบ
+    const message = enabled 
+      ? `✅ เปิดใช้งาน Auto Checkout เวลา ${checkoutTime} (${timezone})`
+      : '❌ ปิดใช้งาน Auto Checkout';
     
-    console.log('Auto checkout settings saved:', savedSettings);
+    console.log('📢 Settings change:', message);
     
-    // อัพเดท schedule ใหม่
-    try {
-      const { updateAutoCheckoutSchedule } = await import('@/lib/autoCheckoutScheduler');
-      await updateAutoCheckoutSchedule();
-      console.log('Auto checkout schedule updated successfully');
-    } catch (scheduleError) {
-      console.error('Failed to update auto checkout schedule:', scheduleError);
-      // ไม่ให้ล้มเหลวทั้งหมดถ้าอัพเดท schedule ไม่สำเร็จ
-    }
-    
-    return NextResponse.json(savedSettings);
+    // ส่งกลับข้อมูลที่ "บันทึก"
+    return NextResponse.json({
+      ...settingsData,
+      message: 'การตั้งค่าถูกบันทึกแล้ว (ดูใน Console Log)',
+      note: 'Settings are logged to console instead of database'
+    });
   } catch (error) {
     console.error('Save Auto Checkout Settings Error:', error);
     return NextResponse.json(

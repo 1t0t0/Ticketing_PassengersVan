@@ -1,5 +1,6 @@
+// app/dashboard/users/components/AutoCheckoutModal.tsx - ปรับปรุงให้ทำงานกับ API ใหม่
 import React, { useState, useEffect } from 'react';
-import { FiClock, FiSave, FiX, FiSettings, FiRefreshCw } from 'react-icons/fi';
+import { FiClock, FiSave, FiX, FiSettings, FiRefreshCw, FiInfo } from 'react-icons/fi';
 import notificationService from '@/lib/notificationService';
 
 interface AutoCheckoutModalProps {
@@ -22,7 +23,7 @@ const AutoCheckoutModal: React.FC<AutoCheckoutModalProps> = ({ onClose, onSucces
     enabled: false,
     checkoutTime: '17:30',
     timezone: 'Asia/Vientiane',
-    lastRun: undefined,
+    lastRun: 'ບໍ່ມີຂໍ້ມູນ',
     affectedUsers: 0
   });
 
@@ -40,6 +41,10 @@ const AutoCheckoutModal: React.FC<AutoCheckoutModalProps> = ({ onClose, onSucces
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
+        console.log('📖 Settings loaded:', data);
+      } else {
+        console.error('Failed to load settings:', response.status);
+        notificationService.warning('ໂຫລດການຕັ້ງຄ່າບໍ່ສຳເລັດ - ໃຊ້ຄ່າເລີ່ມຕົ້ນ');
       }
     } catch (error) {
       console.error('Error fetching auto checkout settings:', error);
@@ -64,7 +69,10 @@ const AutoCheckoutModal: React.FC<AutoCheckoutModalProps> = ({ onClose, onSucces
         throw new Error(errorData.error || 'Failed to save settings');
       }
 
-      notificationService.success('ບັນທຶກການຕັ້ງຄ່າສຳເລັດແລ້ວ');
+      const result = await response.json();
+      console.log('💾 Settings saved:', result);
+      
+      notificationService.success('ບັນທຶກການຕັ້ງຄ່າສຳເລັດແລ້ວ (ເບິ່ງໃນ Console)');
       onSuccess();
     } catch (error: any) {
       console.error('Error saving settings:', error);
@@ -89,13 +97,25 @@ const AutoCheckoutModal: React.FC<AutoCheckoutModalProps> = ({ onClose, onSucces
       }
 
       const result = await response.json();
+      console.log('🚀 Manual checkout result:', result);
       
-      notificationService.success(
-        `ດຳເນີນການ Auto Checkout ສຳເລັດ: ${result.checkedOutCount} ຄົນ`
-      );
+      if (result.checkedOutCount > 0) {
+        notificationService.success(
+          `${result.message} - ເຊັກເອົາ ${result.checkedOutCount} ຄົນ` +
+          (result.failedCount > 0 ? ` (ລົ້ມເຫລວ ${result.failedCount} ຄົນ)` : '')
+        );
+      } else {
+        notificationService.info(result.message || 'ບໍ່ມີຜູ້ໃຊ້ທີ່ຕ້ອງເຊັກເອົາ');
+      }
       
-      // รีโหลดการตั้งค่าเพื่ອแสดงข้อมูลล่าสุด
-      await fetchCurrentSettings();
+      // แสดงรายละเอียดใน console
+      if (result.checkedOutUsers?.length > 0) {
+        console.log('👥 ผู้ใช้ที่ถูก checkout:', result.checkedOutUsers);
+      }
+      if (result.failedUsers?.length > 0) {
+        console.log('❌ ผู้ใช้ที่ checkout ไม่สำเร็จ:', result.failedUsers);
+      }
+      
       onSuccess();
     } catch (error: any) {
       console.error('Error running manual checkout:', error);
@@ -110,10 +130,14 @@ const AutoCheckoutModal: React.FC<AutoCheckoutModalProps> = ({ onClose, onSucces
   };
 
   const formatLastRun = (lastRun?: string) => {
-    if (!lastRun) return 'ຍັງບໍ່ເຄີຍດຳເນີນການ';
+    if (!lastRun || lastRun === 'ບໍ່ມີຂໍ້ມູນ' || lastRun === 'ไม่มีข้อมูล') {
+      return 'ບໍ່ມີຂໍ້ມູນ';
+    }
     
     try {
       const date = new Date(lastRun);
+      if (isNaN(date.getTime())) return 'ຂໍ້ມູນບໍ່ຖືກຕ້ອງ';
+      
       return date.toLocaleString('lo-LA', {
         year: 'numeric',
         month: '2-digit',
@@ -164,6 +188,20 @@ const AutoCheckoutModal: React.FC<AutoCheckoutModalProps> = ({ onClose, onSucces
         </div>
 
         <div className="p-6 space-y-6">
+          {/* ⚠️ Warning Notice */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <FiInfo className="text-amber-500 mt-0.5 mr-3 flex-shrink-0" size={18} />
+              <div className="text-sm">
+                <p className="font-semibold text-amber-800 mb-1">📝 ໝາຍເຫດ</p>
+                <p className="text-amber-700">
+                  ການຕັ້ງຄ່າຈະຖືກບັນທຶກເປັນ Log ໃນ Console ເທົ່ານັ້ນ 
+                  (ບໍ່ໄດ້ບັນທຶກໃນ Database) ສຳລັບການທົດສອບ
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Enable/Disable Switch */}
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>

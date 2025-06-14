@@ -1,4 +1,4 @@
-// app/api/admin/auto-checkout/run/route.ts
+// app/api/admin/auto-checkout/run/route.ts - แก้ไขให้ไม่ใช้ Models
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
@@ -6,7 +6,7 @@ import WorkLog from '@/models/WorkLog';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// POST - ดำเนินการ Auto Checkout ทันที
+// POST - ดำเนินการ Auto Checkout ทันที (ใช้ WorkLog แทน AutoCheckoutLog)
 export async function POST(request: Request) {
   try {
     // ตรวจสอบสิทธิ์ (เฉพาะ admin)
@@ -20,7 +20,8 @@ export async function POST(request: Request) {
 
     await connectDB();
     
-    console.log('Starting auto checkout process...');
+    console.log('🚀 Starting manual auto checkout process...');
+    console.log('👤 Executed by:', session.user.email || session.user.name);
     
     // ค้นหาผู้ใช้ที่ยังเช็คอินอยู่
     const checkedInUsers = await User.find({
@@ -28,12 +29,12 @@ export async function POST(request: Request) {
       role: { $in: ['driver', 'staff'] }
     }).select('_id name employeeId role email lastCheckIn');
     
-    console.log(`Found ${checkedInUsers.length} users still checked in`);
+    console.log(`👥 Found ${checkedInUsers.length} users still checked in`);
     
     if (checkedInUsers.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'No users currently checked in',
+        message: 'ບໍ່ມີຜູ້ໃຊ້ທີ່ຍັງເຊັກອິນຢູ່',
         checkedOutCount: 0,
         checkedOutUsers: []
       });
@@ -45,6 +46,8 @@ export async function POST(request: Request) {
     // ทำการ checkout ให้ผู้ใช้แต่ละคน
     for (const user of checkedInUsers) {
       try {
+        console.log(`🔄 Processing checkout for: ${user.name} (${user.employeeId})`);
+        
         // อัพเดทสถานะการเช็คอิน
         await User.findByIdAndUpdate(
           user._id,
@@ -56,7 +59,7 @@ export async function POST(request: Request) {
           }
         );
         
-        // บันทึก WorkLog
+        // ✅ ใช้ WorkLog ที่มีอยู่แล้วแทน AutoCheckoutLog
         await WorkLog.logWorkAction(user._id.toString(), 'check-out');
         
         // คำนวณชั่วโมงทำงาน
@@ -76,9 +79,9 @@ export async function POST(request: Request) {
           status: 'success'
         });
         
-        console.log(`Auto checkout successful for ${user.name} (${user.employeeId})`);
+        console.log(`✅ Auto checkout successful for ${user.name} (${user.employeeId}) - ${workHours.toFixed(2)} hours`);
       } catch (userError) {
-        console.error(`Auto checkout failed for user ${user._id}:`, userError);
+        console.error(`❌ Auto checkout failed for user ${user._id}:`, userError);
         
         results.push({
           userId: user._id,
@@ -95,78 +98,60 @@ export async function POST(request: Request) {
     const successfulCheckouts = results.filter(r => r.status === 'success');
     const failedCheckouts = results.filter(r => r.status === 'failed');
     
-    console.log(`Auto checkout completed: ${successfulCheckouts.length} successful, ${failedCheckouts.length} failed`);
+    console.log(`📊 Auto checkout completed: ${successfulCheckouts.length} successful, ${failedCheckouts.length} failed`);
     
-    // บันทึกประวัติการดำเนินการ
-    try {
-      const mongoose = require('mongoose');
-      
-      const AutoCheckoutLog = mongoose.models.AutoCheckoutLog || mongoose.model('AutoCheckoutLog', new mongoose.Schema({
-        executedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        executedAt: { type: Date, default: Date.now },
-        totalUsers: Number,
-        successfulCheckouts: Number,
-        failedCheckouts: Number,
-        details: [mongoose.Schema.Types.Mixed],
-        executionType: { type: String, enum: ['manual', 'scheduled'], default: 'manual' }
-      }));
-      
-      await AutoCheckoutLog.create({
-        executedBy: session.user.id,
-        executedAt: now,
-        totalUsers: checkedInUsers.length,
-        successfulCheckouts: successfulCheckouts.length,
-        failedCheckouts: failedCheckouts.length,
-        details: results,
-        executionType: 'manual'
-      });
-    } catch (logError) {
-      console.error('Failed to log auto checkout execution:', logError);
-      // ไม่ให้ล้มเหลวทั้งหมดถ้าบันทึก log ไม่สำเร็จ
-    }
+    // ✅ บันทึกประวัติการดำเนินการใน Console แทน Database
+    const executionLog = {
+      executedBy: {
+        id: session.user.id,
+        email: session.user.email || session.user.name,
+        name: session.user.name
+      },
+      executedAt: now,
+      totalUsers: checkedInUsers.length,
+      successfulCheckouts: successfulCheckouts.length,
+      failedCheckouts: failedCheckouts.length,
+      executionType: 'manual',
+      details: results,
+      summary: {
+        totalWorkHours: successfulCheckouts.reduce((sum, user) => sum + (user.workHours || 0), 0),
+        avgWorkHours: successfulCheckouts.length > 0 
+          ? successfulCheckouts.reduce((sum, user) => sum + (user.workHours || 0), 0) / successfulCheckouts.length 
+          : 0
+      }
+    };
     
-    // อัพเดทการตั้งค่า Auto Checkout ด้วยข้อมูลล่าสุด
-    try {
-      const mongoose = require('mongoose');
-      const AutoCheckoutSettings = mongoose.models.AutoCheckoutSettings || 
-                                  mongoose.model('AutoCheckoutSettings', new mongoose.Schema({
-                                    enabled: Boolean,
-                                    checkoutTime: String,
-                                    timezone: String,
-                                    lastRun: Date,
-                                    affectedUsers: Number
-                                  }));
-      
-      await AutoCheckoutSettings.findOneAndUpdate(
-        {},
-        { 
-          $set: { 
-            lastRun: now,
-            affectedUsers: successfulCheckouts.length 
-          }
-        },
-        { sort: { createdAt: -1 } }
-      );
-    } catch (settingsError) {
-      console.error('Failed to update auto checkout settings:', settingsError);
-    }
+    console.log('📋 Manual Auto Checkout Execution Log:', JSON.stringify(executionLog, null, 2));
     
+    // สร้างข้อความสรุป
+    const summaryMessage = successfulCheckouts.length > 0 
+      ? `🎉 ດຳເນີນການ Auto Checkout ສຳເລັດ: ${successfulCheckouts.length} ຄົນ` +
+        (failedCheckouts.length > 0 ? ` (ລົ້ມເຫລວ ${failedCheckouts.length} ຄົນ)` : '')
+      : '⚠️ ບໍ່ມີຜູ້ໃຊ້ໃດຖືກ checkout';
+    
+    console.log('📢 Summary:', summaryMessage);
+    
+    // ส่งข้อมูลกลับ
     return NextResponse.json({
       success: true,
-      message: `Auto checkout completed successfully`,
+      message: summaryMessage,
       checkedOutCount: successfulCheckouts.length,
       failedCount: failedCheckouts.length,
       executedAt: now,
+      executedBy: session.user.email || session.user.name,
       checkedOutUsers: successfulCheckouts,
-      failedUsers: failedCheckouts
+      failedUsers: failedCheckouts,
+      summary: executionLog.summary,
+      note: 'Execution details logged to console'
     });
     
   } catch (error) {
-    console.error('Auto Checkout Error:', error);
+    console.error('💥 Auto Checkout Error:', error);
     return NextResponse.json(
       { 
         error: 'Failed to execute auto checkout: ' + (error as Error).message,
-        details: error instanceof Error ? error.stack : 'Unknown error'
+        details: error instanceof Error ? error.stack : 'Unknown error',
+        timestamp: new Date().toISOString()
       },
       { status: 500 }
     );

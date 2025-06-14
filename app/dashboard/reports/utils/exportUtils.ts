@@ -317,9 +317,9 @@ const generatePDFStyles = (): string => {
 const generatePDFHeader = (reportType: ReportType): string => {
   return `
     <div class="report-header">
-      <div class="report-title">ລະບົບລາຍງານ - ${getReportTypeName(reportType)}</div>
-      <div class="report-subtitle">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງ</div>
-      <div class="system-name">ລົດໄຟ ລາວ-ຈີນ</div>
+      <div class="report-title">${getReportTypeName(reportType)}</div>
+      <div class="report-subtitle">ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳ</div>
+      <div class="system-name">ສະຖານີລົດໄຟຫຼວງພະບາງ</div>
     </div>
   `;
 };
@@ -328,7 +328,7 @@ const generatePDFFooter = (): string => {
   return `
     <div class="report-footer">
       <p><strong>ສ້າງເມື່ອ:</strong> ${new Date().toLocaleString('lo-LA')}</p>
-      <p>🚌 ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳທາງລົດໄຟ ລາວ-ຈີນ</p>
+      <p>🚌 ລະບົບອອກປີ້ລົດຕູ້ໂດຍສານປະຈຳສະຖານີລົດໄຟຫຼວງພະບາງ</p>
     </div>
   `;
 };
