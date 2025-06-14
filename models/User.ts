@@ -87,8 +87,6 @@ const userSchema = new mongoose.Schema({
 
 // Create indexes for efficient queries
 userSchema.index({ role: 1 });
-userSchema.index({ phone: 1 }); // Primary index for login
-userSchema.index({ email: 1 }, { sparse: true }); // Sparse index for email
 userSchema.index({ employeeId: 1 }, { sparse: true });
 userSchema.index({ stationId: 1 }, { sparse: true });
 
