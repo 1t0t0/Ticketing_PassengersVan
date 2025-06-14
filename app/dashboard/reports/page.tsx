@@ -1,4 +1,5 @@
-// app/dashboard/reports/page.tsx - Updated with real PDF export
+// app/dashboard/reports/page.tsx - กลับไปใช้ไฟล์เดียวที่ทำงานได้
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,12 +12,12 @@ import Script from 'next/script';
 import ReportTypeSelector from './components/ReportTypeSelector';
 import DateRangeSelector from './components/DateRangeSelector';
 import ReportContent from './components/ReportContent';
+
+// ✅ ใช้ไฟล์เดียวที่ทำงานได้แน่นอน
 import { exportToPDF, printReport } from './utils/exportUtils';
 
 interface ReportData {
-  type: string;
   period: { startDate: string; endDate: string };
-  summary: any;
   [key: string]: any;
 }
 
@@ -68,21 +69,14 @@ export default function ReportsPage() {
             break;
             
           case 'thisMonth':
-            // แก้ไขให้ได้วันที่ 1 ของเดือนปัจจุบันจริงๆ
             const todayDate = new Date();
-            
-            // ใช้วิธีสร้างวันที่แบบชัดเจน
             const year = todayDate.getFullYear();
-            const month = todayDate.getMonth(); // 0-11 (0=มกราคม, 5=มิถุนายน)
+            const month = todayDate.getMonth();
             const todayDateNum = todayDate.getDate();
             
-            // สร้างวันที่ 1 ของเดือนปัจจุบัน (ใช้ UTC เพื่อหลีกเลี่ยงปัญหา timezone)
             const startOfMonth = new Date(Date.UTC(year, month, 1));
-            
-            // สร้างวันที่ปัจจุบัน
             const endOfPeriod = new Date(Date.UTC(year, month, todayDateNum));
             
-            // แปลงเป็นรูปแบบ YYYY-MM-DD
             actualStartDate = startOfMonth.getUTCFullYear() + '-' + 
                              String(startOfMonth.getUTCMonth() + 1).padStart(2, '0') + '-' + 
                              String(startOfMonth.getUTCDate()).padStart(2, '0');
@@ -90,7 +84,6 @@ export default function ReportsPage() {
             actualEndDate = endOfPeriod.getUTCFullYear() + '-' + 
                            String(endOfPeriod.getUTCMonth() + 1).padStart(2, '0') + '-' + 
                            String(endOfPeriod.getUTCDate()).padStart(2, '0');
-            
             break;
         }
       }
@@ -105,15 +98,19 @@ export default function ReportsPage() {
         const data = await response.json();
         setReportData(data);
         console.log('Report data received:', data.period);
+      } else {
+        console.error('Failed to fetch report:', response.status, response.statusText);
+        setReportData(null);
       }
     } catch (error) {
       console.error('Error fetching report:', error);
+      setReportData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // ฟังก์ชันสำหรับดาวน์โหลด PDF จริง
+  // ✅ ใช้ฟังก์ชันจากไฟล์ที่ทำงานได้แน่นอน
   const handleExportPDF = async () => {
     if (!reportData) {
       alert('ບໍ່ມີຂໍ້ມູນບົດລາຍງານສຳລັບສົ່ງອອກ PDF');
@@ -126,17 +123,17 @@ export default function ReportsPage() {
     }
 
     try {
-      await exportToPDF(reportData, selectedReport);
+      await exportToPDF(reportData, selectedReport as any);
     } catch (error) {
       console.error('PDF export error:', error);
       alert('ເກີດຂໍ້ຜິດພາດໃນການສົ່ງອອກ PDF');
     }
   };
 
-  // ฟังก์ชันสำหรับเปิด Print Dialog แบบ ticket sales
+  // ✅ ใช้ฟังก์ชันจากไฟล์ที่ทำงานได้แน่นอน
   const handlePrintReport = () => {
     if (reportData) {
-      printReport(reportData, selectedReport);
+      printReport(reportData, selectedReport as any);
     } else {
       alert('ບໍ່ມີຂໍ້ມູນບົດລາຍງານສຳລັບພິມ');
     }
@@ -146,7 +143,6 @@ export default function ReportsPage() {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
-  // ฟังก์ชันสำหรับแสดงชื่อรายงาน
   const getReportTitle = (type: string) => {
     const titles = {
       'summary': 'ສະຫຼຸບລວມ',
