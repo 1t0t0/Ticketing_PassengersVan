@@ -1,7 +1,7 @@
-// app/dashboard/reports/components/ReportContent.tsx - เพิ่มการแสดงข้อมูลตั๋วแบบกลุ่ม
+// app/dashboard/reports/components/ReportContent.tsx - แก้ไขให้แสดงรายงานทุกประเภท
 
 import React, { useState } from 'react';
-import { FiCreditCard, FiDollarSign, FiUsers, FiBarChart, FiCheck, FiX, FiInfo, FiUser } from 'react-icons/fi';
+import { FiCreditCard, FiDollarSign, FiUsers, FiBarChart, FiCheck, FiX, FiInfo, FiUser, FiTruck, FiUserCheck } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -16,7 +16,7 @@ import {
 } from 'chart.js';
 import Pagination from '@/components/ui/Pagination';
 
-// Import new components
+// Import components
 import VehiclesReportComponent from './VehiclesReportComponent';
 import StaffReportComponent from './StaffReportComponent';
 
@@ -54,7 +54,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
     const sales = reportData.sales || {};
     const ticketBreakdown = sales.ticketBreakdown || {};
 
-    // ✅ ข้อมูลสำหรับ chart แสดงสัดส่วนตั๋วแบบบุคคล vs กลุ่ม
+    // ข้อมูลสำหรับ chart แสดงสัดส่วนตั๋วแบบบุคคล vs กลุ่ม
     const ticketTypeChartData = {
       labels: ['ປີ້ບຸກຄົນ', 'ປີ້ກະລຸ່ມ'],
       datasets: [{
@@ -70,15 +70,8 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
 
     return (
       <div className="space-y-4">
-        {/* ✅ สถิติหลักที่เพิ่มข้อมูลผู้โดยสาร */}
-        <div 
-          className="overflow-x-auto"
-          style={{
-            scrollbarWidth: 'auto',
-            scrollbarColor: '#CBD5E1 #F1F5F9',
-            paddingBottom: '8px'
-          }}
-        >
+        {/* สถิติหลัก */}
+        <div className="overflow-x-auto">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 min-w-[800px]">
             <StatCard icon={<FiCreditCard />} title="ປີ້ທີ່ຂາຍ" value={stats.totalTickets || 0} color="blue" />
             <StatCard icon={<FiUser />} title="ຜູ້ໂດຍສານລວມ" value={stats.totalPassengers || 0} color="green" />
@@ -88,7 +81,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
           </div>
         </div>
 
-        {/* ✅ ส่วนแสดงข้อมูลตั๋วแยกประเภท */}
+        {/* ส่วนแสดงข้อมูลตั๋วแยกประเภท */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* การแจกแยงประเภทตั๋ว */}
           <div className="bg-white border rounded-lg p-4">
@@ -127,7 +120,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
             )}
           </div>
 
-          {/* ✅ สถิติรายละเอียดตั๋ว */}
+          {/* สถิติรายละเอียดตั๋ว */}
           <div className="bg-white border rounded-lg p-4">
             <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດປີ້</h3>
             <div className="space-y-4">
@@ -189,7 +182,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
                 </div>
               </div>
 
-              {/* ✅ สรุปรวม */}
+              {/* สรุปรวม */}
               <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
@@ -213,14 +206,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
         </div>
 
         {/* ส่วนสรุปรายงานแบบเดิม */}
-        <div 
-          className="overflow-x-auto"
-          style={{
-            scrollbarWidth: 'auto',
-            scrollbarColor: '#CBD5E1 #F1F5F9',
-            paddingBottom: '8px'
-          }}
-        >
+        <div className="overflow-x-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-w-[600px]">
             <div className="bg-white border rounded-lg p-4">
               <h3 className="text-lg font-semibold mb-3">ຍອດຂາຍ</h3>
@@ -270,7 +256,7 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
           </div>
         </div>
 
-        {/* ✅ เพิ่มหมายเหตุเกี่ยวกับตั๋วกลุ่ม */}
+        {/* หมายเหตุเกี่ยวกับตั๋วกลุ่ม */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start">
             <FiInfo className="text-blue-600 mr-2 mt-1 flex-shrink-0" />
@@ -288,9 +274,11 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
     );
   };
 
-  // ฟังก์ชันอื่นๆ เหมือนเดิม (renderSalesReport, renderDriverReport, etc.)
+  // ✅ รายงานยอดขาย
   const renderSalesReport = () => {
-    if (!reportData?.paymentMethods) return null;
+    if (!reportData?.paymentMethods) {
+      return <div className="text-center py-8 text-gray-500">ບໍ່ມີຂໍ້ມູນຍອດຂາຍ</div>;
+    }
 
     const paymentData = {
       labels: reportData.paymentMethods.map((pm: any) => 
@@ -334,7 +322,261 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
     );
   };
 
-  // ... (เก็บฟังก์ชันอื่นๆ เหมือนเดิม)
+  // ✅ รายงานคนขับ
+  const renderDriverReport = () => {
+    const summary = reportData.summary || {};
+    const drivers = reportData.drivers || [];
+    
+    // แยก drivers ที่มีสิทธิ์ กับ ไม่มีสิทธิ์
+    const qualifiedDrivers = drivers.filter((d: any) => (d.totalIncome || 0) > 0);
+    const nonQualifiedDrivers = drivers.filter((d: any) => (d.totalIncome || 0) === 0);
+    
+    // Pagination
+    const totalDrivers = drivers.length;
+    const totalPages = Math.ceil(totalDrivers / ITEMS_PER_PAGE);
+    const startIndex = (driverPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const currentDrivers = drivers.slice(startIndex, endIndex);
+
+    return (
+      <div className="space-y-6">
+        {/* สถิติสรุป */}
+        <div className="overflow-x-auto">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 min-w-[800px]">
+            <StatCard icon={<FiUsers />} title="ทั้งหมด" value={summary.totalDrivers || 0} color="blue" />
+            <StatCard icon={<FiCheck />} title="ที่ทำงาน" value={summary.workingDriversInPeriod || 0} color="green" />
+            <StatCard icon={<FiDollarSign />} title="มีสิทธิ์ได้เงิน" value={qualifiedDrivers.length} color="green" />
+            <StatCard icon={<FiX />} title="ไม่มีสิทธิ์" value={nonQualifiedDrivers.length} color="gray" />
+            <StatCard icon={<FiBarChart />} title="รายได้เฉลี่ย" value={`₭${((reportData.metadata?.revenuePerDriver || 0)).toLocaleString()}`} color="blue" />
+          </div>
+        </div>
+
+        {/* กล่องสรุปรายได้ */}
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-green-800 mb-4">💰 ສະຫຼຸບລາຍຮັບພະນັກງານຂັບລົດ</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center bg-white rounded-lg p-4 border">
+              <div className="text-2xl font-bold text-green-600">₭{(summary.totalIncome || 0).toLocaleString()}</div>
+              <div className="text-sm text-gray-600">ລາຍຮັບລວມ (85%)</div>
+            </div>
+            <div className="text-center bg-white rounded-lg p-4 border">
+              <div className="text-2xl font-bold text-blue-600">{qualifiedDrivers.length}</div>
+              <div className="text-sm text-gray-600">ທຳຄົບ 2 ຮອບ</div>
+            </div>
+            <div className="text-center bg-white rounded-lg p-4 border">
+              <div className="text-2xl font-bold text-purple-600">₭{(reportData.metadata?.revenuePerDriver || 0).toLocaleString()}</div>
+              <div className="text-sm text-gray-600">ລາຍຮັບເຊລີ່ຍຕໍ່ຄົນ</div>
+            </div>
+            <div className="text-center bg-white rounded-lg p-4 border">
+              <div className="text-2xl font-bold text-orange-600">{nonQualifiedDrivers.length}</div>
+              <div className="text-sm text-gray-600">ບໍ່ມີສິທິ່ຮັບລາຍຮັບ</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ตารางคนขับที่มีสิทธิ์ */}
+        {qualifiedDrivers.length > 0 && (
+          <div className="bg-white border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-3 text-green-700">
+              ✅ ພະນັກງານຂັບລົດທີ່ມີສິທິ່ຮັບລາຍຮັບ ({qualifiedDrivers.length} ຄົນ)
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-green-50">
+                    <th className="text-left p-2">#</th>
+                    <th className="text-left p-2">ຊື່</th>
+                    <th className="text-center p-2">ລະຫັດ</th>
+                    <th className="text-center p-2">ວັນທຳງານ</th>
+                    <th className="text-center p-2">ລາຍຮັບ</th>
+                    <th className="text-center p-2">ສະຖານະ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {qualifiedDrivers.slice(0, 10).map((driver: any, index: number) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="p-2">{index + 1}</td>
+                      <td className="p-2 font-medium">{driver.name || 'ບໍ່ລະບຸ'}</td>
+                      <td className="p-2 text-center">{driver.employeeId || '-'}</td>
+                      <td className="p-2 text-center">{driver.workDays || 0}</td>
+                      <td className="p-2 text-center font-bold text-green-600">
+                        ₭{(driver.totalIncome || 0).toLocaleString()}
+                      </td>
+                      <td className="p-2 text-center">
+                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
+                          ມີສິທິ່ຮັບລາຍຮັບ
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ตารางคนขับที่ไม่มีสิทธิ์ */}
+        {nonQualifiedDrivers.length > 0 && (
+          <div className="bg-white border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-3 text-red-700">
+              ❌ ພະນັກງານຂັບລົດທີ່ບໍ່ມີສິທິ່ຮັບລາຍຮັບ ({nonQualifiedDrivers.length} ຄົນ)
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-red-50">
+                    <th className="text-left p-2">#</th>
+                    <th className="text-left p-2">ຊື່</th>
+                    <th className="text-center p-2">ລະຫັດ</th>
+                    <th className="text-center p-2">ວັນທຳງານ</th>
+                    <th className="text-center p-2">ລາຍຮັບ</th>
+                    <th className="text-center p-2">ສະຖານະ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nonQualifiedDrivers.slice(0, 10).map((driver: any, index: number) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="p-2">{index + 1}</td>
+                      <td className="p-2 font-medium">{driver.name || 'ບໍ່ລະບຸ'}</td>
+                      <td className="p-2 text-center">{driver.employeeId || '-'}</td>
+                      <td className="p-2 text-center">{driver.workDays || 0}</td>
+                      <td className="p-2 text-center font-bold text-red-600">₭0</td>
+                      <td className="p-2 text-center">
+                        <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
+                          ບໍ່ມີສິທິ່
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* คำอธิบายเงื่อนไข */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <FiInfo className="text-blue-600 mr-2 mt-1 flex-shrink-0" />
+            <div className="text-sm text-blue-700">
+              <p className="font-semibold mb-1">ເງື່ອນໄຂການຮັບລາຍຮັບ:</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>ຕ້ອງທຳການເດີນທາງຄົບ 2 ຮອບຕໍ່ວັນ</li>
+                <li>ແຕ່ລະຮອບຕ້ອງມີຜູ້ໂດຍສານອັງນ້ອຍ 80% ຂອງຄວາມຈຸລົດ</li>
+                <li>ລາຍຮັບທັງໝົດ 85% ຈະຖືກແບ່ງເທົ່າໆກັນລະຫວ່າງພະນັກງານຂັບລົດທີ່ມີສິທິ່</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ✅ รายงานการเงิน
+  const renderFinancialReport = () => {
+    const summary = reportData.summary || {};
+    const breakdown = reportData.breakdown || {};
+    
+    const chartData = {
+      labels: ['ບໍລິສັດ (10%)', 'ສະຖານີ (5%)', 'ພະນັກງານຂັບລົດ (85%)'],
+      datasets: [{
+        data: [
+          breakdown.company?.totalAmount || 0,
+          breakdown.station?.totalAmount || 0,
+          breakdown.driver?.totalAmount || 0
+        ],
+        backgroundColor: ['#EF4444', '#F59E0B', '#10B981'],
+      }]
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* สถิติสรุป */}
+        <div className="overflow-x-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 min-w-[600px]">
+            <StatCard 
+              icon={<FiDollarSign />} 
+              title="ລາຍຮັບລວມ" 
+              value={`₭${(summary.totalRevenue || 0).toLocaleString()}`} 
+              color="green" 
+            />
+            <StatCard 
+              icon={<FiBarChart />} 
+              title="ບໍລິສັດ (10%)" 
+              value={`₭${(breakdown.company?.totalAmount || 0).toLocaleString()}`} 
+              color="red" 
+            />
+            <StatCard 
+              icon={<FiBarChart />} 
+              title="ສະຖານີ (5%)" 
+              value={`₭${(breakdown.station?.totalAmount || 0).toLocaleString()}`} 
+              color="blue" 
+            />
+            <StatCard 
+              icon={<FiUsers />} 
+              title="ພະນັກງານຂັບລົດ (85%)" 
+              value={`₭${(breakdown.driver?.totalAmount || 0).toLocaleString()}`} 
+              color="green" 
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Chart */}
+          <div className="bg-white border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-3">ການແບ່ງລາຍຮັບ</h3>
+            <div className="h-64">
+              <Doughnut data={chartData} options={{ maintainAspectRatio: false }} />
+            </div>
+          </div>
+
+          {/* ตารางรายละเอียด */}
+          <div className="bg-white border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-3">ລາຍລະອຽດການແບ່ງ</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left p-2">ປະເພດ</th>
+                    <th className="text-center p-2">ເປີເຊັນ</th>
+                    <th className="text-right p-2">ມູນຄ່າ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b">
+                    <td className="p-2">🏢 ບໍລິສັດ</td>
+                    <td className="p-2 text-center font-bold">10%</td>
+                    <td className="p-2 text-right font-bold text-red-600">
+                      ₭{(breakdown.company?.totalAmount || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2">🚉 ສະຖານີ</td>
+                    <td className="p-2 text-center font-bold">5%</td>
+                    <td className="p-2 text-right font-bold text-blue-600">
+                      ₭{(breakdown.station?.totalAmount || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2">👥 ພະນັກງານຂັບລົດ</td>
+                    <td className="p-2 text-center font-bold">85%</td>
+                    <td className="p-2 text-right font-bold text-green-600">
+                      ₭{(breakdown.driver?.totalAmount || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                  <tr className="bg-gray-50 font-bold">
+                    <td className="p-2">📊 ລວມທັງໝົດ</td>
+                    <td className="p-2 text-center">100%</td>
+                    <td className="p-2 text-right">₭{(summary.totalRevenue || 0).toLocaleString()}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Render based on report type
   switch (reportType) {
@@ -342,13 +584,34 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
       return renderSummaryReport();
     case 'sales': 
       return renderSalesReport();
-    // ... (cases อื่นๆ เหมือนเดิม)
+    case 'drivers':
+      return renderDriverReport();
+    case 'financial':
+      return renderFinancialReport();
+    case 'vehicles':
+      return (
+        <VehiclesReportComponent 
+          reportData={reportData}
+          loading={loading}
+          carPage={carPage}
+          setCarPage={setCarPage}
+        />
+      );
+    case 'staff':
+      return (
+        <StaffReportComponent 
+          reportData={reportData}
+          loading={loading}
+          staffPage={staffPage}
+          setStaffPage={setStaffPage}
+        />
+      );
     default: 
       return <div>ປະເພດບົດລາຍງານບໍ່ຖືກຕ້ອງ</div>;
   }
 };
 
-// StatCard Component - เหมือนเดิม
+// StatCard Component
 const StatCard: React.FC<{
   title: string;
   value: string | number;
@@ -358,19 +621,22 @@ const StatCard: React.FC<{
   const colorClasses = {
     blue: 'bg-blue-50 border-blue-200',
     green: 'bg-green-50 border-green-200',
-    gray: 'bg-gray-50 border-gray-200'
+    gray: 'bg-gray-50 border-gray-200',
+    red: 'bg-red-50 border-red-200'
   };
 
   const textClasses = {
     blue: 'text-blue-600',
     green: 'text-green-600',
-    gray: 'text-gray-600'
+    gray: 'text-gray-600',
+    red: 'text-red-600'
   };
 
   const valueClasses = {
     blue: 'text-blue-700',
     green: 'text-green-700',
-    gray: 'text-gray-800'
+    gray: 'text-gray-800',
+    red: 'text-red-700'
   };
 
   return (

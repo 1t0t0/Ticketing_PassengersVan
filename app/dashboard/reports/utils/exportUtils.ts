@@ -1,4 +1,4 @@
-// app/dashboard/reports/utils/exportUtils.ts - เวอร์ชันเดียวที่ทำงานได้แน่นอน
+// app/dashboard/reports/utils/exportUtils.ts - อัพเดทให้รองรับรายงานทุกประเภท
 
 // ===== TYPE DEFINITIONS =====
 interface Period {
@@ -55,6 +55,12 @@ interface ReportData {
   summary?: SummaryData;
   sales?: SummaryData;
   paymentMethods?: PaymentMethod[];
+  drivers?: any[];
+  breakdown?: any;
+  metadata?: any;
+  carTypes?: any[];
+  cars?: any[];
+  staff?: any[];
   [key: string]: any;
 }
 
@@ -292,6 +298,8 @@ const generatePDFStyles = (): string => {
     .text-center { text-align: center; }
     .text-right { text-align: right; }
     .currency { font-weight: bold; color: #2563EB; }
+    .text-success { color: #28a745; }
+    .text-danger { color: #dc3545; }
     
     .report-footer {
       margin-top: 30px; text-align: center; font-size: 12px; color: #666;
@@ -299,6 +307,10 @@ const generatePDFStyles = (): string => {
     }
     
     .no-break { page-break-inside: avoid; }
+    .revenue-box {
+      background: linear-gradient(135deg, #e8f5e8 0%, #e3f2fd 100%);
+      border: 2px solid #4caf50; border-radius: 8px; padding: 20px; margin: 20px 0;
+    }
   `;
 };
 
@@ -335,8 +347,14 @@ const generateContentByType = (reportData: ReportData, reportType: ReportType): 
       return generateSummaryContent(reportData);
     case 'sales':
       return generateSalesContent(reportData);
+    case 'drivers':
+      return generateDriversContent(reportData);
     case 'financial':
       return generateFinancialContent(reportData);
+    case 'vehicles':
+      return generateVehiclesContent(reportData);
+    case 'staff':
+      return generateStaffContent(reportData);
     default:
       return '<div class="content-section">ບໍ່ມີຂໍ້ມູນ</div>';
   }
@@ -369,25 +387,16 @@ const generateSummaryContent = (reportData: ReportData): string => {
           <div class="stat-label">👨‍✈️ ພະນັກງານຂັບລົດເຂົ້າວຽກ</div>
           <div class="stat-value">${stats.activeDrivers || 0}</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">📈 ລາຄາເຊລີ່ຍ/ໃບ</div>
-          <div class="stat-value currency">${formatCurrency(stats.avgTicketPrice || 0)}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">🧮 ລາຄາເຊລີ່ຍ/ຄົນ</div>
-          <div class="stat-value currency">${formatCurrency(stats.avgPricePerPassenger || 0)}</div>
-        </div>
       </div>
       
       <div class="section-title" style="margin-top: 30px;">🎫 ລາຍລະອຽດປີ້ແຍກປະເພດ</div>
       <table class="no-break">
         <tr class="table-highlight">
-          <th style="width: 20%;">ປະເພດປີ້</th>
-          <th class="text-center" style="width: 15%;">ຈຳນວນໃບ</th>
-          <th class="text-center" style="width: 15%;">ຜູ້ໂດຍສານ</th>
-          <th class="text-center" style="width: 20%;">ລາຍຮັບ</th>
-          <th class="text-center" style="width: 15%;">ສັດສ່ວນ</th>
-          <th class="text-center" style="width: 15%;">ເຊລີ່ຍ/ກະລຸ່ມ</th>
+          <th>ປະເພດປີ້</th>
+          <th class="text-center">ຈຳນວນໃບ</th>
+          <th class="text-center">ຜູ້ໂດຍສານ</th>
+          <th class="text-center">ລາຍຮັບ</th>
+          <th class="text-center">ສັດສ່ວນ</th>
         </tr>
         <tr>
           <td><strong>👤 ປີ້ບຸກຄົນ</strong></td>
@@ -395,7 +404,6 @@ const generateSummaryContent = (reportData: ReportData): string => {
           <td class="text-center">${ticketBreakdown.individual?.passengers || 0}</td>
           <td class="text-center currency">${formatCurrency(ticketBreakdown.individual?.revenue || 0)}</td>
           <td class="text-center"><strong>${ticketBreakdown.individual?.percentage || 0}%</strong></td>
-          <td class="text-center">1 ຄົນ</td>
         </tr>
         <tr>
           <td><strong>👥 ປີ້ກະລຸ່ມ</strong></td>
@@ -403,7 +411,6 @@ const generateSummaryContent = (reportData: ReportData): string => {
           <td class="text-center">${ticketBreakdown.group?.passengers || 0}</td>
           <td class="text-center currency">${formatCurrency(ticketBreakdown.group?.revenue || 0)}</td>
           <td class="text-center"><strong>${ticketBreakdown.group?.percentage || 0}%</strong></td>
-          <td class="text-center">${ticketBreakdown.group?.averageGroupSize || 0} ຄົນ</td>
         </tr>
         <tr style="background: #f8f9fa; font-weight: bold;">
           <td><strong>📊 ລວມທັງໝົດ</strong></td>
@@ -411,20 +418,8 @@ const generateSummaryContent = (reportData: ReportData): string => {
           <td class="text-center">${stats.totalPassengers || 0}</td>
           <td class="text-center currency">${formatCurrency(stats.totalRevenue || 0)}</td>
           <td class="text-center">100%</td>
-          <td class="text-center">${stats.totalTickets > 0 ? Math.round((stats.totalPassengers || 0) / stats.totalTickets) : 0} ຄົນ</td>
         </tr>
       </table>
-      
-      <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px; font-size: 12px;">
-        <h4 style="color: #1976d2; margin-bottom: 10px; font-size: 14px;">📋 ຂໍ້ມູນປີ້ກະລຸ່ມ:</h4>
-        <ul style="margin: 0; padding-left: 20px; color: #1976d2;">
-          <li style="margin-bottom: 5px;">ປີ້ກະລຸ່ມ 1 ໃບ ສາມາດມີຜູ້ໂດຍສານ <strong>2-10 ຄົນ</strong></li>
-          <li style="margin-bottom: 5px;">ລາຄາປີ້ກະລຸ່ມ = <strong>ລາຄາຕໍ່ຄົນ × ຈຳນວນຜູ້ໂດຍສານ</strong></li>
-          <li style="margin-bottom: 5px;">ການນັບຍອດຂາຍ = <strong>ຈຳນວນໃບປີ້</strong> (ບໍ່ແມ່ນຈຳນວນຜູ້ໂດຍສານ)</li>
-          <li style="margin-bottom: 5px;">ເຊລີ່ຍຜູ້ໂດຍສານຕໍ່ກະລຸ່ມ = <strong>${ticketBreakdown.group?.averageGroupSize || 0} ຄົນ</strong></li>
-          <li>ປີ້ກະລຸ່ມຄິດເປັນ <strong>${stats.groupTicketPercentage || 0}%</strong> ຂອງຍອດຂາຍທັງໝົດ</li>
-        </ul>
-      </div>
     </div>
   `;
 };
@@ -478,23 +473,110 @@ const generateSalesContent = (reportData: ReportData): string => {
   `;
 };
 
+const generateDriversContent = (reportData: ReportData): string => {
+  const summary = reportData.summary || {};
+  const metadata = reportData.metadata || {};
+  const drivers = reportData.drivers || [];
+  
+  const qualifiedDrivers = drivers.filter((d: any) => (d.totalIncome || 0) > 0);
+  const nonQualifiedDrivers = drivers.filter((d: any) => (d.totalIncome || 0) === 0);
+  
+  let qualifiedTable = '';
+  if (qualifiedDrivers.length > 0) {
+    const qualifiedRows = qualifiedDrivers.slice(0, 15).map((driver: any, index: number) => `
+      <tr>
+        <td class="text-center">${index + 1}</td>
+        <td><strong>${driver.name || 'ບໍ່ລະບຸ'}</strong></td>
+        <td class="text-center">${driver.employeeId || '-'}</td>
+        <td class="text-center">${driver.workDays || 0}</td>
+        <td class="text-right currency">${formatCurrency(driver.totalIncome || 0)}</td>
+        <td class="text-center text-success">ມີສິທິ່ຮັບລາຍຮັບ</td>
+      </tr>
+    `).join('');
+    
+    qualifiedTable = `
+      <h3 style="color: #2e7d32; margin: 20px 0 10px 0;">✅ ພະນັກງານຂັບລົດທີ່ມີສິທິ່ຮັບລາຍຮັບ (${qualifiedDrivers.length} ຄົນ)</h3>
+      <table>
+        <tr class="table-highlight">
+          <th class="text-center">#</th>
+          <th>ຊື່</th>
+          <th class="text-center">ລະຫັດ</th>
+          <th class="text-center">ວັນທຳງານ</th>
+          <th class="text-center">ລາຍຮັບ</th>
+          <th class="text-center">ສິທິ່</th>
+        </tr>
+        ${qualifiedRows}
+      </table>
+    `;
+  }
+  
+  return `
+    <div class="content-section">
+      <div class="section-title">👥 ລາຍງານພະນັກງານຂັບລົດ</div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">👥 ພະນັກງານຂັບລົດທັງໝົດ</div>
+          <div class="stat-value">${summary.totalDrivers || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🎯 ທີ່ມີສິທິ່ຮັບລາຍຮັບ</div>
+          <div class="stat-value">${qualifiedDrivers.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">💰 ລາຍຮັບເຊລີ່ຍຕໍ່ຄົນ</div>
+          <div class="stat-value currency">${formatCurrency(metadata.revenuePerDriver || 0)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">💵 ລາຍຮັບລວມ</div>
+          <div class="stat-value currency">${formatCurrency(summary.totalIncome || 0)}</div>
+        </div>
+      </div>
+      
+      <div class="revenue-box">
+        <h3 style="color: #2e7d32; margin-bottom: 15px;">💰 ສະຫຼຸບລາຍຮັບພະນັກງານຂັບລົດ</h3>
+        <table style="border: none;">
+          <tr>
+            <td style="text-align: center; background: white; border-radius: 8px; padding: 15px;">
+              <div style="font-size: 24px; font-weight: bold; color: #2e7d32;">${formatCurrency(summary.totalIncome || 0)}</div>
+              <div style="font-size: 12px; color: #666;">ລາຍຮັບລວມ (85%)</div>
+            </td>
+            <td style="text-align: center; background: white; border-radius: 8px; padding: 15px;">
+              <div style="font-size: 24px; font-weight: bold; color: #1976d2;">${qualifiedDrivers.length}</div>
+              <div style="font-size: 12px; color: #666;">ທຳຄົບ 2 ຮອບ</div>
+            </td>
+            <td style="text-align: center; background: white; border-radius: 8px; padding: 15px;">
+              <div style="font-size: 24px; font-weight: bold; color: #7b1fa2;">${formatCurrency(metadata.revenuePerDriver || 0)}</div>
+              <div style="font-size: 12px; color: #666;">ລາຍຮັບເຊລີ່ຍຕໍ່ຄົນ</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      ${qualifiedTable}
+    </div>
+  `;
+};
+
 const generateFinancialContent = (reportData: ReportData): string => {
   const breakdown = reportData.breakdown || {};
   
   return `
     <div class="content-section">
       <div class="section-title">💼 ລາຍງານການເງິນ</div>
+      
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-label">💰 ລາຍຮັບລວມ</div>
           <div class="stat-value currency">${formatCurrency(reportData.summary?.totalRevenue || 0)}</div>
         </div>
       </div>
+      
       <table class="no-break">
         <tr class="table-highlight">
-          <th style="width: 20%;">ປະເພດ</th>
-          <th class="text-center" style="width: 30%;">ມູນຄ່າ</th>
-          <th class="text-center" style="width: 20%;">ເປີເຊັນ</th>
+          <th>ປະເພດ</th>
+          <th class="text-center">ມູນຄ່າ</th>
+          <th class="text-center">ເປີເຊັນ</th>
           <th class="text-center">ລາຍການ</th>
         </tr>
         <tr>
@@ -516,6 +598,135 @@ const generateFinancialContent = (reportData: ReportData): string => {
           <td class="text-center">${breakdown.driver?.transactionCount || 0} ລາຍການ</td>
         </tr>
       </table>
+    </div>
+  `;
+};
+
+const generateVehiclesContent = (reportData: ReportData): string => {
+  const summary = reportData.summary || {};
+  const carTypes = reportData.carTypes || [];
+  const cars = reportData.cars || [];
+  
+  let carTypesTable = '';
+  if (carTypes.length > 0) {
+    const carTypeRows = carTypes.map((type: any) => `
+      <tr>
+        <td><strong>${type.carType_name}</strong></td>
+        <td class="text-center">${type.count}</td>
+        <td class="text-center">${summary.totalCars ? Math.round((type.count / summary.totalCars) * 100) : 0}%</td>
+        <td class="text-center text-success">${type.activeCars || 0}</td>
+        <td class="text-center text-danger">${type.count - (type.activeCars || 0)}</td>
+      </tr>
+    `).join('');
+    
+    carTypesTable = `
+      <table class="no-break">
+        <tr class="table-highlight">
+          <th>ປະເພດລົດ</th>
+          <th class="text-center">ຈຳນວນ</th>
+          <th class="text-center">ສັດສ່ວນ</th>
+          <th class="text-center">ກຳລັງໃຊ້</th>
+          <th class="text-center">ບໍ່ໃຊ້</th>
+        </tr>
+        ${carTypeRows}
+      </table>
+    `;
+  }
+
+  return `
+    <div class="content-section">
+      <div class="section-title">🚗 ລາຍງານຂໍ້ມູນລົດ</div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">🚛 ລົດທັງໝົດ</div>
+          <div class="stat-value">${summary.totalCars || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">✅ ລົດກຳລັງໃຊ້</div>
+          <div class="stat-value">${summary.activeCars || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🏷️ ປະເພດລົດ</div>
+          <div class="stat-value">${summary.totalCarTypes || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">👨‍✈️ ພະນັກງານຂັບລົດທີ່ມີລົດ</div>
+          <div class="stat-value">${summary.driversWithCars || 0}</div>
+        </div>
+      </div>
+      
+      <div class="section-title">📋 ລາຍລະອຽດປະເພດລົດ</div>
+      ${carTypesTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນປະເພດລົດ</p>'}
+    </div>
+  `;
+};
+
+const generateStaffContent = (reportData: ReportData): string => {
+  const summary = reportData.summary || {};
+  const staff = reportData.staff || [];
+  
+  let staffTable = '';
+  if (staff.length > 0) {
+    const activeStaff = staff.filter((s: any) => (s.ticketsSold || 0) > 0 || s.checkInStatus === 'checked-in').slice(0, 15);
+    
+    if (activeStaff.length > 0) {
+      const staffRows = activeStaff.map((member: any, index: number) => `
+        <tr>
+          <td class="text-center">${index + 1}</td>
+          <td><strong>${member.name || 'ບໍ່ລະບຸ'}</strong></td>
+          <td class="text-center">${member.employeeId || '-'}</td>
+          <td class="text-center">
+            <span class="${member.checkInStatus === 'checked-in' ? 'text-success' : 'text-danger'}">
+              ${member.checkInStatus === 'checked-in' ? 'ເຂົ້າວຽກ' : 'ອອກວຽກ'}
+            </span>
+          </td>
+          <td class="text-center currency">${member.ticketsSold || 0}</td>
+          <td class="text-center"><strong>${member.workDays || 0} ວັນ</strong></td>
+        </tr>
+      `).join('');
+      
+      staffTable = `
+        <table>
+          <tr class="table-highlight">
+            <th class="text-center">#</th>
+            <th>ຊື່</th>
+            <th class="text-center">ລະຫັດ</th>
+            <th class="text-center">ສະຖານະ</th>
+            <th class="text-center">ປີ້ທີ່ຂາຍ</th>
+            <th class="text-center">ວັນທຳງານ</th>
+          </tr>
+          ${staffRows}
+        </table>
+      `;
+    }
+  }
+  
+  return `
+    <div class="content-section">
+      <div class="section-title">👥 ລາຍງານພະນັກງານຂາຍປີ້</div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">👥 ພະນັກງານທັງໝົດ</div>
+          <div class="stat-value">${summary.totalStaff || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">✅ ເຂົ້າວຽກ</div>
+          <div class="stat-value">${summary.activeStaff || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🎫 ປີ້ທີ່ຂາຍລວມ</div>
+          <div class="stat-value">${summary.totalTicketsSold || 0}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">📅 ວັນທຳງານລວມ</div>
+          <div class="stat-value">${summary.totalWorkDays || 0} ວັນ</div>
+        </div>
+      </div>
+      
+      <div class="section-title">👤 ລາຍລະອຽດການປະຕິບັດງານພະນັກງານ</div>
+      ${staffTable || '<p style="text-align: center; color: #666;">ບໍ່ມີຂໍ້ມູນພະນັກງານທີ່ເຂົ້າວຽກໃນຊ່ວງນີ້</p>'}
     </div>
   `;
 };
