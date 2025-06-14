@@ -1,4 +1,4 @@
-// app/dashboard/tickets/history/page.tsx - Updated to handle delete permissions properly
+// app/dashboard/tickets/history/page.tsx - Simplified version
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -41,11 +41,15 @@ export default function TicketHistoryPage() {
   useEffect(() => {
     const page = searchParams.get('page');
     const method = searchParams.get('paymentMethod');
+    const ticketType = searchParams.get('ticketType');
     const date = searchParams.get('date');
     
     if (page) setFilters(prev => ({ ...prev, page: parseInt(page) }));
     if (method && ['cash', 'qr'].includes(method)) {
       setFilters(prev => ({ ...prev, paymentMethod: method as 'cash' | 'qr' }));
+    }
+    if (ticketType && ['individual', 'group'].includes(ticketType)) {
+      setFilters(prev => ({ ...prev, ticketType: ticketType as 'individual' | 'group' }));
     }
     if (date) setFilters(prev => ({ ...prev, startDate: date }));
   }, [searchParams, setFilters]);
@@ -64,10 +68,8 @@ export default function TicketHistoryPage() {
     }
   };
 
-  // ตรวจสอบสิทธิ์การลบ - เฉพาะ Admin
   const canDeleteTickets = session?.user?.role === 'admin';
 
-  // ฟังก์ชันลบตั๋วที่ตรวจสอบสิทธิ์
   const handleDeleteWithPermissionCheck = (ticketId: string, ticketNumber: string) => {
     if (!canDeleteTickets) {
       notificationService.error('ທ່ານບໍ່ມີສິດທິ່ໃນການລົບປີ້ - ເຉພາະແອດມິນເທົ່ານັ້ນ');
@@ -88,7 +90,6 @@ export default function TicketHistoryPage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">ລາຍການປີ້</h1>
         <p className="text-gray-600">ຈັດການແລະເບິ່ງປະຫວັດການຂາຍປີ້ລົດໂດຍສານ</p>
         
-        {/* แสดงข้อความแจ้งเตือนสำหรับ Staff */}
         {session?.user?.role === 'staff' && (
           <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">
@@ -174,7 +175,7 @@ export default function TicketHistoryPage() {
   );
 }
 
-// Simplified Pagination Component
+// Simple Pagination Component
 function Pagination({ currentPage, totalPages, onPageChange }: {
   currentPage: number;
   totalPages: number;

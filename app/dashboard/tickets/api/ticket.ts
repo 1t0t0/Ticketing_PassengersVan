@@ -1,3 +1,4 @@
+// app/dashboard/tickets/api/ticket.ts - Enhanced with Ticket Type filtering
 import { Ticket, NewTicket, TicketFilter, TicketSearchResults } from '../types';
 
 /**
@@ -21,13 +22,25 @@ export async function createTicket(ticketData: NewTicket): Promise<Ticket> {
 }
 
 /**
- * ดึงข้อมูลตั๋วทั้งหมด
+ * ดึงข้อมูลตั๋วทั้งหมด - รองรับการกรองตามประเภทตั๋ว
  * @param page หน้าที่ต้องการดึงข้อมูล
  * @param limit จำนวนตั๋วต่อหน้า
+ * @param ticketType ประเภทตั๋ว (ไม่บังคับ)
  * @returns รายการตั๋วและข้อมูลการแบ่งหน้า
  */
-export async function fetchTickets(page = 1, limit = 10): Promise<TicketSearchResults> {
-  const response = await fetch(`/api/tickets?page=${page}&limit=${limit}`);
+export async function fetchTickets(
+  page = 1, 
+  limit = 10, 
+  ticketType?: 'individual' | 'group'
+): Promise<TicketSearchResults> {
+  let url = `/api/tickets?page=${page}&limit=${limit}`;
+  
+  // ✅ เพิ่มการกรองตามประเภทตั๋ว
+  if (ticketType) {
+    url += `&ticketType=${ticketType}`;
+  }
+  
+  const response = await fetch(url);
 
   if (!response.ok) {
     const error = await response.json();
@@ -72,7 +85,7 @@ export async function deleteTicket(id: string): Promise<{ success: boolean }> {
 }
 
 /**
- * ค้นหาตั๋ว
+ * ค้นหาตั๋ว - Enhanced with Ticket Type filtering
  * @param filter ตัวกรองสำหรับการค้นหา
  * @returns ผลการค้นหา
  */
@@ -91,8 +104,15 @@ export async function searchTickets(filter: TicketFilter): Promise<TicketSearchR
     url += `paymentMethod=${filter.paymentMethod}&`;
   }
   
+  // ✅ เพิ่มการกรองตามประเภทตั๋ว
+  if (filter.ticketType && filter.ticketType !== 'all') {
+    url += `ticketType=${filter.ticketType}&`;
+  }
+  
   // เพิ่ม pagination parameters
   url += `page=${filter.page}&limit=${filter.limit}`;
+  
+  console.log('Search tickets URL:', url);
   
   const response = await fetch(url);
   
@@ -104,7 +124,12 @@ export async function searchTickets(filter: TicketFilter): Promise<TicketSearchR
   return response.json();
 }
 
-
+/**
+ * อัพเดทวิธีการชำระเงินของตั๋ว
+ * @param id ID ของตั๋ว
+ * @param paymentMethod วิธีการชำระเงินใหม่
+ * @returns ข้อมูลตั๋วที่อัพเดทแล้ว
+ */
 export async function updateTicketPaymentMethod(id: string, paymentMethod: string): Promise<Ticket> {
   try {
     const response = await fetch(`/api/tickets/${id}/payment-method`, {
@@ -125,4 +150,37 @@ export async function updateTicketPaymentMethod(id: string, paymentMethod: strin
     console.error('Error updating ticket payment method:', error);
     throw error;
   }
+}
+
+/**
+ * ✅ ดึงสถิติตั๋วแยกตามประเภท
+ * @param startDate วันที่เริ่มต้น (ไม่บังคับ)
+ * @param endDate วันที่สิ้นสุด (ไม่บังคับ)
+ * @returns สถิติตั๋วแยกตามประเภท
+ */
+export async function fetchTicketTypeStatistics(
+  startDate?: string, 
+  endDate?: string
+): Promise<{
+  individual: { count: number; totalRevenue: number; totalPassengers: number };
+  group: { count: number; totalRevenue: number; totalPassengers: number };
+}> {
+  let url = '/api/tickets/search?limit=0'; // ไม่ต้องการข้อมูลตั๋ว เอาแค่สถิติ
+  
+  if (startDate) {
+    url += `&date=${encodeURIComponent(startDate)}`;
+  }
+  
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to fetch ticket statistics');
+  }
+  
+  const data = await response.json();
+  return data.statistics || {
+    individual: { count: 0, totalRevenue: 0, totalPassengers: 0 },
+    group: { count: 0, totalRevenue: 0, totalPassengers: 0 }
+  };
 }

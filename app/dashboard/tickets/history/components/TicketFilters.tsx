@@ -1,4 +1,4 @@
-// TicketFilters.tsx - Reduced
+// app/dashboard/tickets/history/components/TicketFilters.tsx - Simplified
 import React from 'react';
 import { TicketFilter } from '../../types';
 import { FiSearch, FiCalendar } from 'react-icons/fi';
@@ -45,6 +45,34 @@ const TicketFilters: React.FC<TicketFiltersProps> = ({
               value={filters.startDate || ''}
               onChange={(e) => onFilterChange({ ...filters, startDate: e.target.value })}
             />
+          </div>
+        </div>
+
+        {/* Simple 2-button filter for ticket type */}
+        <div className="flex-1">
+          <label className="block text-gray-600 font-medium mb-2">ປະເພດປີ້</label>
+          <div className="flex gap-2">
+            <button
+              className={`flex-1 py-2 px-3 text-sm rounded-md transition ${
+                filters.ticketType !== 'group' 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              onClick={() => onFilterChange({ ...filters, ticketType: 'individual', page: 1 })}
+            >
+              ປກติ
+            </button>
+            
+            <button
+              className={`flex-1 py-2 px-3 text-sm rounded-md transition ${
+                filters.ticketType === 'group' 
+                  ? 'bg-green-500 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              onClick={() => onFilterChange({ ...filters, ticketType: 'group', page: 1 })}
+            >
+              ກຸ່ມ
+            </button>
           </div>
         </div>
       </div>
