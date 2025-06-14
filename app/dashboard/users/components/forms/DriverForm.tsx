@@ -1,7 +1,7 @@
-// app/dashboard/users/components/forms/DriverForm.tsx - Updated with phone-based fields
+// app/dashboard/users/components/forms/DriverForm.tsx - Fixed phone field
 import React, { useState, useEffect } from 'react';
 import { FiUser, FiPhone, FiCalendar, FiCreditCard, FiCamera, FiTruck, FiMail } from 'react-icons/fi';
-import { FormField, PhoneField, PasswordField, usePasswordReset } from './shared';
+import { FormField, PasswordField, usePasswordReset } from './shared';
 import { User } from '../../types';
 import notificationService from '@/lib/notificationService';
 
@@ -136,11 +136,14 @@ const DriverForm: React.FC<DriverFormProps> = ({
           <FormField label="ວັນເດືອນປີເກີດ" type="date" icon={<FiCalendar />} value={user.birthDate || ''} 
                      onChange={(e) => updateUser('birthDate', e.target.value)} required />
           
-          <PhoneField 
+          {/* แก้ไข: ใช้ FormField ธรรมดาแทน PhoneField */}
+          <FormField 
             label="ເບີໂທລະສັບ" 
+            type="tel"
             icon={<FiPhone />} 
             value={user.phone || ''} 
-            onChange={(value) => updateUser('phone', value)} 
+            onChange={(e) => updateUser('phone', e.target.value)}
+            placeholder="20xxxxxxxx"
             required 
           />
           
@@ -222,7 +225,7 @@ const DriverForm: React.FC<DriverFormProps> = ({
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <h5 className="font-semibold text-blue-800 mb-2">📱 ຂໍ້ມູນສຳຄັນ:</h5>
         <p className="text-sm text-blue-700">
-          ເບີໂທລະສັບຈະຖືກນຳໃຊ້ເປັນຊື່ຜູ້ໃຊ້ສຳລັບການເຂົ້າສູ່ລະບົບ. ກະລຸນາກວດສອບໃຫ້ຖືກຕ້ອງ.
+          ເບີໂທລະສັບຈະຖືກນຳໃຊ້ເປັນຊື່ຜູ້ໃຊ້ສຳລັບການເຂົ້າສູ່ລະບົບ. ກະລຸນາກວດສອບໃຫ້ຖືກຕ້ອງ (ຕົວຢ່າງ: 20xxxxxxxx).
         </p>
       </div>
     </div>

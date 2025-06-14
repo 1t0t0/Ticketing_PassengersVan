@@ -1,4 +1,4 @@
-// app/dashboard/users/components/forms/StaffForm.tsx - Updated with handleRemoveImage
+// app/dashboard/users/components/forms/StaffForm.tsx - Fixed phone field
 import React from 'react';
 import { FiUser, FiMail, FiPhone, FiCalendar, FiCreditCard, FiCamera } from 'react-icons/fi';
 import { FormField, PasswordField, usePasswordReset } from './shared';
@@ -16,7 +16,7 @@ interface StaffFormProps {
   userImagePreview?: string | null;
   isEditing?: boolean;
   handleFileChange?: (e: React.ChangeEvent<HTMLInputElement>, type: 'idCard' | 'user') => void;
-  handleRemoveImage?: (type: 'idCard' | 'user') => void; // เพิ่ม prop นี้
+  handleRemoveImage?: (type: 'idCard' | 'user') => void;
 }
 
 // Enhanced ImageUpload component with remove functionality
@@ -98,8 +98,17 @@ const StaffForm: React.FC<StaffFormProps> = ({
                      onChange={(e) => updateUser('birthDate', e.target.value)} required />
           <FormField label="ອີເມວ" type="email" icon={<FiMail />} value={user.email || ''} 
                      onChange={(e) => updateUser('email', e.target.value)} required />
-          <FormField label="ເບີໂທລະສັບ" type="tel" icon={<FiPhone />} value={user.phone || ''} 
-                     onChange={(e) => updateUser('phone', e.target.value)} />
+          
+          {/* แก้ไข: ใช้ FormField ธรรมดาแทน PhoneField */}
+          <FormField 
+            label="ເບີໂທລະສັບ" 
+            type="tel" 
+            icon={<FiPhone />} 
+            value={user.phone || ''} 
+            onChange={(e) => updateUser('phone', e.target.value)}
+            placeholder="20xxxxxxxx"
+          />
+          
           <PasswordField value={user.password || ''} onChange={(value) => updateUser('password', value)}
                          isEditing={isEditing} onReset={handleReset} loading={loading}
                          showTempPassword={showTempPassword} tempPassword={tempPassword} />

@@ -1,4 +1,4 @@
-// app/api/driver/trip/scan/route.ts - Enhanced with Group Ticket Support
+// app/api/driver/trip/scan/route.ts - แก้ไขการ parse Group Ticket QR Code
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
@@ -6,7 +6,6 @@ import Ticket from '@/models/Ticket';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// POST - สแกน QR Code หรือเลขตั๋ว (รองรับ Group Ticket)
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,22 +21,25 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { ticketId, qrData } = body;
     
-    console.log('Scan request:', { ticketId, qrData });
+    console.log('🔍 Scan request received:', { ticketId, qrData });
     
     let ticketNumber = ticketId;
     let groupTicketData = null;
     
-    // ✅ ปรับการตรวจสอบ QR Code Data รองรับ Group Ticket
+    // ✅ ปรับปรุงการตรวจสอบ QR Code Data รองรับ Group Ticket
     if (qrData) {
       try {
+        console.log('📱 Processing QR Data:', qrData);
+        
         // ลองตรวจสอบว่าเป็น JSON ของ Group Ticket หรือไม่
         const parsedQRData = JSON.parse(qrData);
+        console.log('✅ Parsed QR Data:', parsedQRData);
         
         if (parsedQRData.ticketType === 'group' && parsedQRData.ticketNumber) {
           // เป็น Group Ticket QR Code
           ticketNumber = parsedQRData.ticketNumber;
           groupTicketData = parsedQRData;
-          console.log('✅ Group Ticket QR detected:', {
+          console.log('🎫 Group Ticket QR detected:', {
             ticketNumber,
             passengerCount: parsedQRData.passengerCount,
             totalPrice: parsedQRData.totalPrice
@@ -45,18 +47,20 @@ export async function POST(request: Request) {
         } else if (parsedQRData.ticketNumber) {
           // เป็น Individual Ticket QR Code แบบ JSON
           ticketNumber = parsedQRData.ticketNumber;
-          console.log('✅ Individual Ticket QR (JSON) detected:', ticketNumber);
+          console.log('🎫 Individual Ticket QR (JSON) detected:', ticketNumber);
         }
-      } catch (error) {
+      } catch (parseError) {
+        console.log('⚠️ QR data is not JSON, treating as plain string:', qrData);
         // ถ้า parse ไม่ได้ ให้ใช้เป็น string ธรรมดา (Individual Ticket)
-        console.log('QR data is plain string (Individual Ticket):', qrData);
         if (typeof qrData === 'string' && qrData.trim()) {
           ticketNumber = qrData.trim();
+          console.log('📝 Using QR data as ticket number:', ticketNumber);
         }
       }
     }
     
     if (!ticketNumber || !ticketNumber.trim()) {
+      console.error('❌ No ticket number provided');
       return NextResponse.json(
         { error: 'ກະລຸນາໃສ່ເລກທີ່ປີ້' },
         { status: 400 }
@@ -66,6 +70,7 @@ export async function POST(request: Request) {
     const driverId = session.user.id;
     const today = new Date().toISOString().split('T')[0];
     
+    // ตรวจสอบว่ามีรอบที่กำลังดำเนินการอยู่หรือไม่
     const activeTrip = await DriverTrip.findOne({
       driver_id: driverId,
       date: today,
@@ -73,20 +78,36 @@ export async function POST(request: Request) {
     });
     
     if (!activeTrip) {
+      console.error('❌ No active trip found for driver:', driverId);
       return NextResponse.json(
         { error: 'ກະລຸນາເລີ່ມການເດີນທາງກ່ອນ' },
         { status: 400 }
       );
     }
     
+    console.log('🚌 Active trip found:', {
+      tripId: activeTrip._id,
+      tripNumber: activeTrip.trip_number,
+      currentPassengers: activeTrip.current_passengers,
+      capacity: activeTrip.car_capacity
+    });
+    
     // ค้นหา ticket โดยใช้ ticketNumber
     const ticket = await Ticket.findOne({ ticketNumber: ticketNumber.trim() });
     if (!ticket) {
+      console.error('❌ Ticket not found:', ticketNumber);
       return NextResponse.json(
         { error: `ບໍ່ພົບຂໍ້ມູນປີ້ເລກທີ ${ticketNumber}` },
         { status: 404 }
       );
     }
+    
+    console.log('🎫 Ticket found:', {
+      ticketNumber: ticket.ticketNumber,
+      ticketType: ticket.ticketType,
+      passengerCount: ticket.passengerCount,
+      price: ticket.price
+    });
     
     // ตรวจสอบว่า ticket นี้ถูกสแกนไปแล้วในระบบหรือไม่
     const ticketUsedInSystem = await DriverTrip.findOne({
@@ -105,6 +126,12 @@ export async function POST(request: Request) {
       const usedByDriverName = usedByTrip?.driver_id?.name || 'Unknown';
       const usedByEmployeeId = usedByTrip?.driver_id?.employeeId || 'Unknown';
       const scannedAt = scanDetails?.scanned_at ? new Date(scanDetails.scanned_at).toLocaleString('lo-LA') : 'Unknown';
+      
+      console.error('❌ Ticket already used:', {
+        ticketNumber: ticket.ticketNumber,
+        usedBy: usedByDriverName,
+        usedAt: scannedAt
+      });
       
       return NextResponse.json(
         { 
@@ -127,7 +154,19 @@ export async function POST(request: Request) {
     const passengersToAdd = ticket.ticketType === 'group' ? ticket.passengerCount : 1;
     const newTotalPassengers = activeTrip.current_passengers + passengersToAdd;
     
+    console.log('👥 Passenger calculation:', {
+      ticketType: ticket.ticketType,
+      passengersToAdd,
+      currentPassengers: activeTrip.current_passengers,
+      newTotal: newTotalPassengers,
+      carCapacity: activeTrip.car_capacity
+    });
+    
     if (newTotalPassengers > activeTrip.car_capacity) {
+      console.error('❌ Car capacity exceeded:', {
+        newTotal: newTotalPassengers,
+        capacity: activeTrip.car_capacity
+      });
       return NextResponse.json(
         { error: `ລົດຈະເຕັມ! ປັດຈຸບັນ ${activeTrip.current_passengers} ຄົນ + ${passengersToAdd} ຄົນ = ${newTotalPassengers} ຄົນ (ຄວາມຈຸ: ${activeTrip.car_capacity} ຄົນ)` },
         { status: 400 }
@@ -151,12 +190,19 @@ export async function POST(request: Request) {
     
     await activeTrip.save();
     
+    console.log('✅ Trip updated successfully:', {
+      tripNumber: activeTrip.trip_number,
+      currentPassengers: activeTrip.current_passengers,
+      required: activeTrip.required_passengers,
+      is80PercentReached
+    });
+    
     // ✅ สร้างข้อความแจ้งเตือนรองรับ Group Ticket
     let message = '';
     let statusMessage = '';
     
     if (ticket.ticketType === 'group') {
-      message = `✅ สแกนปี้กลุ่มสำเร็จ: +${passengersToAdd} ຄົນ (รวม ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ)`;
+      message = `✅ ສະແກນປີ້ກະລຸ່ມສຳເລັດ: +${passengersToAdd} ຄົນ (ລວມ ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ)`;
     } else {
       message = `✅ ສະແກນສຳເລັດ: ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ`;
     }
@@ -172,18 +218,8 @@ export async function POST(request: Request) {
       }
     }
     
-    console.log('Trip updated successfully:', {
-      tripId: activeTrip._id,
-      currentPassengers: activeTrip.current_passengers,
-      requiredPassengers: activeTrip.required_passengers,
-      is80PercentReached: is80PercentReached,
-      ticketScanned: ticket.ticketNumber,
-      ticketType: ticket.ticketType,
-      passengersAdded: passengersToAdd
-    });
-    
     // ✅ Response รองรับ Group Ticket
-    return NextResponse.json({
+    const responseData = {
       success: true,
       trip_number: activeTrip.trip_number,
       current_passengers: activeTrip.current_passengers,
@@ -221,14 +257,29 @@ export async function POST(request: Request) {
       } : {
         is_group_ticket: false
       }
-    });
+    };
+    
+    console.log('📤 Sending response:', responseData);
+    
+    return NextResponse.json(responseData);
 
   } catch (error) {
-    console.error('Scan QR Code Error:', error);
+    console.error('💥 Scan QR Code Error:', error);
+    
+    // ส่งข้อมูล error ที่ละเอียดมากขึ้น
+    const errorMessage = error instanceof Error ? error.message : 'Failed to scan QR code';
+    const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+    
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: errorStack
+    });
+    
     return NextResponse.json(
       { 
-        error: error instanceof Error ? error.message : 'Failed to scan QR code',
-        details: error instanceof Error ? error.stack : 'Unknown error occurred'
+        error: errorMessage,
+        details: errorStack,
+        timestamp: new Date().toISOString()
       },
       { status: 500 }
     );

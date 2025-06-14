@@ -1,4 +1,4 @@
-// app/dashboard/users/components/forms/shared.tsx - Updated with phone number formatting
+// app/dashboard/users/components/forms/shared.tsx - Fixed phone formatting issue
 import React, { useState } from 'react';
 import { FiRefreshCw, FiCamera, FiX } from 'react-icons/fi';
 import { resetUserPassword } from '../../api/user';
@@ -48,7 +48,7 @@ export const FormField: React.FC<FormFieldProps> = ({
   );
 };
 
-// Phone Number Input Component with formatting
+// Fixed Phone Number Input Component - เก็บเป็นตัวเลขธรรมดา
 interface PhoneFieldProps {
   label: string;
   value: string;
@@ -61,27 +61,17 @@ interface PhoneFieldProps {
 export const PhoneField: React.FC<PhoneFieldProps> = ({
   label, value, onChange, required, disabled, icon
 }) => {
-  // Format phone number as user types
-  const formatPhoneNumber = (val: string) => {
-    // Remove all non-digits
-    const phoneNumber = val.replace(/\D/g, '');
-    
-    // Limit to 10 digits for Lao phone numbers
-    if (phoneNumber.length <= 10) {
-      // Format as XXX-XXX-XXXX
-      if (phoneNumber.length >= 7) {
-        return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
-      } else if (phoneNumber.length >= 4) {
-        return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3)}`;
-      }
-      return phoneNumber;
-    }
-    return value; // Don't update if too long
-  };
-
+  // ไม่ทำการ format แล้ว - เก็บเป็นตัวเลขธรรมดา
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value);
-    onChange(formatted);
+    const inputValue = e.target.value;
+    
+    // อนุญาตเฉพาะตัวเลขและขีดกลาง (สำหรับผู้ใช้ที่ต้องการใส่เอง)
+    const cleanValue = inputValue.replace(/[^\d-]/g, '');
+    
+    // จำกัดความยาว (เบอร์ลาว 8-10 หลัก + ขีดกลาง)
+    if (cleanValue.length <= 12) {
+      onChange(cleanValue);
+    }
   };
 
   const baseClasses = `w-full border-2 border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none ${icon ? 'pl-10' : ''}`;
@@ -98,16 +88,15 @@ export const PhoneField: React.FC<PhoneFieldProps> = ({
         <input
           type="tel"
           className={baseClasses}
-          placeholder="020-5555-5555"
+          placeholder="20XXXXXXXX หรือ 020-XXXX-XXXX"
           value={value}
           onChange={handleChange}
           required={required}
           disabled={disabled}
-          maxLength={12} // XXX-XXX-XXXX format
         />
       </div>
       <p className="text-xs text-gray-500 mt-1">
-        ກະລຸນາໃສ່ເບີໂທ 10 ຫຼັກ (ຕົວຢ່າງ: 020-5555-5555)
+        ໃສ່ເບີໂທໃຫ້ຖືກຕ້ອງ (ຕົວຢ່າງ: 20xxxxxxxx)
       </p>
     </div>
   );

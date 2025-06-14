@@ -1,4 +1,4 @@
-// app/driver-portal/trip-management/page.tsx - FULL CODE with Fixed Notifications
+// app/driver-portal/trip-management/page.tsx - แก้ไขเฉพาะ Group Ticket โดยไม่เปลี่ยนสไตล์
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -163,7 +163,7 @@ export default function ImprovedDriverTripManagementPage() {
     }
   };
 
-  // ✅ FIXED: สแกน QR Code หรือ Manual Input - แก้ไขการแจ้งเตือน
+  // ✅ FIXED: สแกน QR Code หรือ Manual Input - แก้ไขเฉพาะการรองรับ Group Ticket
   const processTicketScan = async (ticketData: string) => {
     if (!ticketData.trim()) {
       setScanResult('❌ ກະລຸນາໃສ່ເລກທີ່ຂອງປີ້');
@@ -174,17 +174,44 @@ export default function ImprovedDriverTripManagementPage() {
     try {
       setScanning(true);
       
+      // ✅ เพิ่มการตรวจสอบ Group Ticket JSON
+      let ticketId = ticketData.trim();
+      let qrData = undefined;
+      
+      try {
+        const parsed = JSON.parse(ticketData);
+        if (parsed.ticketNumber) {
+          ticketId = parsed.ticketNumber;
+          qrData = ticketData; // ส่ง JSON ต้นฉบับ
+          console.log('🎫 Group Ticket detected:', parsed);
+        }
+      } catch {
+        // ถ้าไม่ใช่ JSON ใช้เป็น plain text (Individual Ticket)
+        console.log('📝 Individual Ticket detected:', ticketData);
+      }
+      
+      const requestBody: any = { ticketId };
+      if (qrData) {
+        requestBody.qrData = qrData;
+      }
+      
       const response = await fetch('/api/driver/trip/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketId: ticketData.trim() })
+        body: JSON.stringify(requestBody)
       });
       
       const result = await response.json();
       
       if (result.success) {
-        // ✅ แสดง success notification ปกติ (เก็บไว้)
-        notificationService.success(result.message);
+        // ✅ แสดงข้อความที่เหมาะสมกับประเภทตั๋ว
+        if (result.group_ticket_info?.is_group_ticket) {
+          notificationService.success(
+            `✅ ສະແກນປີ້ກະລຸ່ມສຳເລັດ! ເພີ່ມ ${result.ticket_info.passenger_count} ຄົນ`
+          );
+        } else {
+          notificationService.success(result.message);
+        }
         
         // แสดงข้อความเพิ่มเติม
         if (result.status_message) {
@@ -196,21 +223,14 @@ export default function ImprovedDriverTripManagementPage() {
         setTicketInput('');
         await fetchData(false);
       } else {
-        // ✅ เช็คว่าเป็น error ประเภท "ตั๋วซ้ำ" หรือไม่
+        // เช็คว่าเป็น error ประเภท "ตั๋วซ้ำ" หรือไม่
         const isDuplicateTicket = result.error && result.error.includes('ຖືກສະແກນໄປແລ້ວ');
         
         if (isDuplicateTicket) {
-          // ❌ ถ้าเป็นตั๋วซ้ำ → แจ้งเฉพาะ warning (ไม่แจ้ง error)
+          // ถ้าเป็นตั๋วซ้ำ → แจ้งเฉพาะ warning
           notificationService.warning(result.error);
-          
-          // ❌ ลบการแสดงรายละเอียดเพิ่มเติม (ไม่แสดงซ้อน)
-          // if (result.details?.message) {
-          //   setTimeout(() => {
-          //     notificationService.warning(result.details.message);
-          //   }, 500);
-          // }
         } else {
-          // ✅ ถ้าเป็น error อื่นๆ → แจ้ง error ปกติ
+          // ถ้าเป็น error อื่นๆ → แจ้ง error ปกติ
           notificationService.error(result.error);
         }
       }
@@ -222,13 +242,10 @@ export default function ImprovedDriverTripManagementPage() {
     }
   };
 
-  // ✅ FIXED: Handle QR Scanner result - ไม่แจ้ง success ก่อนเช็คตั๋วซ้ำ
+  // ✅ FIXED: Handle QR Scanner result - รองรับ Group Ticket
   const handleQRScanResult = (ticketNumber: string) => {
     setShowQRScanner(false);
     setTicketInput(ticketNumber);
-    
-    // ❌ ลบการแจ้ง success ออก - จะแจ้งใน processTicketScan แทน
-    // notificationService.success(`ສະແກນສຳເລັດ: ${ticketNumber}`);
     
     // ทำการ process ทันที
     processTicketScan(ticketNumber);

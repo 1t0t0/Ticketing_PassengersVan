@@ -1,6 +1,8 @@
-// app/dashboard/users/components/lists/StaffList.tsx - Updated with Notification Service
+// app/dashboard/users/components/lists/StaffList.tsx - Fixed to handle modals outside table
 import React, { useState } from 'react';
 import UserCard from '../UserCard';
+import EditUserModal from '../EditUserModal';
+import ViewUserModal from '../ViewUserModal';
 import { User } from '../../types';
 import { deleteUser } from '../../api/user';
 import notificationService from '@/lib/notificationService';
@@ -13,6 +15,8 @@ interface StaffListProps {
 
 const StaffList: React.FC<StaffListProps> = ({ staff, showConfirmation, onRefresh }) => {
   const [loading, setLoading] = useState(false);
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [viewUser, setViewUser] = useState<User | null>(null);
   
   const handleDeleteStaff = async (userId: string, role: string, name: string) => {
     showConfirmation(`ລຶບພະນັກງານ ${name} ບໍ?`, async () => {
@@ -28,6 +32,24 @@ const StaffList: React.FC<StaffListProps> = ({ staff, showConfirmation, onRefres
         setLoading(false);
       }
     });
+  };
+
+  const handleEdit = (user: User) => {
+    setEditUser(user);
+  };
+
+  const handleView = (user: User) => {
+    setViewUser(user);
+  };
+
+  const handleCloseModals = () => {
+    setEditUser(null);
+    setViewUser(null);
+  };
+
+  const handleSuccess = () => {
+    onRefresh();
+    handleCloseModals();
   };
   
   if (loading) {
@@ -48,29 +70,49 @@ const StaffList: React.FC<StaffListProps> = ({ staff, showConfirmation, onRefres
   }
   
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <table className="w-full">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ຜູ້ໃຊ້</th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ຕຳແໜ່ງ</th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ລະຫັດ</th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ສະຖານະ</th>
-            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ການດຳເນີນການ</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {staff.map((staffMember) => (
-            <UserCard 
-              key={staffMember._id}
-              user={staffMember}
-              onDelete={handleDeleteStaff}
-              onRefresh={onRefresh}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ຜູ້ໃຊ້</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ຕຳແໜ່ງ</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ລະຫັດ</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ສະຖານະ</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">ການດຳເນີນການ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {staff.map((staffMember) => (
+              <UserCard 
+                key={staffMember._id}
+                user={staffMember}
+                onDelete={handleDeleteStaff}
+                onRefresh={onRefresh}
+                onEdit={handleEdit}
+                onView={handleView}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modals rendered outside the table structure */}
+      {editUser && (
+        <EditUserModal 
+          user={editUser} 
+          onClose={handleCloseModals} 
+          onSuccess={handleSuccess} 
+        />
+      )}
+      
+      {viewUser && (
+        <ViewUserModal 
+          user={viewUser} 
+          onClose={handleCloseModals} 
+        />
+      )}
+    </>
   );
 };
 

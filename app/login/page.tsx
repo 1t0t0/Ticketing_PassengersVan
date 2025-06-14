@@ -1,4 +1,4 @@
-// app/login/page.tsx - Updated to use phone number instead of email
+// app/login/page.tsx - Fixed to not auto-format phone numbers
 'use client';
 
 import { signIn } from 'next-auth/react';
@@ -14,27 +14,16 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Format phone number as user types
-  const formatPhoneNumber = (value: string) => {
-    // Remove all non-digits
-    const phoneNumber = value.replace(/\D/g, '');
-    
-    // Limit to 10 digits for Lao phone numbers
-    if (phoneNumber.length <= 10) {
-      // Format as XXX-XXX-XXXX or similar
-      if (phoneNumber.length >= 7) {
-        return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
-      } else if (phoneNumber.length >= 4) {
-        return `${phoneNumber.slice(0, 3)}-${phoneNumber.slice(3)}`;
-      }
-      return phoneNumber;
-    }
-    return phone; // Don't update if too long
-  };
-
+  // แก้ไข: ไม่ทำการ format เบอร์โทรอัตโนมัติ
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value);
-    setPhone(formatted);
+    const value = e.target.value;
+    // อนุญาตเฉพาะตัวเลขและขีดกลาง (สำหรับผู้ใช้ที่ต้องการใส่เอง)
+    const cleanValue = value.replace(/[^\d-]/g, '');
+    
+    // จำกัดความยาว
+    if (cleanValue.length <= 12) {
+      setPhone(cleanValue);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +32,7 @@ export default function LoginPage() {
     setError('');
     
     try {
-      // Remove formatting for login
+      // ลบขีดกลางออกเพื่อการ login
       const cleanPhone = phone.replace(/\D/g, '');
       
       const result = await signIn('credentials', {
@@ -115,14 +104,14 @@ export default function LoginPage() {
                     value={phone}
                     onChange={handlePhoneChange}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="20-5555-5555"
+                    placeholder="20xxxxxxxx"
                     required
                     disabled={isLoading}
-                    maxLength={12} // XXX-XXX-XXXX format
+                    maxLength={12}
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  ກະລຸນາໃສ່ເບີໂທ 10 ຫຼັກ (ຕົວຢ່າງ: 20-5555-5555)
+                  ກະລຸນາໃສ່ເບີໂທ 8-10 ຫຼັກ (ຕົວຢ່າງ: 20xxxxxxxx)
                 </p>
               </div>
 
@@ -162,8 +151,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-         
         </div>
 
         {/* Footer */}
