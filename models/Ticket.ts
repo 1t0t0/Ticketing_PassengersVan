@@ -39,7 +39,7 @@ const ticketSchema = new mongoose.Schema({
   },
   
   // ✅ เพิ่มฟิลด์สำหรับ Group Ticket
-  ticketType: {
+  ticketType: {     
     type: String,
     enum: ['individual', 'group'],
     default: 'individual',
@@ -55,7 +55,7 @@ const ticketSchema = new mongoose.Schema({
   pricePerPerson: {
     type: Number,
     required: true,
-    default: 45000
+    default: 4500
   }
 });
 

@@ -17,7 +17,6 @@ export interface IUser extends Document {
   lastCheckIn?: Date;
   lastCheckOut?: Date;
   
-  // เพิ่มฟิลด์ birthDate
   birthDate?: string;
   
   // Station specific fields

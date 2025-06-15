@@ -60,7 +60,7 @@ const TicketFilters: React.FC<TicketFiltersProps> = ({
               }`}
               onClick={() => onFilterChange({ ...filters, ticketType: 'individual', page: 1 })}
             >
-              ປກติ
+              ປົກກະຕິ
             </button>
             
             <button

@@ -1,4 +1,3 @@
-// models/DriverTrip.ts - แก้ไข index conflict
 import mongoose, { Document, Schema, Model } from 'mongoose';
 
 export interface IDriverTrip extends Document {
@@ -89,23 +88,16 @@ const driverTripSchema = new Schema({
   } 
 });
 
-// ✅ แก้ไข: เก็บเฉพาะ index ที่จำเป็นและไม่ทำให้เกิดปัญหา
 driverTripSchema.index({ driver_id: 1, date: 1, trip_number: 1 });
 driverTripSchema.index({ status: 1 });
-// ❌ ลบ index นี้ออกเพราะทำให้เกิด duplicate key error
-// driverTripSchema.index({ 'scanned_tickets.ticket_id': 1 }, { sparse: true });
 
-// ✅ เพิ่ม compound index ที่ปลอดภัยกว่า
 driverTripSchema.index({ driver_id: 1, date: 1, status: 1 });
 
-// Static method: สแกน QR Code (แก้ไขเพื่อไม่ใช้ mongoose.model ใน method)
 driverTripSchema.statics.scanQRCode = async function(driverId: string, ticketId: string) {
   try {
-    // Import models ที่จำเป็น
     const Ticket = mongoose.models.Ticket || require('./Ticket').default;
     const today = new Date().toISOString().split('T')[0];
     
-    // ตรวจสอบว่ามีรอบที่กำลังดำเนินการอยู่หรือไม่
     const activeTrip = await this.findOne({
       driver_id: driverId,
       date: today,
@@ -116,7 +108,6 @@ driverTripSchema.statics.scanQRCode = async function(driverId: string, ticketId:
       throw new Error('ກະລຸນາເລີ່ມການເດີນທາງກ່ອນ');
     }
     
-    // ✅ แก้ไข: ใช้วิธีตรวจสอบที่ปลอดภัยกว่า
     const ticketAlreadyScanned = activeTrip.scanned_tickets.some(
       (scan: any) => scan.ticket_id.toString() === ticketId
     );
@@ -142,11 +133,9 @@ driverTripSchema.statics.scanQRCode = async function(driverId: string, ticketId:
     
     activeTrip.current_passengers = passengerOrder;
     
-    // ตรวจสอบว่าครบ 80% หรือไม่
     const is80PercentReached = activeTrip.current_passengers >= activeTrip.required_passengers;
     activeTrip.is_80_percent_reached = is80PercentReached;
     
-    // ถ้าครบ 80% ให้เปลี่ยนสถานะเป็น completed
     if (is80PercentReached) {
       activeTrip.status = 'completed';
       activeTrip.completed_at = new Date();
