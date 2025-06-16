@@ -353,11 +353,11 @@ const renderDriverReport = () => {
       {/* สถิติสรุป */}
       <div className="overflow-x-auto">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 min-w-[800px]">
-          <StatCard icon={<FiUsers />} title="ทั้งหมด" value={summary.totalDrivers || 0} color="blue" />
-          <StatCard icon={<FiCheck />} title="ที่ทำงาน" value={summary.workingDriversInPeriod || 0} color="green" />
-          <StatCard icon={<FiDollarSign />} title="มีสิทธิ์ได้เงิน" value={qualifiedDrivers.length} color="green" />
-          <StatCard icon={<FiX />} title="ไม่มีสิทธิ์" value={nonQualifiedDrivers.length} color="gray" />
-          <StatCard icon={<FiBarChart />} title="รายได้เฉลี่ย" value={`₭${((reportData.metadata?.revenuePerDriver || 0)).toLocaleString()}`} color="blue" />
+          <StatCard icon={<FiUsers />} title="ທັງໝົດ" value={summary.totalDrivers || 0} color="blue" />
+          <StatCard icon={<FiCheck />} title="ເຮັດວຽກ" value={summary.workingDriversInPeriod || 0} color="green" />
+          <StatCard icon={<FiDollarSign />} title="ທີ່ຜ່ານຂັ້ນຕ່ຳແລ້ວ" value={qualifiedDrivers.length} color="green" />
+          <StatCard icon={<FiX />} title="ບໍ່ຜ່ານຂັ້ນຕ່ຳ" value={nonQualifiedDrivers.length} color="gray" />
+          <StatCard icon={<FiBarChart />} title="ລາຍໄດ້ສະເລ່ຍ" value={`₭${((reportData.metadata?.revenuePerDriver || 0)).toLocaleString()}`} color="blue" />
         </div>
       </div>
 
