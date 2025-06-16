@@ -322,155 +322,172 @@ const ReportContent: React.FC<ReportContentProps> = ({ reportData, reportType, l
     );
   };
 
-  // ✅ รายงานคนขับ
-  const renderDriverReport = () => {
-    const summary = reportData.summary || {};
-    const drivers = reportData.drivers || [];
-    
-    // แยก drivers ที่มีสิทธิ์ กับ ไม่มีสิทธิ์
-    const qualifiedDrivers = drivers.filter((d: any) => (d.totalIncome || 0) > 0);
-    const nonQualifiedDrivers = drivers.filter((d: any) => (d.totalIncome || 0) === 0);
-    
-    // Pagination
-    const totalDrivers = drivers.length;
-    const totalPages = Math.ceil(totalDrivers / ITEMS_PER_PAGE);
-    const startIndex = (driverPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    const currentDrivers = drivers.slice(startIndex, endIndex);
+ // แก้ไขในส่วน renderDriverReport ของไฟล์ ReportContent.tsx
 
-    return (
-      <div className="space-y-6">
-        {/* สถิติสรุป */}
-        <div className="overflow-x-auto">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 min-w-[800px]">
-            <StatCard icon={<FiUsers />} title="ทั้งหมด" value={summary.totalDrivers || 0} color="blue" />
-            <StatCard icon={<FiCheck />} title="ที่ทำงาน" value={summary.workingDriversInPeriod || 0} color="green" />
-            <StatCard icon={<FiDollarSign />} title="มีสิทธิ์ได้เงิน" value={qualifiedDrivers.length} color="green" />
-            <StatCard icon={<FiX />} title="ไม่มีสิทธิ์" value={nonQualifiedDrivers.length} color="gray" />
-            <StatCard icon={<FiBarChart />} title="รายได้เฉลี่ย" value={`₭${((reportData.metadata?.revenuePerDriver || 0)).toLocaleString()}`} color="blue" />
-          </div>
+const renderDriverReport = () => {
+  const summary = reportData.summary || {};
+  // ✅ แก้ไข: ตรวจสอบให้แน่ใจว่า drivers เป็น array
+  const drivers = Array.isArray(reportData.drivers) ? reportData.drivers : [];
+  
+  console.log('🔍 Debug - renderDriverReport:', {
+    reportData: reportData,
+    drivers: drivers,
+    driversType: typeof drivers,
+    driversLength: drivers.length,
+    isArray: Array.isArray(drivers)
+  });
+  
+  // แยก drivers ที่มีสิทธิ์ กับ ไม่มีสิทธิ์
+  const qualifiedDrivers = drivers.filter((d: any) => (d.totalIncome || 0) > 0);
+  const nonQualifiedDrivers = drivers.filter((d: any) => (d.totalIncome || 0) === 0);
+  
+  // Pagination
+  const totalDrivers = drivers.length;
+  const totalPages = Math.ceil(totalDrivers / ITEMS_PER_PAGE);
+  const startIndex = (driverPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentDrivers = drivers.slice(startIndex, endIndex);
+
+  return (
+    <div className="space-y-6">
+      {/* สถิติสรุป */}
+      <div className="overflow-x-auto">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 min-w-[800px]">
+          <StatCard icon={<FiUsers />} title="ทั้งหมด" value={summary.totalDrivers || 0} color="blue" />
+          <StatCard icon={<FiCheck />} title="ที่ทำงาน" value={summary.workingDriversInPeriod || 0} color="green" />
+          <StatCard icon={<FiDollarSign />} title="มีสิทธิ์ได้เงิน" value={qualifiedDrivers.length} color="green" />
+          <StatCard icon={<FiX />} title="ไม่มีสิทธิ์" value={nonQualifiedDrivers.length} color="gray" />
+          <StatCard icon={<FiBarChart />} title="รายได้เฉลี่ย" value={`₭${((reportData.metadata?.revenuePerDriver || 0)).toLocaleString()}`} color="blue" />
         </div>
+      </div>
 
-        {/* กล่องสรุปรายได้ */}
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-green-800 mb-4">💰 ສະຫຼຸບລາຍຮັບພະນັກງານຂັບລົດ</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center bg-white rounded-lg p-4 border">
-              <div className="text-2xl font-bold text-green-600">₭{(summary.totalIncome || 0).toLocaleString()}</div>
-              <div className="text-sm text-gray-600">ລາຍຮັບລວມ (85%)</div>
-            </div>
-            <div className="text-center bg-white rounded-lg p-4 border">
-              <div className="text-2xl font-bold text-blue-600">{qualifiedDrivers.length}</div>
-              <div className="text-sm text-gray-600">ທຳຄົບ 2 ຮອບ</div>
-            </div>
-            <div className="text-center bg-white rounded-lg p-4 border">
-              <div className="text-2xl font-bold text-purple-600">₭{(reportData.metadata?.revenuePerDriver || 0).toLocaleString()}</div>
-              <div className="text-sm text-gray-600">ລາຍຮັບເຊລີ່ຍຕໍ່ຄົນ</div>
-            </div>
-            <div className="text-center bg-white rounded-lg p-4 border">
-              <div className="text-2xl font-bold text-orange-600">{nonQualifiedDrivers.length}</div>
-              <div className="text-sm text-gray-600">ບໍ່ມີສິທິ່ຮັບລາຍຮັບ</div>
-            </div>
+      {/* กล่องสรุปรายได้ */}
+      <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-green-800 mb-4">💰 ສະຫຼຸບລາຍຮັບພະນັກງານຂັບລົດ</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center bg-white rounded-lg p-4 border">
+            <div className="text-2xl font-bold text-green-600">₭{(summary.totalIncome || 0).toLocaleString()}</div>
+            <div className="text-sm text-gray-600">ລາຍຮັບລວມ (85%)</div>
           </div>
-        </div>
-
-        {/* ตารางคนขับที่มีสิทธิ์ */}
-        {qualifiedDrivers.length > 0 && (
-          <div className="bg-white border rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-3 text-green-700">
-              ✅ ພະນັກງານຂັບລົດທີ່ມີສິທິ່ຮັບລາຍຮັບ ({qualifiedDrivers.length} ຄົນ)
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-green-50">
-                    <th className="text-left p-2">#</th>
-                    <th className="text-left p-2">ຊື່</th>
-                    <th className="text-center p-2">ລະຫັດ</th>
-                    <th className="text-center p-2">ວັນທຳງານ</th>
-                    <th className="text-center p-2">ລາຍຮັບ</th>
-                    <th className="text-center p-2">ສະຖານະ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {qualifiedDrivers.slice(0, 10).map((driver: any, index: number) => (
-                    <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="p-2">{index + 1}</td>
-                      <td className="p-2 font-medium">{driver.name || 'ບໍ່ລະບຸ'}</td>
-                      <td className="p-2 text-center">{driver.employeeId || '-'}</td>
-                      <td className="p-2 text-center">{driver.workDays || 0}</td>
-                      <td className="p-2 text-center font-bold text-green-600">
-                        ₭{(driver.totalIncome || 0).toLocaleString()}
-                      </td>
-                      <td className="p-2 text-center">
-                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
-                          ມີສິທິ່ຮັບລາຍຮັບ
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="text-center bg-white rounded-lg p-4 border">
+            <div className="text-2xl font-bold text-blue-600">{qualifiedDrivers.length}</div>
+            <div className="text-sm text-gray-600">ທຳຄົບ 2 ຮອບ</div>
           </div>
-        )}
-
-        {/* ตารางคนขับที่ไม่มีสิทธิ์ */}
-        {nonQualifiedDrivers.length > 0 && (
-          <div className="bg-white border rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-3 text-red-700">
-              ❌ ພະນັກງານຂັບລົດທີ່ບໍ່ມີສິທິ່ຮັບລາຍຮັບ ({nonQualifiedDrivers.length} ຄົນ)
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-red-50">
-                    <th className="text-left p-2">#</th>
-                    <th className="text-left p-2">ຊື່</th>
-                    <th className="text-center p-2">ລະຫັດ</th>
-                    <th className="text-center p-2">ວັນທຳງານ</th>
-                    <th className="text-center p-2">ລາຍຮັບ</th>
-                    <th className="text-center p-2">ສະຖານະ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {nonQualifiedDrivers.slice(0, 10).map((driver: any, index: number) => (
-                    <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="p-2">{index + 1}</td>
-                      <td className="p-2 font-medium">{driver.name || 'ບໍ່ລະບຸ'}</td>
-                      <td className="p-2 text-center">{driver.employeeId || '-'}</td>
-                      <td className="p-2 text-center">{driver.workDays || 0}</td>
-                      <td className="p-2 text-center font-bold text-red-600">₭0</td>
-                      <td className="p-2 text-center">
-                        <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
-                          ບໍ່ມີສິທິ່
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="text-center bg-white rounded-lg p-4 border">
+            <div className="text-2xl font-bold text-purple-600">₭{(reportData.metadata?.revenuePerDriver || 0).toLocaleString()}</div>
+            <div className="text-sm text-gray-600">ລາຍຮັບເຊລີ່ຍຕໍ່ຄົນ</div>
           </div>
-        )}
-
-        {/* คำอธิบายเงื่อนไข */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <FiInfo className="text-blue-600 mr-2 mt-1 flex-shrink-0" />
-            <div className="text-sm text-blue-700">
-              <p className="font-semibold mb-1">ເງື່ອນໄຂການຮັບລາຍຮັບ:</p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>ຕ້ອງທຳການເດີນທາງຄົບ 2 ຮອບຕໍ່ວັນ</li>
-                <li>ແຕ່ລະຮອບຕ້ອງມີຜູ້ໂດຍສານອັງນ້ອຍ 80% ຂອງຄວາມຈຸລົດ</li>
-                <li>ລາຍຮັບທັງໝົດ 85% ຈະຖືກແບ່ງເທົ່າໆກັນລະຫວ່າງພະນັກງານຂັບລົດທີ່ມີສິທິ່</li>
-              </ul>
-            </div>
+          <div className="text-center bg-white rounded-lg p-4 border">
+            <div className="text-2xl font-bold text-orange-600">{nonQualifiedDrivers.length}</div>
+            <div className="text-sm text-gray-600">ບໍ່ມີສິທິ່ຮັບລາຍຮັບ</div>
           </div>
         </div>
       </div>
-    );
-  };
+
+      {/* ตารางคนขับที่มีสิทธิ์ */}
+      {qualifiedDrivers.length > 0 && (
+        <div className="bg-white border rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-3 text-green-700">
+            ✅ ພະນັກງານຂັບລົດທີ່ມີສິທິ່ຮັບລາຍຮັບ ({qualifiedDrivers.length} ຄົນ)
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-green-50">
+                  <th className="text-left p-2">#</th>
+                  <th className="text-left p-2">ຊື່</th>
+                  <th className="text-center p-2">ລະຫັດ</th>
+                  <th className="text-center p-2">ວັນທຳງານ</th>
+                  <th className="text-center p-2">ລາຍຮັບ</th>
+                  <th className="text-center p-2">ສະຖານະ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {qualifiedDrivers.slice(0, 10).map((driver: any, index: number) => (
+                  <tr key={index} className="border-b hover:bg-gray-50">
+                    <td className="p-2">{index + 1}</td>
+                    <td className="p-2 font-medium">{driver.name || 'ບໍ່ລະບຸ'}</td>
+                    <td className="p-2 text-center">{driver.employeeId || '-'}</td>
+                    <td className="p-2 text-center">{driver.workDays || 0}</td>
+                    <td className="p-2 text-center font-bold text-green-600">
+                      ₭{(driver.totalIncome || 0).toLocaleString()}
+                    </td>
+                    <td className="p-2 text-center">
+                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
+                        ມີສິທິ່ຮັບລາຍຮັບ
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ตารางคนขับที่ไม่มีสิทธิ์ */}
+      {nonQualifiedDrivers.length > 0 && (
+        <div className="bg-white border rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-3 text-red-700">
+            ❌ ພະນັກງານຂັບລົດທີ່ບໍ່ມີສິທິ່ຮັບລາຍຮັບ ({nonQualifiedDrivers.length} ຄົນ)
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-red-50">
+                  <th className="text-left p-2">#</th>
+                  <th className="text-left p-2">ຊື່</th>
+                  <th className="text-center p-2">ລະຫັດ</th>
+                  <th className="text-center p-2">ວັນທຳງານ</th>
+                  <th className="text-center p-2">ລາຍຮັບ</th>
+                  <th className="text-center p-2">ສະຖານະ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {nonQualifiedDrivers.slice(0, 10).map((driver: any, index: number) => (
+                  <tr key={index} className="border-b hover:bg-gray-50">
+                    <td className="p-2">{index + 1}</td>
+                    <td className="p-2 font-medium">{driver.name || 'ບໍ່ລະບຸ'}</td>
+                    <td className="p-2 text-center">{driver.employeeId || '-'}</td>
+                    <td className="p-2 text-center">{driver.workDays || 0}</td>
+                    <td className="p-2 text-center font-bold text-red-600">₭0</td>
+                    <td className="p-2 text-center">
+                      <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
+                        ບໍ່ມີສິທິ່
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* แสดงข้อความเมื่อไม่มีข้อมูล */}
+      {drivers.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+          <p className="text-yellow-700">📋 ບໍ່ມີຂໍ້ມູນພະນັກງານຂັບລົດໃນຊ່ວງເວລານີ້</p>
+        </div>
+      )}
+
+      {/* คำอธิบายเงื่อนไข */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start">
+          <FiInfo className="text-blue-600 mr-2 mt-1 flex-shrink-0" />
+          <div className="text-sm text-blue-700">
+            <p className="font-semibold mb-1">ເງື່ອນໄຂການຮັບລາຍຮັບ:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>ຕ້ອງທຳການເດີນທາງຄົບ 2 ຮອບຕໍ່ວັນ</li>
+              <li>ແຕ່ລະຮອບຕ້ອງມີຜູ້ໂດຍສານອັງນ້ອຍ 80% ຂອງຄວາມຈຸລົດ</li>
+              <li>ລາຍຮັບທັງໝົດ 85% ຈະຖືກແບ່ງເທົ່າໆກັນລະຫວ່າງພະນັກງານຂັບລົດທີ່ມີສິທິ່</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   // ✅ รายงานการเงิน
   const renderFinancialReport = () => {

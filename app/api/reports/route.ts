@@ -287,7 +287,7 @@ async function getSalesReport(startDate: Date, endDate: Date) {
   });
 }
 
-// ✅ รายงานคนขับ - ปรับปรุงให้มีข้อมูลครบ
+
 async function getDriverReport(startDate: Date, endDate: Date) {
   try {
     console.log('📊 Driver Report - Date range:', startDate, 'to', endDate);
@@ -385,6 +385,9 @@ async function getDriverReport(startDate: Date, endDate: Date) {
       revenuePerDriver
     });
     
+    // ✅ ตรวจสอบให้แน่ใจว่า drivers เป็น array
+    const driversArray = Array.isArray(driversWithRevenue) ? driversWithRevenue : [];
+    
     return NextResponse.json({
       type: 'drivers',
       period: { startDate, endDate },
@@ -396,7 +399,7 @@ async function getDriverReport(startDate: Date, endDate: Date) {
         totalIncome: driversShare,
         revenuePerDriver: revenuePerDriver
       },
-      drivers: driversWithRevenue,
+      drivers: driversArray, // ✅ ใช้ driversArray แทน driversWithRevenue
       metadata: {
         totalRevenue: totalRevenue,
         driverSharePercentage: 85,
@@ -409,6 +412,8 @@ async function getDriverReport(startDate: Date, endDate: Date) {
     
   } catch (error) {
     console.error('❌ Driver Report Error:', error);
+    
+    // ✅ ส่งข้อมูล default ที่มี drivers เป็น array เปล่า
     return NextResponse.json({
       type: 'drivers',
       period: { startDate, endDate },
@@ -420,7 +425,7 @@ async function getDriverReport(startDate: Date, endDate: Date) {
         totalIncome: 0,
         revenuePerDriver: 0
       },
-      drivers: [],
+      drivers: [], // ✅ ส่ง array เปล่าแทนที่จะไม่ส่งอะไร
       metadata: {
         totalRevenue: 0,
         driverSharePercentage: 85,
