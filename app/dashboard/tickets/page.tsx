@@ -1,22 +1,25 @@
-// app/dashboard/tickets/page.tsx - Enhanced with Group Ticket Support
+// app/dashboard/tickets/page.tsx - Enhanced with Admin Settings Icon
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 import NeoCard from '@/components/ui/NotionCard';
 import { StatsCards, TicketSalesForm, RecentTicketsList, PrintableTicket } from './components';
 import TicketConfirmationModal from './components/TicketConfirmationModal';
-import { FiRefreshCw } from 'react-icons/fi';
+import AdminSettingsModal from './components/AdminSettingsModal';
+import { FiRefreshCw, FiSettings } from 'react-icons/fi';
 
 import useTicketSales from './hooks/useTicketSales';
 import useTicketStats from './hooks/useTicketStats';
-import { Ticket } from 'lucide-react';
 
 export default function TicketSalesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  
+  // ✅ เพิ่ม state สำหรับ Settings Modal
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   const { 
     ticketPrice, paymentMethod, setPaymentMethod, createdTickets,
@@ -24,10 +27,13 @@ export default function TicketSalesPage() {
     quantity, updateQuantity, loading,
     
     // ✅ Group Ticket related
-    ticketType, updateTicketType
+    ticketType, updateTicketType, refreshTicketPrice // ✅ เพิ่มฟังก์ชันรีเฟรชราคา
   } = useTicketSales();
   
   const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
+
+  // ✅ ตรวจสอบสิทธิ์ Admin
+  const isAdmin = session?.user?.role === 'admin';
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login');
@@ -53,13 +59,24 @@ export default function TicketSalesPage() {
     }
   };
 
+  // ✅ ฟังก์ชันเปิด Settings Modal (เฉพาะ Admin)
+  const handleOpenSettings = () => {
+    if (isAdmin) {
+      setShowSettingsModal(true);
+    }
+  };
+
+  // ✅ ฟังก์ชันปิด Settings Modal
+  const handleCloseSettings = () => {
+    setShowSettingsModal(false);
+  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2"> ຫນ້າການອອກປີ້</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">ຫນ້າການອອກປີ້</h1>
             <p className="text-gray-600">ລະບົບອອກປີ້ລົດໂດຍສານ ແລະ ຈັດການຂໍ້ມູນສະຖິຕິ</p>
           </div>
           
@@ -82,7 +99,21 @@ export default function TicketSalesPage() {
           <NeoCard className="h-full p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">ດຳເນີນການອອກປີ້</h2>
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              
+              <div className="flex items-center gap-2">
+                {/* ✅ ไอคอน Settings - แสดงเฉพาะ Admin */}
+                {isAdmin && (
+                  <button
+                    onClick={handleOpenSettings}
+                    className="p-2 text-gray-400 hover:text-blue-600 transition rounded-lg hover:bg-blue-50 group"
+                    title="ການຕັ້ງຄ່າລະບົບ (ເຉພາະແອດມິນ)"
+                  >
+                    <FiSettings className="h-5 w-5 group-hover:rotate-90 transition-transform duration-200" />
+                  </button>
+                )}
+                
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              </div>
             </div>
             
             <TicketSalesForm
@@ -145,6 +176,19 @@ export default function TicketSalesPage() {
         onTicketTypeChange={updateTicketType}
       />
 
+      {/* ✅ Admin Settings Modal */}
+      {isAdmin && (
+        <AdminSettingsModal
+          isOpen={showSettingsModal}
+          onClose={handleCloseSettings}
+          onSettingsUpdate={() => {
+            // ✅ รีเฟรชข้อมูลทั้งหมดเมื่อมีการอัปเดต Settings
+            fetchData();
+            refreshTicketPrice(); // ✅ รีเฟรชราคาปี้ใหม่
+          }}
+        />
+      )}
+
       {/* ✅ Print Area - รองรับ Group Ticket */}
       <div className="hidden">
         {createdTickets.length > 0 && createdTickets.map((ticket, index) => (
@@ -156,7 +200,7 @@ export default function TicketSalesPage() {
             soldBy={ticket.soldBy}
             paymentMethod={ticket.paymentMethod}
             
-            // ✅ เพิ่ม Props สำหรับ Group Ticket
+            // ✅ เพิ่ม Props สำหรับ Group Ticket (ถ้ามี)
             ticketType={ticket.ticketType}
             passengerCount={ticket.passengerCount}
             pricePerPerson={ticket.pricePerPerson}
