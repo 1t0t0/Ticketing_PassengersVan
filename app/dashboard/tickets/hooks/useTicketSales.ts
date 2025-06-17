@@ -1,26 +1,48 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts - Enhanced with Group Ticket Support
-import { useState, useCallback } from 'react';
+// app/dashboard/tickets/hooks/useTicketSales.ts - Simple version with dynamic price
+import { useState, useCallback, useEffect } from 'react';
 import { createTicket } from '../api/ticket';
-import { DEFAULT_TICKET_PRICE, PAYMENT_METHODS } from '../config/constants';
+import { PAYMENT_METHODS } from '../config/constants';
 import { Ticket } from '../types';
 import notificationService from '@/lib/notificationService';
 
-/**
- * Hook สำหรับจัดการการขายตั๋ว พร้อม Group Ticket Support และ QR Code
- */
 export default function useTicketSales() {
   // State
-  const [ticketPrice] = useState(DEFAULT_TICKET_PRICE);
+  const [ticketPrice, setTicketPrice] = useState(45000); // เริ่มต้นด้วยค่าเดิม
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qr'>(PAYMENT_METHODS.CASH);
   const [loading, setLoading] = useState(false);
+  const [priceLoading, setPriceLoading] = useState(true);
   const [createdTickets, setCreatedTickets] = useState<Ticket[]>([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  
-  // ✅ เพิ่ม State สำหรับ Group Ticket
   const [ticketType, setTicketType] = useState<'individual' | 'group'>('individual');
   
-  // Helper functions สำหรับการพิมพ์
+  // ✅ ฟังก์ชันดึงราคาปี้จาก API (แบบง่าย)
+  const fetchTicketPrice = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/ticket-price');
+      const data = await response.json();
+      
+      if (data.success) {
+        setTicketPrice(data.ticketPrice);
+        console.log('✅ Ticket price loaded:', data.ticketPrice);
+      } else {
+        console.warn('⚠️ Failed to fetch ticket price, using default');
+        setTicketPrice(45000); // ใช้ค่าเดิมถ้าดึงไม่ได้
+      }
+    } catch (error) {
+      console.warn('⚠️ Error fetching ticket price, using default:', error);
+      setTicketPrice(45000); // ใช้ค่าเดิมถ้าดึงไม่ได้
+    } finally {
+      setPriceLoading(false);
+    }
+  }, []);
+  
+  // ✅ ดึงราคาเมื่อ component โหลด
+  useEffect(() => {
+    fetchTicketPrice();
+  }, [fetchTicketPrice]);
+
+  // Helper functions (เหมือนเดิม)
   const formatDateShort = (date: Date) => {
     const d = new Date(date);
     const day = d.getDate().toString().padStart(2, '0');
@@ -38,39 +60,31 @@ export default function useTicketSales() {
 
   const getPaymentMethodText = (method: string) => {
     switch (method) {
-      case 'cash':
-        return 'ເງິນສົດ/CASH';
-      case 'qr':
-        return 'QR/ໂອນ';
-      default:
-        return method;
+      case 'cash': return 'ເງິນສົດ/CASH';
+      case 'qr': return 'QR/ໂອນ';
+      default: return method;
     }
   };
 
-  // ✅ ฟังก์ชันสร้าง QR Code Data สำหรับ Group Ticket
   const generateQRCodeData = (ticket: Ticket) => {
-  if (ticket.ticketType === 'group') {
-    return JSON.stringify({
-      ticketNumber: ticket.ticketNumber,
-      passengerCount: ticket.passengerCount
-    });
-  } else {
-    return ticket.ticketNumber;
-  }
-};
+    if (ticket.ticketType === 'group') {
+      return JSON.stringify({
+        ticketNumber: ticket.ticketNumber,
+        passengerCount: ticket.passengerCount
+      });
+    } else {
+      return ticket.ticketNumber;
+    }
+  };
 
-  // ฟังก์ชันสร้าง QR Code SVG
   const generateQRCodeSVG = async (data: string) => {
     try {
       const QRCode = await import('qrcode');
       const qrCodeDataURL = await QRCode.toDataURL(data, {
-        width: 200,                    // ✅ เพิ่มขนาดสำหรับ Group Ticket
-        margin: 4,                     
-        errorCorrectionLevel: 'H',     
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
+        width: 200,
+        margin: 4,
+        errorCorrectionLevel: 'H',
+        color: { dark: '#000000', light: '#FFFFFF' }
       });
       return qrCodeDataURL;
     } catch (error) {
@@ -79,65 +93,55 @@ export default function useTicketSales() {
     }
   };
   
-  /**
-   * ฟังก์ชันแสดง Modal ยืนยัน
-   */
+  // Modal functions
   const showConfirmation = useCallback(() => {
     setShowConfirmModal(true);
   }, []);
 
-  /**
-   * ฟังก์ศันยกเลิก Modal
-   */
   const cancelConfirmation = useCallback(() => {
     setShowConfirmModal(false);
-    setQuantity(ticketType === 'group' ? 2 : 1); // ✅ รีเซ็ตตามประเภทตั๋ว
+    setQuantity(ticketType === 'group' ? 2 : 1);
   }, [ticketType]);
 
-  /**
-   * ฟังก์ชันเปลี่ยนจำนวนตั๋ว/คน
-   */
   const updateQuantity = useCallback((newQuantity: number) => {
     setQuantity(newQuantity);
   }, []);
 
-  /**
-   * ✅ ฟังก์ชันเปลี่ยนประเภทตั๋ว
-   */
   const updateTicketType = useCallback((type: 'individual' | 'group') => {
     setTicketType(type);
-    // ปรับ quantity ให้เหมาะสมกับประเภทตั๋ว
     if (type === 'group' && quantity < 2) {
-      setQuantity(2); // กลุ่มขั้นต่ำ 2 คน
+      setQuantity(2);
     } else if (type === 'individual' && quantity > 50) {
-      setQuantity(1); // ปกติเริ่มต้น 1 ใบ
+      setQuantity(1);
     }
   }, [quantity]);
 
-  /**
-   * ฟังก์ชันยืนยันการขายตั๋ว - รองรับ Group Ticket
-   */
+  // ✅ รีเฟรชราคา
+  const refreshTicketPrice = useCallback(() => {
+    setPriceLoading(true);
+    return fetchTicketPrice();
+  }, [fetchTicketPrice]);
+
+  // ✅ ขายตั๋วด้วยราคาล่าสุด
   const confirmSellTicket = useCallback(async () => {
     setLoading(true);
     try {
       let tickets: Ticket[] = [];
       
       if (ticketType === 'group') {
-        // ✅ สำหรับ Group Ticket: สร้าง 1 ใบสำหรับหลายคน
         const groupTicketData = {
-          price: ticketPrice * quantity,      // ราคารวม
+          price: ticketPrice * quantity,
           paymentMethod,
           ticketType: 'group' as const,
-          passengerCount: quantity,           // จำนวนคน
-          pricePerPerson: ticketPrice         // ราคาต่อคน
+          passengerCount: quantity,
+          pricePerPerson: ticketPrice
         };
         
         const groupTicket = await createTicket(groupTicketData);
         tickets.push(groupTicket);
         
-        notificationService.success(`ອອກປີ້ກຸ່ມສຳເລັດ: ${quantity} ຄົນ`);
+        notificationService.success(`✅ ອອກປີ້ກຸ່ມສຳເລັດ: ${quantity} ຄົນ (₭${(ticketPrice * quantity).toLocaleString()})`);
       } else {
-        // ✅ สำหรับ Individual Ticket: สร้างหลายใบ
         for (let i = 0; i < quantity; i++) {
           const individualTicketData = {
             price: ticketPrice,
@@ -151,24 +155,21 @@ export default function useTicketSales() {
           tickets.push(individualTicket);
         }
         
-        notificationService.success(`ອອກປີ້ສຳເລັດ ${quantity} ໃບ`);
+        notificationService.success(`✅ ອອກປີ້ສຳເລັດ ${quantity} ໃບ (₭${(ticketPrice * quantity).toLocaleString()})`);
       }
       
-      // เก็บตั๋วทั้งหมดที่สร้าง
       setCreatedTickets(tickets);
-      
-      // ปิด Modal และรีเซ็ตจำนวน
       setShowConfirmModal(false);
       setQuantity(ticketType === 'group' ? 2 : 1);
       
-      // เปิด print dialog ทันทีด้วยตั๋วที่เพิ่งสร้าง
+      // พิมพ์ตั๋ว
       setTimeout(() => {
         handlePrintWithTickets(tickets);
       }, 100);
       
       return tickets;
     } catch (error: any) {
-      console.error('Error selling ticket:', error);
+      console.error('❌ Error selling ticket:', error);
       notificationService.error(error.message || 'ເກີດຂໍ້ຜິດພາດໃນການຂາຍປີ້');
       throw error;
     } finally {
@@ -176,12 +177,9 @@ export default function useTicketSales() {
     }
   }, [ticketPrice, paymentMethod, quantity, ticketType]);
 
-  /**
-   * ฟังก์ชันพิมพ์ตั๋วแบบใช้ iframe พร้อม QR Code - รองรับ Group Ticket
-   */
+  // Print function (ยาวหน่อย แต่เหมือนเดิม)
   const handlePrintWithTickets = useCallback(async (tickets: Ticket[]) => {
     if (tickets && tickets.length > 0) {
-      // สร้าง QR Code สำหรับแต่ละตั๋ว
       const ticketsWithQR = await Promise.all(
         tickets.map(async (ticket) => {
           const qrData = generateQRCodeData(ticket);
@@ -190,7 +188,6 @@ export default function useTicketSales() {
         })
       );
 
-      // สร้าง iframe สำหรับพิมพ์
       const iframe = document.createElement('iframe');
       iframe.style.position = 'absolute';
       iframe.style.top = '-9999px';
@@ -201,168 +198,32 @@ export default function useTicketSales() {
       
       document.body.appendChild(iframe);
       
-      // สร้างเนื้อหา HTML สำหรับพิมพ์ พร้อม QR Code
       const printHTML = `
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Bus Tickets with QR Code</title>
+          <title>Bus Tickets</title>
           <meta charset="utf-8">
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Phetsarath:wght@400;700&display=swap');
-            
-            * {
-              font-family: "Phetsarath", serif;
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            
-            @page {
-              size: 80mm auto;
-              margin: 0;
-            }
-            
-            body {
-              width: 80mm;
-              margin: 0;
-              padding: 0;
-              background: white;
-              font-size: 12px;
-              line-height: 1.3;
-            }
-            
-            .receipt-container {
-              width: 80mm;
-              margin: 0;
-              padding: 3mm;
-              background: white;
-              page-break-after: always;
-              page-break-inside: avoid;
-            }
-            
-            .receipt-container:last-child {
-              page-break-after: avoid;
-            }
-            
-            .receipt-header {
-              text-align: center;
-            }
-            
-            .company-name {
-              font-size: 16px;
-              font-weight: bold;
-              margin-bottom: 2px;
-            }
-            
-            .company-subtitle {
-              font-size: 14px;
-              margin-bottom: 1px;
-            }
-            
-            .divider {
-              border-top: 1px solid black;
-              margin: 0.5mm 0;
-            }
-            
-            .content-section {
-              margin: 4mm 0;
-            }
-            
-            .detail-item {
-              display: flex;
-              align-items: center;
-              margin-bottom: 1mm;
-              font-size: 12px;
-              position: relative;
-            }
-            
-            .detail-label {
-              font-weight: normal;
-              width: 45%;
-              text-align: left;
-            }
-            
-            .detail-colon {
-              position: absolute;
-              left: 50%;
-              transform: translateX(-50%);
-              background: rgba(128, 128, 128, 0.1);
-              padding: 1px 3px;
-              border-radius: 2px;
-              font-weight: bold;
-            }
-            
-            .detail-value {
-              font-weight: bold;
-              width: 45%;
-              text-align: right;
-              margin-left: auto;
-            }
-           
-            .group-badge {
-              background: #4ade80;
-              color: white;
-              padding: 2px 6px;
-              border-radius: 8px;
-              font-size: 10px;
-              font-weight: bold;
-              display: inline-block;
-              margin-bottom: 2px;
-            }
-            
-            .passenger-count {
-              font-size: 18px;
-              font-weight: bold;
-              color: #16a34a;
-            }
-            
-            .qr-section {
-              text-align: center;
-              margin: 0mm 0;
-              background: #f8f9fa;
-              border-radius: 4px;
-            }
-            
-            .qr-code {
-              margin: 0mm 0;
-            }
-            
-            .qr-code img {
-              width: 200px;
-              height: 200px;
-              border: 1px solid #ddd;
-              background: white;
-              padding: 2px;
-            }
-            
-            .qr-label {
-              font-size: 10px;
-              color: #666;
-              font-weight: bold;
-              margin-bottom: 2px;
-            }
-            
-            .qr-note {
-              font-size: 12px;
-              color: #888;
-              line-height: 1.2;
-            }
-            
-            .receipt-footer {
-              text-align: center;
-              margin-top: 2mm;
-              font-size: 13px;
-              font-weight: bold;
-              color: #666;
-            }
-            
-            .cut-line {
-              text-align: center;
-              margin: 4mm 0;
-              font-size: 8px;
-              color: #999;
-            }
+            * { font-family: "Phetsarath", serif; margin: 0; padding: 0; box-sizing: border-box; }
+            @page { size: 80mm auto; margin: 0; }
+            body { width: 80mm; margin: 0; padding: 0; background: white; font-size: 12px; line-height: 1.3; }
+            .receipt-container { width: 80mm; margin: 0; padding: 3mm; background: white; page-break-after: always; page-break-inside: avoid; }
+            .receipt-container:last-child { page-break-after: avoid; }
+            .receipt-header { text-align: center; }
+            .company-name { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
+            .company-subtitle { font-size: 14px; margin-bottom: 1px; }
+            .divider { border-top: 1px solid black; margin: 0.5mm 0; }
+            .content-section { margin: 4mm 0; }
+            .detail-item { display: flex; align-items: center; margin-bottom: 1mm; font-size: 12px; position: relative; }
+            .detail-label { font-weight: normal; width: 45%; text-align: left; }
+            .detail-colon { position: absolute; left: 50%; transform: translateX(-50%); background: rgba(128, 128, 128, 0.1); padding: 1px 3px; border-radius: 2px; font-weight: bold; }
+            .detail-value { font-weight: bold; width: 45%; text-align: right; margin-left: auto; }
+            .qr-section { text-align: center; margin: 0mm 0; background: #f8f9fa; border-radius: 4px; }
+            .qr-code { margin: 0mm 0; }
+            .qr-code img { width: 200px; height: 200px; border: 1px solid #ddd; background: white; padding: 2px; }
+            .receipt-footer { text-align: center; margin-top: 2mm; font-size: 13px; font-weight: bold; color: #666; }
           </style>
         </head>
         <body>
@@ -376,8 +237,6 @@ export default function useTicketSales() {
               </div>
               
               <div class="divider"></div>
-              
-             
               
               <div class="content-section">
                 <div class="detail-item">
@@ -417,7 +276,6 @@ export default function useTicketSales() {
                   <span class="detail-colon">:</span>
                   <span class="detail-value">${ticket.soldBy || 'System'}</span>
                 </div>
-                
               </div>
               
               <div class="divider"></div>
@@ -434,43 +292,31 @@ export default function useTicketSales() {
                   <div class="qr-code">
                     <img src="${ticket.qrCodeImage}" alt="QR Code" />
                   </div>
-                 
                 </div>
-                
                 <div class="divider"></div>
               ` : ''}
               
               <div class="receipt-footer">
                 <div style="margin-bottom: 1mm;">( ຂໍໃຫ້ທ່ານເດີນທາງປອດໄພ )</div>
               </div>
-              
-              ${index < ticketsWithQR.length - 1 ? `
-                <div class="cut-line">
-                  
-                </div>
-              ` : ''}
             </div>
           `).join('')}
         </body>
         </html>
       `;
       
-      // เขียนเนื้อหาลง iframe
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
       if (iframeDoc) {
         iframeDoc.open();
         iframeDoc.write(printHTML);
         iframeDoc.close();
         
-        // รอให้โหลดเสร็จแล้วพิมพ์
         iframe.onload = () => {
           setTimeout(() => {
             try {
               iframe.contentWindow?.focus();
               iframe.contentWindow?.print();
             } catch (error) {
-              console.error('Print error:', error);
-              // Fallback: ใช้วิธีเปิดหน้าต่างใหม่
               const printWindow = window.open('', '_blank');
               if (printWindow) {
                 printWindow.document.write(printHTML);
@@ -482,7 +328,6 @@ export default function useTicketSales() {
               }
             }
             
-            // ลบ iframe หลังพิมพ์
             setTimeout(() => {
               document.body.removeChild(iframe);
             }, 2000);
@@ -494,6 +339,7 @@ export default function useTicketSales() {
   
   return {
     ticketPrice,
+    priceLoading,
     paymentMethod,
     setPaymentMethod,
     loading,
@@ -505,9 +351,8 @@ export default function useTicketSales() {
     quantity,
     updateQuantity,
     handlePrintWithTickets,
-    
-    // ✅ เพิ่ม Group Ticket related functions
     ticketType,
-    updateTicketType
+    updateTicketType,
+    refreshTicketPrice // ✅ ฟังก์ชันรีเฟรชราคา
   };
 }
