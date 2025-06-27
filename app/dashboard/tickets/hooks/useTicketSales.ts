@@ -1,4 +1,4 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts - Fixed array initialization
+// app/dashboard/tickets/hooks/useTicketSales.ts - Updated รองรับระบบ Booking
 import { useState, useCallback, useEffect } from 'react';
 import { createTicket } from '../api/ticket';
 import { PAYMENT_METHODS } from '../config/constants';
@@ -22,6 +22,12 @@ export default function useTicketSales() {
   
   // Car Selection State
   const [selectedCarRegistration, setSelectedCarRegistration] = useState('');
+  
+  // ✅ NEW: Booking States
+  const [enableBooking, setEnableBooking] = useState(false);
+  const [expectedDeparture, setExpectedDeparture] = useState('');
+  const [bookingNotes, setBookingNotes] = useState('');
+  const [activeBooking, setActiveBooking] = useState<any>(null);
   
   // ฟังก์ชันดึงราคาปี้จาก API
   const fetchTicketPrice = useCallback(async () => {
@@ -108,6 +114,83 @@ export default function useTicketSales() {
       return null;
     }
   };
+
+  // ✅ NEW: Booking Functions
+  const createBooking = useCallback(async (tickets: Ticket[]) => {
+    if (!enableBooking || !selectedCarRegistration || tickets.length === 0) {
+      return null;
+    }
+
+    try {
+      console.log('📅 Creating booking...', {
+        car_registration: selectedCarRegistration,
+        passenger_count: quantity,
+        tickets_count: tickets.length
+      });
+
+      const bookingData = {
+        car_registration: selectedCarRegistration,
+        passenger_count: quantity,
+        tickets: tickets.map(ticket => ({
+          _id: ticket._id,
+          ticketNumber: ticket.ticketNumber,
+          passengerCount: ticket.passengerCount || 1,
+          ticketType: ticket.ticketType || 'individual'
+        })),
+        notes: bookingNotes.trim() || undefined,
+        expected_departure: expectedDeparture || undefined
+      };
+
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('✅ Booking created successfully:', result.booking.booking_id);
+        setActiveBooking(result.booking);
+        notificationService.success(`📅 ຈອງລົດສຳເລັດ! ${result.message}`);
+        return result.booking;
+      } else {
+        throw new Error(result.error || 'Failed to create booking');
+      }
+    } catch (error) {
+      console.error('❌ Error creating booking:', error);
+      notificationService.error(`เกิดข้อผิดพลาดในการจองรถ: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }, [enableBooking, selectedCarRegistration, quantity, bookingNotes, expectedDeparture]);
+
+  // ✅ NEW: Fetch active bookings for selected car
+  const fetchActiveBookingForCar = useCallback(async () => {
+    if (!selectedCarRegistration) {
+      setActiveBooking(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/bookings?car_registration=${selectedCarRegistration}&status=booked`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.bookings.length > 0) {
+          setActiveBooking(data.bookings[0]);
+        } else {
+          setActiveBooking(null);
+        }
+      }
+    } catch (error) {
+      console.warn('Error fetching active booking:', error);
+      setActiveBooking(null);
+    }
+  }, [selectedCarRegistration]);
+
+  // Fetch active booking when car changes
+  useEffect(() => {
+    fetchActiveBookingForCar();
+  }, [fetchActiveBookingForCar]);
   
   // Modal functions
   const showConfirmation = useCallback(() => {
@@ -119,6 +202,11 @@ export default function useTicketSales() {
     setQuantity(ticketType === 'group' ? 2 : 1);
     setDestination('');
     setSelectedCarRegistration('');
+    // ✅ NEW: Reset booking states
+    setEnableBooking(false);
+    setExpectedDeparture('');
+    setBookingNotes('');
+    setActiveBooking(null);
   }, [ticketType]);
 
   const updateQuantity = useCallback((newQuantity: number) => {
@@ -144,17 +232,40 @@ export default function useTicketSales() {
     console.log('✅ Car selected:', carRegistration);
   }, []);
 
+  // ✅ NEW: Booking Functions
+  const updateEnableBooking = useCallback((enabled: boolean) => {
+    setEnableBooking(enabled);
+    if (!enabled) {
+      setExpectedDeparture('');
+      setBookingNotes('');
+    }
+  }, []);
+
+  const updateExpectedDeparture = useCallback((departure: string) => {
+    setExpectedDeparture(departure);
+  }, []);
+
+  const updateBookingNotes = useCallback((notes: string) => {
+    setBookingNotes(notes);
+  }, []);
+
   // รีเฟรชราคา
   const refreshTicketPrice = useCallback(() => {
     setPriceLoading(true);
     return fetchTicketPrice();
   }, [fetchTicketPrice]);
 
-  // ขายตั๋ว - รวมข้อมูลรถ
+  // ✅ UPDATED: ขายตั๋ว - รวมระบบ Booking
   const confirmSellTicket = useCallback(async () => {
     // Validate car selection
     if (!selectedCarRegistration) {
       notificationService.error('❌ ກະລຸນາເລືອກລົດກ່ອນ');
+      return;
+    }
+
+    // ตรวจสอบ active booking ถ้าเปิดใช้งาน booking
+    if (enableBooking && activeBooking && activeBooking.status === 'booked') {
+      notificationService.error('❌ ລົດນີ້ຖືກຈອງແລ້ວ กรุณาเลือกรถคันอื่น');
       return;
     }
 
@@ -197,12 +308,27 @@ export default function useTicketSales() {
         notificationService.success(`✅ ອອກປີ້ສຳເລັດ ${quantity} ໃບ (₭${(ticketPrice * quantity).toLocaleString()})`);
       }
       
+      // ✅ NEW: Create booking if enabled
+      if (enableBooking) {
+        try {
+          await createBooking(tickets);
+        } catch (bookingError) {
+          // ถ้าจองรถไม่สำเร็จ แต่ตั๋วสร้างแล้ว ให้แจ้งเตือน
+          notificationService.warning('⚠️ ຕີ້ຖືກສ້າງແລ້ວ แຕ່ການຈອງລົດລົ້ມເຫລວ กรุณาจองรถแยกต่างหาก');
+        }
+      }
+      
       // ✅ FIXED: Ensure tickets is always an array
       setCreatedTickets(Array.isArray(tickets) ? tickets : []);
       setShowConfirmModal(false);
       setQuantity(ticketType === 'group' ? 2 : 1);
       setDestination('');
       setSelectedCarRegistration('');
+      
+      // ✅ NEW: Reset booking states
+      setEnableBooking(false);
+      setExpectedDeparture('');
+      setBookingNotes('');
       
       // พิมพ์ตั๋ว
       setTimeout(() => {
@@ -217,9 +343,12 @@ export default function useTicketSales() {
     } finally {
       setLoading(false);
     }
-  }, [ticketPrice, paymentMethod, quantity, ticketType, destination, selectedCarRegistration, getDestinationText]);
+  }, [
+    ticketPrice, paymentMethod, quantity, ticketType, destination, selectedCarRegistration, 
+    enableBooking, activeBooking, createBooking, getDestinationText
+  ]);
 
-  // Print function - รวมข้อมูลคนขับในการพิมพ์
+  // ✅ UPDATED: Print function - รวมข้อมูล Booking
   const handlePrintWithTickets = useCallback(async (tickets: Ticket[]) => {
     // ✅ FIXED: Safe array checking
     if (!Array.isArray(tickets) || tickets.length === 0) {
@@ -260,6 +389,16 @@ export default function useTicketSales() {
         }
       }
 
+      // ✅ NEW: Include booking information in print
+      let bookingInfo = null;
+      if (enableBooking && activeBooking) {
+        bookingInfo = {
+          booking_id: activeBooking.booking_id,
+          expected_departure: activeBooking.expected_departure,
+          notes: activeBooking.notes
+        };
+      }
+
       const iframe = document.createElement('iframe');
       iframe.style.position = 'absolute';
       iframe.style.top = '-9999px';
@@ -292,6 +431,7 @@ export default function useTicketSales() {
             .detail-label { font-weight: normal; width: 45%; text-align: left; }
             .detail-colon { position: absolute; left: 50%; transform: translateX(-50%); background: rgba(128, 128, 128, 0.1); padding: 1px 3px; border-radius: 2px; font-weight: bold; }
             .detail-value { font-weight: bold; width: 45%; text-align: right; margin-left: auto; }
+            .booking-info { background: #e3f2fd; padding: 2mm; margin: 2mm 0; border-radius: 2mm; }
             .qr-section { text-align: center; margin: 0mm 0; background: #f8f9fa; border-radius: 4px; }
             .qr-code { margin: 0mm 0; }
             .qr-code img { width: 200px; height: 200px; border: 1px solid #ddd; background: white; padding: 2px; }
@@ -369,6 +509,25 @@ export default function useTicketSales() {
                 </div>
                 <div class="divider"></div>
               ` : ''}
+
+              ${bookingInfo ? `
+                <div class="booking-info">
+                  <div style="font-weight: bold; text-align: center; margin-bottom: 1mm;">📅 ຂໍ້ມູນການຈອງ</div>
+                  <div class="detail-item">
+                    <span class="detail-label">ລະຫັດຈອງ/Booking</span>
+                    <span class="detail-colon">:</span>
+                    <span class="detail-value">${bookingInfo.booking_id}</span>
+                  </div>
+                  ${bookingInfo.expected_departure ? `
+                    <div class="detail-item">
+                      <span class="detail-label">ເວລາອອກ/Departure</span>
+                      <span class="detail-colon">:</span>
+                      <span class="detail-value">${new Date(bookingInfo.expected_departure).toLocaleString('lo-LA')}</span>
+                    </div>
+                  ` : ''}
+                </div>
+                <div class="divider"></div>
+              ` : ''}
               
               <div class="content-section" style="text-align: center;">
                 <div style="font-weight: bold; margin-bottom: 0mm;">ສະຖານີລົດໄຟ → ${ticket.destination || getDestinationText()}</div>
@@ -388,6 +547,7 @@ export default function useTicketSales() {
               
               <div class="receipt-footer">
                 <div style="margin-bottom: 1mm;">( ຂໍໃຫ້ທ່ານເດີນທາງປອດໄພ )</div>
+                ${enableBooking ? '<div style="font-size: 11px; color: #666;">🎫 ລົດຖືກຈອງແລ້ວ</div>' : ''}
               </div>
             </div>
           `).join('')}
@@ -432,7 +592,7 @@ export default function useTicketSales() {
       console.error('Error in handlePrintWithTickets:', error);
       notificationService.error('ເກີດຂໍ້ຜິດພາດໃນການພິມປີ້');
     }
-  }, [getDestinationText, selectedCarRegistration]);
+  }, [getDestinationText, selectedCarRegistration, enableBooking, activeBooking]);
   
   return {
     ticketPrice,
@@ -456,6 +616,16 @@ export default function useTicketSales() {
     
     // Car Selection
     selectedCarRegistration,
-    updateSelectedCar
+    updateSelectedCar,
+    
+    // ✅ NEW: Booking Functions
+    enableBooking,
+    updateEnableBooking,
+    expectedDeparture,
+    updateExpectedDeparture,
+    bookingNotes,
+    updateBookingNotes,
+    activeBooking,
+    fetchActiveBookingForCar
   };
 }
