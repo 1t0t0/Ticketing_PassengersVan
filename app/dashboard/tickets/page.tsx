@@ -1,4 +1,4 @@
-// app/dashboard/tickets/page.tsx - Enhanced with Driver Selection
+// app/dashboard/tickets/page.tsx - Fixed undefined array handling
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -32,7 +32,7 @@ export default function TicketSalesPage() {
     // Destination related
     destination, updateDestination,
     
-    // ✅ UPDATED: Car Selection related
+    // Car Selection related
     selectedCarRegistration, updateSelectedCar
   } = useTicketSales();
   
@@ -58,7 +58,8 @@ export default function TicketSalesPage() {
   }, [status, fetchData]);
 
   useEffect(() => {
-    if (createdTickets.length > 0) {
+    // ✅ FIXED: Safe check for createdTickets length
+    if (createdTickets && Array.isArray(createdTickets) && createdTickets.length > 0) {
       const timer = setTimeout(() => fetchData(), 1000);
       return () => clearTimeout(timer);
     }
@@ -85,30 +86,52 @@ export default function TicketSalesPage() {
     setShowSettingsModal(false);
   };
 
-  // ✅ UPDATED: Get selected car info for display
-  const [selectedCarInfo, setSelectedCarInfo] = useState<{registration: string, name: string, driverName: string, driverEmployeeId: string} | null>(null);
+  // ✅ FIXED: Get selected car info for display with safe checking
+  const [selectedCarInfo, setSelectedCarInfo] = useState<{
+    registration: string, 
+    name: string, 
+    driverName: string, 
+    driverEmployeeId: string
+  } | null>(null);
   
   useEffect(() => {
     if (selectedCarRegistration) {
       // Fetch car info for display
       fetch('/api/cars')
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+          return res.json();
+        })
         .then(cars => {
-          const selectedCar = cars.find((car: any) => car.car_registration === selectedCarRegistration);
-          if (selectedCar) {
-            setSelectedCarInfo({
-              registration: selectedCar.car_registration,
-              name: selectedCar.car_name,
-              driverName: selectedCar.user_id?.name || 'Unknown',
-              driverEmployeeId: selectedCar.user_id?.employeeId || 'N/A'
-            });
+          // ✅ FIXED: Safe array checking
+          if (Array.isArray(cars) && cars.length > 0) {
+            const selectedCar = cars.find((car: any) => car.car_registration === selectedCarRegistration);
+            if (selectedCar) {
+              setSelectedCarInfo({
+                registration: selectedCar.car_registration || '',
+                name: selectedCar.car_name || '',
+                driverName: selectedCar.user_id?.name || 'Unknown',
+                driverEmployeeId: selectedCar.user_id?.employeeId || 'N/A'
+              });
+            }
+          } else {
+            console.warn('No cars data received or invalid format');
+            setSelectedCarInfo(null);
           }
         })
-        .catch(err => console.warn('Failed to fetch car info:', err));
+        .catch(err => {
+          console.warn('Failed to fetch car info:', err);
+          setSelectedCarInfo(null);
+        });
     } else {
       setSelectedCarInfo(null);
     }
   }, [selectedCarRegistration]);
+
+  // ✅ FIXED: Safe checking for recentTickets
+  const safeRecentTickets = Array.isArray(recentTickets) ? recentTickets : [];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -120,14 +143,14 @@ export default function TicketSalesPage() {
             
             <div className="mt-3 flex flex-wrap gap-2">
               {/* แสดงข้อมูลปลายทางปัจจุบัน */}
-              {destination && (
+              {destination && destination.trim() && (
                 <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800">
                   <span className="mr-1">🎯</span>
                   <span>ປາຍທາງຕໍ່ໄປ: {destination}</span>
                 </div>
               )}
               
-              {/* ✅ UPDATED: แสดงข้อมูลรถที่เลือก */}
+              {/* แสดงข้อมูลรถที่เลือก */}
               {selectedCarInfo && (
                 <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
                   <span className="mr-1">🚐</span>
@@ -151,7 +174,7 @@ export default function TicketSalesPage() {
       
       <StatsCards stats={stats} loading={statsLoading} />
 
-      {/* ✅ Error Display */}
+      {/* Error Display */}
       {statsError && (
         <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
@@ -219,7 +242,8 @@ export default function TicketSalesPage() {
               <div className="flex items-center">
                 <h2 className="text-xl font-bold text-gray-900">ປີ້ທີ່ອອກລ່າສຸດ</h2>
                 <span className="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {recentTickets.length} ລາຍການ
+                  {/* ✅ FIXED: Safe length checking */}
+                  {safeRecentTickets.length} ລາຍການ
                 </span>
               </div>
               
@@ -240,14 +264,14 @@ export default function TicketSalesPage() {
             </div>
             
             <RecentTicketsList 
-              tickets={recentTickets} 
+              tickets={safeRecentTickets} 
               onViewAllClick={() => router.push('/dashboard/tickets/history')} 
             />
           </NeoCard>
         </div>
       </div>
 
-      {/* ✅ Enhanced Confirmation Modal with Driver Selection */}
+      {/* Enhanced Confirmation Modal with Car Selection */}
       <TicketConfirmationModal
         isOpen={showConfirmModal}
         ticketPrice={ticketPrice}
@@ -266,7 +290,7 @@ export default function TicketSalesPage() {
         destination={destination}
         onDestinationChange={updateDestination}
         
-        // ✅ UPDATED: Car Selection Props
+        // Car Selection Props
         selectedCarRegistration={selectedCarRegistration}
         onCarChange={updateSelectedCar}
       />
@@ -285,24 +309,27 @@ export default function TicketSalesPage() {
 
       {/* Print Area - รองรับ Driver และ Destination */}
       <div className="hidden">
-        {createdTickets.length > 0 && createdTickets.map((ticket, index) => (
-          <PrintableTicket
-            key={index}
-            ticketNumber={ticket.ticketNumber}
-            price={ticket.price}
-            soldAt={new Date(ticket.soldAt)}
-            soldBy={ticket.soldBy}
-            paymentMethod={ticket.paymentMethod}
-            
-            // Group Ticket Props
-            ticketType={ticket.ticketType}
-            passengerCount={ticket.passengerCount}
-            pricePerPerson={ticket.pricePerPerson}
-            
-            // Destination Props
-            destination={ticket.destination}
-          />
-        ))}
+        {/* ✅ FIXED: Safe checking for createdTickets array */}
+        {createdTickets && Array.isArray(createdTickets) && createdTickets.length > 0 && 
+          createdTickets.map((ticket, index) => (
+            <PrintableTicket
+              key={`${ticket.ticketNumber}-${index}`}
+              ticketNumber={ticket.ticketNumber}
+              price={ticket.price}
+              soldAt={new Date(ticket.soldAt)}
+              soldBy={ticket.soldBy}
+              paymentMethod={ticket.paymentMethod}
+              
+              // Group Ticket Props
+              ticketType={ticket.ticketType}
+              passengerCount={ticket.passengerCount}
+              pricePerPerson={ticket.pricePerPerson}
+              
+              // Destination Props
+              destination={ticket.destination}
+            />
+          ))
+        }
       </div>
     </div>
   );
