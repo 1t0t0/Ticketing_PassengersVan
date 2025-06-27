@@ -1,4 +1,4 @@
-// app/dashboard/tickets/page.tsx - Enhanced with Admin Settings Icon
+// app/dashboard/tickets/page.tsx - Enhanced with Destination Support
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -18,7 +18,7 @@ export default function TicketSalesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
-  // ✅ เพิ่ม state สำหรับ Settings Modal
+  // เพิ่ม state สำหรับ Settings Modal
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   const { 
@@ -26,13 +26,16 @@ export default function TicketSalesPage() {
     showConfirmation, cancelConfirmation, confirmSellTicket, showConfirmModal,
     quantity, updateQuantity, loading,
     
-    // ✅ Group Ticket related
-    ticketType, updateTicketType, refreshTicketPrice // ✅ เพิ่มฟังก์ชันรีเฟรชราคา
+    // Group Ticket related
+    ticketType, updateTicketType, refreshTicketPrice,
+    
+    // ✅ Destination related
+    destination, updateDestination
   } = useTicketSales();
   
   const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
 
-  // ✅ ตรวจสอบสิทธิ์ Admin
+  // ตรวจสอบสิทธิ์ Admin
   const isAdmin = session?.user?.role === 'admin';
 
   useEffect(() => {
@@ -59,14 +62,14 @@ export default function TicketSalesPage() {
     }
   };
 
-  // ✅ ฟังก์ชันเปิด Settings Modal (เฉพาะ Admin)
+  // ฟังก์ชันเปิด Settings Modal (เฉพาะ Admin)
   const handleOpenSettings = () => {
     if (isAdmin) {
       setShowSettingsModal(true);
     }
   };
 
-  // ✅ ฟังก์ชันปิด Settings Modal
+  // ฟังก์ชันปิด Settings Modal
   const handleCloseSettings = () => {
     setShowSettingsModal(false);
   };
@@ -78,6 +81,14 @@ export default function TicketSalesPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">ຫນ້າການອອກປີ້</h1>
             <p className="text-gray-600">ລະບົບອອກປີ້ລົດໂດຍສານ ແລະ ຈັດການຂໍ້ມູນສະຖິຕິ</p>
+            
+            {/* ✅ แสดงข้อมูลปลายทางปัจจุบัน */}
+            {destination && (
+              <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800">
+                <span className="mr-1">🎯</span>
+                <span>ປາຍທາງຕໍ່ໄປ: {destination}</span>
+              </div>
+            )}
           </div>
           
           <div className="flex items-center gap-3">
@@ -101,7 +112,7 @@ export default function TicketSalesPage() {
               <h2 className="text-xl font-bold text-gray-900">ດຳເນີນການອອກປີ້</h2>
               
               <div className="flex items-center gap-2">
-                {/* ✅ ไอคอน Settings - แสดงเฉพาะ Admin */}
+                {/* ไอคอน Settings - แสดงเฉพาะ Admin */}
                 {isAdmin && (
                   <button
                     onClick={handleOpenSettings}
@@ -160,7 +171,7 @@ export default function TicketSalesPage() {
         </div>
       </div>
 
-      {/* ✅ Enhanced Confirmation Modal with Group Ticket Support */}
+      {/* ✅ Enhanced Confirmation Modal with Destination Support */}
       <TicketConfirmationModal
         isOpen={showConfirmModal}
         ticketPrice={ticketPrice}
@@ -171,25 +182,28 @@ export default function TicketSalesPage() {
         onCancel={cancelConfirmation}
         loading={loading}
         
-        // ✅ Group Ticket Props
+        // Group Ticket Props
         ticketType={ticketType}
         onTicketTypeChange={updateTicketType}
+        
+        // ✅ Destination Props
+        destination={destination}
+        onDestinationChange={updateDestination}
       />
 
-      {/* ✅ Admin Settings Modal */}
+      {/* Admin Settings Modal */}
       {isAdmin && (
         <AdminSettingsModal
           isOpen={showSettingsModal}
           onClose={handleCloseSettings}
           onSettingsUpdate={() => {
-            // ✅ รีเฟรชข้อมูลทั้งหมดเมื่อมีการอัปเดต Settings
             fetchData();
-            refreshTicketPrice(); // ✅ รีเฟรชราคาปี้ใหม่
+            refreshTicketPrice();
           }}
         />
       )}
 
-      {/* ✅ Print Area - รองรับ Group Ticket */}
+      {/* ✅ Print Area - รองรับ Destination */}
       <div className="hidden">
         {createdTickets.length > 0 && createdTickets.map((ticket, index) => (
           <PrintableTicket
@@ -200,10 +214,13 @@ export default function TicketSalesPage() {
             soldBy={ticket.soldBy}
             paymentMethod={ticket.paymentMethod}
             
-            // ✅ เพิ่ม Props สำหรับ Group Ticket (ถ้ามี)
+            // Group Ticket Props
             ticketType={ticket.ticketType}
             passengerCount={ticket.passengerCount}
             pricePerPerson={ticket.pricePerPerson}
+            
+            // ✅ Destination Props
+            destination={ticket.destination}
           />
         ))}
       </div>

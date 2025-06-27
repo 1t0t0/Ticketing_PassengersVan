@@ -1,7 +1,7 @@
-// app/dashboard/tickets/types/index.ts - Enhanced with Group Ticket Support
+// app/dashboard/tickets/types/index.ts - Enhanced with Destination Support
 // Types for Ticket Management
 
-// Ticket interface - Enhanced with Group Ticket support
+// Ticket interface - Enhanced with destination support
 export interface Ticket {
   _id: string;
   ticketNumber: string;
@@ -10,10 +10,13 @@ export interface Ticket {
   paymentMethod: 'cash' | 'card' | 'qr';
   soldAt: Date | string;
   
-  // ✅ เพิ่มฟิลด์สำหรับ Group Ticket
+  // Group Ticket fields
   ticketType: 'individual' | 'group';
   passengerCount: number;        // จำนวนผู้โดยสาร (default: 1)
   pricePerPerson: number;        // ราคาต่อคน (45,000)
+  
+  // ✅ เพิ่มฟิลด์ปลายทาง
+  destination?: string;          // ปลายทาง (ไม่บังคับ)
 }
 
 // Dashboard Stats interface
@@ -31,15 +34,18 @@ export interface DashboardStats {
   };
 }
 
-// New Ticket interface for creating tickets - Enhanced
+// New Ticket interface for creating tickets - Enhanced with destination
 export interface NewTicket {
   price: number;
   paymentMethod: 'cash' | 'qr';
   
-  // ✅ เพิ่มฟิลด์สำหรับ Group Ticket
+  // Group Ticket fields
   ticketType: 'individual' | 'group';
   passengerCount: number;
   pricePerPerson: number;
+  
+  // ✅ เพิ่มฟิลด์ปลายทาง
+  destination?: string;          // ปลายทาง (ไม่บังคับ)
 }
 
 // Ticket Filter interface
@@ -48,7 +54,7 @@ export interface TicketFilter {
   startDate?: string;
   endDate?: string;
   paymentMethod?: 'all' | 'cash' | 'qr';
-  ticketType?: 'all' | 'individual' | 'group'; // ✅ เพิ่มการกรองตามประเภทตั๋ว
+  ticketType?: 'all' | 'individual' | 'group';
   page: number;
   limit: number;
 }
@@ -74,14 +80,14 @@ export interface ApiError {
   status?: number;
 }
 
-// ✅ เพิ่ม: Group Ticket Configuration
+// Group Ticket Configuration
 export interface GroupTicketConfig {
   minPassengers: number;    // ขั้นต่ำ 2 คน
   maxPassengers: number;    // สูงสุด 10 คน
   pricePerPerson: number;   // ราคาต่อคน 45,000
 }
 
-// ✅ เพิ่ม: QR Code Data for Group Tickets
+// QR Code Data for Group Tickets - Enhanced with destination
 export interface QRCodeData {
   ticketNumber: string;
   ticketType: 'individual' | 'group';
@@ -92,4 +98,29 @@ export interface QRCodeData {
   paymentMethod: string;
   soldBy: string;
   validationKey: string;
+  
+  // ✅ เพิ่มข้อมูลปลายทาง
+  destination?: string;
 }
+
+// ✅ เพิ่ม: Route Information Interface
+export interface RouteInfo {
+  origin: string;             // จุดเริ่มต้น (มักจะเป็น "ສະຖານີລົດໄຟ")
+  destination: string;        // ปลายทาง
+  duration?: string;          // ระยะเวลาการเดินทาง
+  distance?: string;          // ระยะทาง
+}
+
+// ✅ เพิ่ม: Default destinations
+export const DEFAULT_DESTINATIONS = [
+  'ຕົວເມືອງ',              // ตัวเมือง (ค่าเริ่มต้น)
+  'ໂຮງແຮມ',                // โรงแรม
+  'ຕະຫຼາດ',                 // ตลาด
+  'ໂຮງພະຍາບານ',            // โรงพยาบาล
+  'ມະຫາວິທະຍາໄລ',          // มหาวิทยาลัย
+  'ບິກຊີ',                  // Big C
+  'ເກລັກ',                  // แกลง
+] as const;
+
+// ✅ เพิ่ม: Destination Type
+export type DestinationType = typeof DEFAULT_DESTINATIONS[number] | string;

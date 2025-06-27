@@ -1,4 +1,4 @@
-// models/Ticket.ts - Enhanced with Group Ticket Support
+// models/Ticket.ts - Enhanced with Destination Support
 import mongoose, { Document, Model } from 'mongoose';
 
 export interface ITicketDocument extends Document {
@@ -8,10 +8,13 @@ export interface ITicketDocument extends Document {
   paymentMethod: 'cash' | 'card' | 'qr';
   soldAt: Date;
   
-  // ✅ เพิ่มฟิลด์สำหรับ Group Ticket Support
+  // Group Ticket Support
   ticketType: 'individual' | 'group';
   passengerCount: number;        // จำนวนผู้โดยสาร
   pricePerPerson: number;        // ราคาต่อคน
+  
+  // ✅ เพิ่มฟิลด์ปลายทาง
+  destination?: string;          // ปลายทาง (ไม่บังคับ)
 }
 
 const ticketSchema = new mongoose.Schema({
@@ -38,7 +41,7 @@ const ticketSchema = new mongoose.Schema({
     default: Date.now 
   },
   
-  // ✅ เพิ่มฟิลด์สำหรับ Group Ticket
+  // Group Ticket fields
   ticketType: {     
     type: String,
     enum: ['individual', 'group'],
@@ -56,15 +59,24 @@ const ticketSchema = new mongoose.Schema({
     type: Number,
     required: true,
     default: 4500
+  },
+  
+  // ✅ เพิ่มฟิลด์ปลายทาง
+  destination: {
+    type: String,
+    trim: true,
+    maxlength: 100,        // จำกัดความยาวสูงสุด 100 ตัวอักษร
+    default: 'ຕົວເມືອງ'    // ค่าเริ่มต้น
   }
 });
 
-// ✅ เพิ่ม Indexes สำหรับการค้นหา
+// Indexes สำหรับการค้นหา
 ticketSchema.index({ ticketType: 1 });
 ticketSchema.index({ passengerCount: 1 });
 ticketSchema.index({ soldAt: -1, ticketType: 1 });
+ticketSchema.index({ destination: 1 }); // ✅ เพิ่ม index สำหรับปลายทาง
 
-// ✅ เพิ่ม Virtual Fields
+// Virtual Fields
 ticketSchema.virtual('isGroupTicket').get(function() {
   return this.ticketType === 'group';
 });
@@ -73,7 +85,16 @@ ticketSchema.virtual('totalPassengers').get(function() {
   return this.passengerCount;
 });
 
-// ✅ เพิ่ม Static Methods
+// ✅ เพิ่ม Virtual Field สำหรับ route information
+ticketSchema.virtual('routeInfo').get(function() {
+  return {
+    origin: 'ສະຖານີລົດໄຟ',
+    destination: this.destination || 'ຕົວເມືອງ',
+    fullRoute: `ສະຖານີລົດໄຟ → ${this.destination || 'ຕົວເມືອງ'}`
+  };
+});
+
+// Static Methods
 ticketSchema.statics.findGroupTickets = function(filter = {}) {
   return this.find({
     ticketType: 'group',
@@ -88,7 +109,41 @@ ticketSchema.statics.findIndividualTickets = function(filter = {}) {
   });
 };
 
-// ✅ เพิ่ม Static Method: สถิติตั๋วกลุ่ม
+// ✅ เพิ่ม Static Method: ค้นหาตั๋วตามปลายทาง
+ticketSchema.statics.findByDestination = function(destination: string, filter = {}) {
+  return this.find({
+    destination: new RegExp(destination, 'i'), // ค้นหาแบบไม่สนใจตัวพิมพ์ใหญ่เล็ก
+    ...filter
+  });
+};
+
+// ✅ เพิ่ม Static Method: สถิติปลายทาง
+ticketSchema.statics.getDestinationStats = async function(startDate?: Date, endDate?: Date) {
+  const matchFilter: any = {};
+  
+  if (startDate && endDate) {
+    matchFilter.soldAt = { $gte: startDate, $lte: endDate };
+  }
+  
+  const stats = await this.aggregate([
+    { $match: matchFilter },
+    {
+      $group: {
+        _id: '$destination',
+        ticketCount: { $sum: 1 },
+        totalPassengers: { $sum: '$passengerCount' },
+        totalRevenue: { $sum: '$price' }
+      }
+    },
+    {
+      $sort: { ticketCount: -1 }
+    }
+  ]);
+  
+  return stats;
+};
+
+// สถิติตั๋วกลุ่ม
 ticketSchema.statics.getGroupTicketStats = async function(startDate?: Date, endDate?: Date) {
   const matchFilter: any = { ticketType: 'group' };
   
@@ -121,7 +176,7 @@ ticketSchema.statics.getGroupTicketStats = async function(startDate?: Date, endD
   };
 };
 
-// ✅ เพิ่ม Static Method: สถิติรวม Individual + Group
+// สถิติรวม Individual + Group + Destination
 ticketSchema.statics.getComprehensiveStats = async function(startDate?: Date, endDate?: Date) {
   const matchFilter: any = {};
   
@@ -165,7 +220,7 @@ ticketSchema.statics.getComprehensiveStats = async function(startDate?: Date, en
   return result;
 };
 
-// ✅ Pre-save middleware: ตรวจสอบความถูกต้องของข้อมูล
+// Pre-save middleware: ตรวจสอบความถูกต้องของข้อมูล
 ticketSchema.pre('save', function(next) {
   // ตรวจสอบว่า price = pricePerPerson * passengerCount
   const expectedPrice = this.pricePerPerson * this.passengerCount;
@@ -180,6 +235,17 @@ ticketSchema.pre('save', function(next) {
   
   if (this.ticketType === 'individual' && this.passengerCount !== 1) {
     this.passengerCount = 1;
+  }
+  
+  // ✅ ตรวจสอบและทำความสะอาดปลายทาง
+  if (this.destination) {
+    this.destination = this.destination.trim();
+    // ถ้าปลายทางว่างหลังจาก trim ให้ใช้ค่าเริ่มต้น
+    if (!this.destination) {
+      this.destination = 'ຕົວເມືອງ';
+    }
+  } else {
+    this.destination = 'ຕົວເມືອງ';
   }
   
   next();

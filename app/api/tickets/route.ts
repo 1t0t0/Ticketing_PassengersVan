@@ -1,15 +1,15 @@
-// app/api/tickets/route.ts - Enhanced with Group Ticket Support
+// app/api/tickets/route.ts - Enhanced with Destination Support
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-// 🎯 ตัวอักษรที่ใช้ได้ (ไม่รวมตัวที่สับสน)
+// ตัวอักษรที่ใช้ได้ (ไม่รวมตัวที่สับสน)
 const SAFE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 /**
- * 🎲 สร้าง Ticket Number แบบ UUID (6 ตัวอักษร)
+ * สร้าง Ticket Number แบบ UUID (6 ตัวอักษร)
  * รูปแบบ: T + 5 หลักสุ่ม (ทั้ง Individual และ Group ใช้รูปแบบเดียวกัน)
  */
 function generateUUIDTicketNumber(): string {
@@ -24,7 +24,7 @@ function generateUUIDTicketNumber(): string {
 }
 
 /**
- * 🔒 สร้าง Ticket Number ที่ไม่ซ้ำแน่นอน
+ * สร้าง Ticket Number ที่ไม่ซ้ำแน่นอน
  */
 async function generateUniqueTicketNumber(): Promise<string> {
   const maxAttempts = 20;
@@ -47,7 +47,7 @@ async function generateUniqueTicketNumber(): Promise<string> {
     console.log(`⚠️ ${candidateNumber} already exists, trying again...`);
   }
   
-  // 🆘 Emergency fallback
+  // Emergency fallback
   const timestamp = Date.now().toString().slice(-2);
   const emergency = `T${SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)]}${timestamp}${SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)]}${SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)]}`;
   
@@ -56,7 +56,7 @@ async function generateUniqueTicketNumber(): Promise<string> {
 }
 
 /**
- * 🎫 สร้าง Ticket พร้อมกับการป้องกันการซ้ำ - รองรับ Group Ticket
+ * สร้าง Ticket พร้อมกับการป้องกันการซ้ำ - รองรับ Destination
  */
 async function createTicketSafely(ticketData: any): Promise<any> {
   const maxRetries = 3;
@@ -75,12 +75,13 @@ async function createTicketSafely(ticketData: any): Promise<any> {
       console.log('📝 Ticket data:', {
         ...fullTicketData,
         isGroupTicket: fullTicketData.ticketType === 'group',
-        passengerCount: fullTicketData.passengerCount
+        passengerCount: fullTicketData.passengerCount,
+        destination: fullTicketData.destination || 'ຕົວເມືອງ' // ✅ แสดงปลายทาง
       });
       
       const ticket = await Ticket.create(fullTicketData);
       
-      console.log(`🎉 ${ticketData.ticketType} ticket created successfully: ${ticket.ticketNumber}`);
+      console.log(`🎉 ${ticketData.ticketType} ticket created successfully: ${ticket.ticketNumber} → ${ticket.destination}`);
       return ticket;
       
     } catch (error: any) {
@@ -99,10 +100,10 @@ async function createTicketSafely(ticketData: any): Promise<any> {
   throw new Error('Failed to create ticket after multiple attempts');
 }
 
-// 🚀 API Route สำหรับสร้าง Ticket - Enhanced with Group Ticket Support
+// API Route สำหรับสร้าง Ticket - Enhanced with Destination Support
 export async function POST(request: Request) {
   try {
-    console.log('🎯 Starting ticket creation with Group Ticket support...');
+    console.log('🎯 Starting ticket creation with Destination support...');
     
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -115,9 +116,10 @@ export async function POST(request: Request) {
     const { 
       price, 
       paymentMethod, 
-      ticketType = 'individual',     // ✅ ค่าเริ่มต้นเป็น individual
-      passengerCount = 1,            // ✅ ค่าเริ่มต้น 1 คน
-      pricePerPerson = 45000         // ✅ ค่าเริ่มต้นราคาต่อคน
+      ticketType = 'individual',
+      passengerCount = 1,
+      pricePerPerson = 45000,
+      destination = 'ຕົວເມືອງ' // ✅ เพิ่มรับค่า destination
     } = body;
 
     console.log('📋 Request data:', { 
@@ -126,10 +128,11 @@ export async function POST(request: Request) {
       ticketType,
       passengerCount,
       pricePerPerson,
+      destination, // ✅ แสดงปลายทาง
       soldBy: session.user.email 
     });
 
-    // ✅ ตรวจสอบข้อมูลพื้นฐาน
+    // ตรวจสอบข้อมูลพื้นฐาน
     if (!price || !paymentMethod) {
       return NextResponse.json(
         { error: 'Price and Payment Method are required' }, 
@@ -137,7 +140,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ ตรวจสอบความถูกต้องของ Group Ticket
+    // ตรวจสอบความถูกต้องของ Group Ticket
     if (ticketType === 'group') {
       if (passengerCount < 2 || passengerCount > 10) {
         return NextResponse.json(
@@ -156,7 +159,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // ✅ ตรวจสอบความถูกต้องของ Individual Ticket
+    // ตรวจสอบความถูกต้องของ Individual Ticket
     if (ticketType === 'individual') {
       if (passengerCount !== 1) {
         return NextResponse.json(
@@ -166,6 +169,15 @@ export async function POST(request: Request) {
       }
     }
 
+    // ✅ ตรวจสอบและทำความสะอาดปลายทาง
+    const cleanDestination = (destination || 'ຕົວເມືອງ').trim();
+    if (cleanDestination.length > 100) {
+      return NextResponse.json(
+        { error: 'Destination name too long (max 100 characters)' },
+        { status: 400 }
+      );
+    }
+
     // เตรียมข้อมูล ticket
     const ticketData = {
       price: Number(price),
@@ -173,13 +185,16 @@ export async function POST(request: Request) {
       soldBy: session.user.email || session.user.name || 'System',
       soldAt: new Date(),
       
-      // ✅ ข้อมูลสำหรับ Group Ticket Support
+      // Group Ticket Support
       ticketType,
       passengerCount: Number(passengerCount),
-      pricePerPerson: Number(pricePerPerson)
+      pricePerPerson: Number(pricePerPerson),
+      
+      // ✅ Destination Support
+      destination: cleanDestination
     };
 
-    // 🎲 สร้าง ticket ด้วยระบบ UUID
+    // สร้าง ticket ด้วยระบบ UUID
     const ticket = await createTicketSafely(ticketData);
 
     console.log('🎊 Final ticket created:', {
@@ -189,6 +204,7 @@ export async function POST(request: Request) {
       passengerCount: ticket.passengerCount,
       price: ticket.price,
       pricePerPerson: ticket.pricePerPerson,
+      destination: ticket.destination, // ✅ แสดงปลายทาง
       soldAt: ticket.soldAt
     });
 
@@ -209,7 +225,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 📋 API Route สำหรับดึงข้อมูล Ticket - Enhanced with Group Ticket filtering
+// API Route สำหรับดึงข้อมูล Ticket - Enhanced with Destination filtering
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -224,13 +240,15 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const paymentMethod = searchParams.get('paymentMethod');
-    const ticketType = searchParams.get('ticketType'); // ✅ เพิ่มการกรองตามประเภทตั๋ว
+    const ticketType = searchParams.get('ticketType');
+    const destination = searchParams.get('destination'); // ✅ เพิ่มการกรองตามปลายทาง
     
     console.log('📖 GET tickets request:', { 
       page, 
       limit, 
       paymentMethod, 
-      ticketType 
+      ticketType,
+      destination // ✅ แสดงการกรองปลายทาง
     });
     
     // สร้าง filter
@@ -240,9 +258,13 @@ export async function GET(request: Request) {
       filter.paymentMethod = paymentMethod;
     }
     
-    // ✅ เพิ่มการกรองตามประเภทตั๋ว
     if (ticketType && (ticketType === 'individual' || ticketType === 'group')) {
       filter.ticketType = ticketType;
+    }
+    
+    // ✅ เพิ่มการกรองตามปลายทาง
+    if (destination && destination.trim()) {
+      filter.destination = new RegExp(destination.trim(), 'i'); // ค้นหาแบบไม่สนใจตัวพิมพ์ใหญ่เล็ก
     }
     
     // คำนวณ pagination
@@ -261,7 +283,7 @@ export async function GET(request: Request) {
     
     console.log(`📊 Retrieved ${tickets.length} tickets from ${totalItems} total`);
     
-    // ✅ เพิ่มสถิติ Group vs Individual
+    // เพิ่มสถิติ Group vs Individual + Destination
     const ticketStats = await Ticket.aggregate([
       { $match: filter },
       {
@@ -289,6 +311,24 @@ export async function GET(request: Request) {
       }
     });
     
+    // ✅ เพิ่มสถิติปลายทาง
+    const destinationStats = await Ticket.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: '$destination',
+          count: { $sum: 1 },
+          totalPassengers: { $sum: '$passengerCount' }
+        }
+      },
+      {
+        $sort: { count: -1 }
+      },
+      {
+        $limit: 10 // แสดงแค่ 10 อันดับแรก
+      }
+    ]);
+    
     return NextResponse.json({
       tickets: tickets,
       pagination: {
@@ -297,15 +337,22 @@ export async function GET(request: Request) {
         totalItems,
         limit
       },
-      statistics: statsFormatted, // ✅ เพิ่มสถิติ
+      statistics: statsFormatted,
+      destinationStats: destinationStats, // ✅ เพิ่มสถิติปลายทาง
       meta: {
         generationType: 'UUID',
         ticketFormat: 'T + 5 random chars (6 total)',
         sampleFormat: 'TK7M2X',
-        supportedTypes: ['individual', 'group'], // ✅ ระบุประเภทที่รองรับ
+        supportedTypes: ['individual', 'group'],
         groupTicketLimits: {
           minPassengers: 2,
           maxPassengers: 10
+        },
+        // ✅ เพิ่มข้อมูลเกี่ยวกับปลายทาง
+        destinationSupport: {
+          enabled: true,
+          maxLength: 100,
+          defaultDestination: 'ຕົວເມືອງ'
         }
       }
     });
@@ -320,46 +367,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
-
-// 🔍 ฟังก์ชันทดสอบ Group Ticket (สำหรับ debug)
-export async function generateSampleGroupTickets(count: number = 5): Promise<any[]> {
-  const samples: any[] = [];
-  
-  for (let i = 0; i < count; i++) {
-    const passengerCount = Math.floor(Math.random() * 9) + 2; // 2-10 คน
-    const pricePerPerson = 45000;
-    const totalPrice = passengerCount * pricePerPerson;
-    
-    samples.push({
-      ticketType: 'group',
-      passengerCount,
-      pricePerPerson,
-      price: totalPrice,
-      paymentMethod: Math.random() > 0.5 ? 'cash' : 'qr',
-      description: `Group of ${passengerCount} passengers - Total: ₭${totalPrice.toLocaleString()}`
-    });
-  }
-  
-  return samples;
-}
-
-// 📊 ฟังก์ชันแสดงสถิติ Group Ticket
-export function getGroupTicketStats() {
-  return {
-    format: 'Same as individual: T + 5 random characters',
-    totalLength: 6,
-    supportedTypes: ['individual', 'group'],
-    groupLimits: {
-      minPassengers: 2,
-      maxPassengers: 10,
-      priceCalculation: 'pricePerPerson × passengerCount'
-    },
-    features: [
-      '1 ticket = multiple passengers (for group)',
-      'Same QR scanning workflow',
-      'Unified ticket numbering system',
-      'Automatic price calculation'
-    ]
-  };
 }

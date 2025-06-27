@@ -1,4 +1,4 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts - Simple version with dynamic price
+// app/dashboard/tickets/hooks/useTicketSales.ts - Enhanced with destination support
 import { useState, useCallback, useEffect } from 'react';
 import { createTicket } from '../api/ticket';
 import { PAYMENT_METHODS } from '../config/constants';
@@ -7,7 +7,7 @@ import notificationService from '@/lib/notificationService';
 
 export default function useTicketSales() {
   // State
-  const [ticketPrice, setTicketPrice] = useState(45000); // เริ่มต้นด้วยค่าเดิม
+  const [ticketPrice, setTicketPrice] = useState(45000);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qr'>(PAYMENT_METHODS.CASH);
   const [loading, setLoading] = useState(false);
   const [priceLoading, setPriceLoading] = useState(true);
@@ -16,7 +16,10 @@ export default function useTicketSales() {
   const [quantity, setQuantity] = useState(1);
   const [ticketType, setTicketType] = useState<'individual' | 'group'>('individual');
   
-  // ✅ ฟังก์ชันดึงราคาปี้จาก API (แบบง่าย)
+  // ✅ เพิ่ม State สำหรับปลายทาง
+  const [destination, setDestination] = useState('');
+  
+  // ฟังก์ชันดึงราคาปี้จาก API
   const fetchTicketPrice = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/ticket-price');
@@ -27,22 +30,22 @@ export default function useTicketSales() {
         console.log('✅ Ticket price loaded:', data.ticketPrice);
       } else {
         console.warn('⚠️ Failed to fetch ticket price, using default');
-        setTicketPrice(45000); // ใช้ค่าเดิมถ้าดึงไม่ได้
+        setTicketPrice(45000);
       }
     } catch (error) {
       console.warn('⚠️ Error fetching ticket price, using default:', error);
-      setTicketPrice(45000); // ใช้ค่าเดิมถ้าดึงไม่ได้
+      setTicketPrice(45000);
     } finally {
       setPriceLoading(false);
     }
   }, []);
   
-  // ✅ ดึงราคาเมื่อ component โหลด
+  // ดึงราคาเมื่อ component โหลด
   useEffect(() => {
     fetchTicketPrice();
   }, [fetchTicketPrice]);
 
-  // Helper functions (เหมือนเดิม)
+  // Helper functions
   const formatDateShort = (date: Date) => {
     const d = new Date(date);
     const day = d.getDate().toString().padStart(2, '0');
@@ -64,6 +67,11 @@ export default function useTicketSales() {
       case 'qr': return 'QR/ໂອນ';
       default: return method;
     }
+  };
+
+  // ✅ ฟังก์ชันกำหนดปลายทาง
+  const getDestinationText = () => {
+    return destination.trim() || 'ຕົວເມືອງ'; // ถ้าไม่มีการกรอก ใช้ค่าเริ่มต้น
   };
 
   const generateQRCodeData = (ticket: Ticket) => {
@@ -101,6 +109,8 @@ export default function useTicketSales() {
   const cancelConfirmation = useCallback(() => {
     setShowConfirmModal(false);
     setQuantity(ticketType === 'group' ? 2 : 1);
+    // ✅ รีเซ็ตปลายทางเมื่อยกเลิก
+    setDestination('');
   }, [ticketType]);
 
   const updateQuantity = useCallback((newQuantity: number) => {
@@ -116,13 +126,18 @@ export default function useTicketSales() {
     }
   }, [quantity]);
 
-  // ✅ รีเฟรชราคา
+  // ✅ เพิ่มฟังก์ชันอัพเดทปลายทาง
+  const updateDestination = useCallback((newDestination: string) => {
+    setDestination(newDestination);
+  }, []);
+
+  // รีเฟรชราคา
   const refreshTicketPrice = useCallback(() => {
     setPriceLoading(true);
     return fetchTicketPrice();
   }, [fetchTicketPrice]);
 
-  // ✅ ขายตั๋วด้วยราคาล่าสุด
+  // ขายตั๋ว
   const confirmSellTicket = useCallback(async () => {
     setLoading(true);
     try {
@@ -134,7 +149,9 @@ export default function useTicketSales() {
           paymentMethod,
           ticketType: 'group' as const,
           passengerCount: quantity,
-          pricePerPerson: ticketPrice
+          pricePerPerson: ticketPrice,
+          // ✅ เพิ่มข้อมูลปลายทาง
+          destination: getDestinationText()
         };
         
         const groupTicket = await createTicket(groupTicketData);
@@ -148,7 +165,9 @@ export default function useTicketSales() {
             paymentMethod,
             ticketType: 'individual' as const,
             passengerCount: 1,
-            pricePerPerson: ticketPrice
+            pricePerPerson: ticketPrice,
+            // ✅ เพิ่มข้อมูลปลายทาง
+            destination: getDestinationText()
           };
           
           const individualTicket = await createTicket(individualTicketData);
@@ -161,6 +180,9 @@ export default function useTicketSales() {
       setCreatedTickets(tickets);
       setShowConfirmModal(false);
       setQuantity(ticketType === 'group' ? 2 : 1);
+      
+      // ✅ รีเซ็ตปลายทางหลังขายสำเร็จ
+      setDestination('');
       
       // พิมพ์ตั๋ว
       setTimeout(() => {
@@ -175,9 +197,9 @@ export default function useTicketSales() {
     } finally {
       setLoading(false);
     }
-  }, [ticketPrice, paymentMethod, quantity, ticketType]);
+  }, [ticketPrice, paymentMethod, quantity, ticketType, destination, getDestinationText]);
 
-  // Print function (ยาวหน่อย แต่เหมือนเดิม)
+  // ✅ Print function - อัพเดทให้แสดงปลายทางที่ถูกต้อง
   const handlePrintWithTickets = useCallback(async (tickets: Ticket[]) => {
     if (tickets && tickets.length > 0) {
       const ticketsWithQR = await Promise.all(
@@ -281,8 +303,8 @@ export default function useTicketSales() {
               <div class="divider"></div>
               
               <div class="content-section" style="text-align: center;">
-                <div style="font-weight: bold; margin-bottom: 0mm;">ສະຖານີລົດໄຟ → ຕົວເມືອງ</div>
-                <div style="font-weight: bold;">TRAIN STATION → DOWNTOWN</div>
+                <div style="font-weight: bold; margin-bottom: 0mm;">ສະຖານີລົດໄຟ → ${ticket.destination || getDestinationText()}</div>
+                <div style="font-weight: bold;">TRAIN STATION → ${ticket.destination || getDestinationText().toUpperCase()}</div>
               </div>
               
               <div class="divider"></div>
@@ -335,7 +357,7 @@ export default function useTicketSales() {
         };
       }
     }
-  }, []);
+  }, [getDestinationText]);
   
   return {
     ticketPrice,
@@ -353,6 +375,10 @@ export default function useTicketSales() {
     handlePrintWithTickets,
     ticketType,
     updateTicketType,
-    refreshTicketPrice // ✅ ฟังก์ชันรีเฟรชราคา
+    refreshTicketPrice,
+    
+    // ✅ เพิ่ม destination functions
+    destination,
+    updateDestination
   };
 }

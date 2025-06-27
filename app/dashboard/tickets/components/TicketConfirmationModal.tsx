@@ -1,6 +1,6 @@
-// app/dashboard/tickets/components/TicketConfirmationModal.tsx - ลบ Auto Focus
+// app/dashboard/tickets/components/TicketConfirmationModal.tsx - Enhanced with Destination Input
 import React, { useState, useEffect, useRef } from 'react';
-import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser } from 'react-icons/fi';
+import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin } from 'react-icons/fi';
 
 interface TicketConfirmationModalProps {
   isOpen: boolean;
@@ -12,25 +12,29 @@ interface TicketConfirmationModalProps {
   onCancel: () => void;
   loading: boolean;
   
-  // ✅ เพิ่ม Props สำหรับ Group Ticket
+  // Group Ticket Props
   ticketType: 'individual' | 'group';
   onTicketTypeChange: (type: 'individual' | 'group') => void;
+  
+  // ✅ เพิ่ม Props สำหรับที่อยู่ปลายทาง
+  destination: string;
+  onDestinationChange: (destination: string) => void;
 }
 
 const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   isOpen, ticketPrice, paymentMethod, quantity, onQuantityChange, onConfirm, onCancel, loading,
-  ticketType, onTicketTypeChange
+  ticketType, onTicketTypeChange, destination, onDestinationChange
 }) => {
   const [inputValue, setInputValue] = useState(quantity.toString());
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // ✅ กำหนดขีดจำกัดตามประเภทตั๋ว
+  // กำหนดขีดจำกัดตามประเภทตั๋ว
   const isGroupTicket = ticketType === 'group';
-  const MIN_QUANTITY = isGroupTicket ? 2 : 1;      // กลุ่มขั้นต่ำ 2 คน, ปกติขั้นต่ำ 1 ใบ
-  const MAX_QUANTITY = isGroupTicket ? 10 : 20;    // กลุ่มสูงสุด 10 คน, ปกติสูงสุด 50 ใบ
+  const MIN_QUANTITY = isGroupTicket ? 2 : 1;
+  const MAX_QUANTITY = isGroupTicket ? 10 : 20;
 
-  // Sync กับ quantity prop - ลบ auto focus ออก
+  // Sync กับ quantity prop
   useEffect(() => {
     if (isOpen) {
       // เมื่อเปลี่ยนประเภทตั๋ว ให้ปรับ quantity ให้เหมาะสม
@@ -44,12 +48,6 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
       setInputValue(newQuantity.toString());
       onQuantityChange(newQuantity);
       setError('');
-      
-      // ✅ ลบ auto focus ออก
-      // setTimeout(() => {
-      //   inputRef.current?.focus();
-      //   inputRef.current?.select();
-      // }, 100);
     }
   }, [isOpen, quantity, isGroupTicket, MIN_QUANTITY, onQuantityChange]);
 
@@ -120,9 +118,8 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const totalAmount = ticketPrice * quantity;
   const hasValidQuantity = !error && inputValue && quantity >= MIN_QUANTITY && quantity <= MAX_QUANTITY;
 
-  // ✅ ลบ auto select ออกจาก focus handler
   const handleInputFocus = () => {
-    // inputRef.current?.select(); // ลบออก
+    // ลบ auto select
   };
 
   const handleInputBlur = () => {
@@ -151,7 +148,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
         </div>
         
         <div className="p-6">
-          {/* ✅ ส่วนเลือกประเภทตั๋ว */}
+          {/* ส่วนเลือกประเภทตั๋ว */}
           <div className="mb-6">
             <div className="text-sm font-semibold mb-3 text-gray-700">ປະເພດປີ້</div>
             <div className="grid grid-cols-2 gap-3">
@@ -193,6 +190,27 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </div>
           </div>
 
+          {/* ✅ เพิ่มส่วนใส่ที่อยู่ปลายทาง */}
+          <div className="mb-6">
+            <div className="text-sm font-semibold mb-3 text-gray-700 flex items-center">
+              <FiMapPin className="h-4 w-4 mr-2" />
+              ປາຍທາງ (ບໍ່ບັງຄັບ)
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                value={destination}
+                onChange={(e) => onDestinationChange(e.target.value)}
+                placeholder="ຕົວເມືອງ (ຖ້າບໍ່ໃສ່ຈະເປັນປາຍທາງມາດຕະຖານ)"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                disabled={loading}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              💡 ຖ້າບໍ່ໃສ່ຈະໃຊ້ປາຍທາງມາດຕະຖານ: "ຕົວເມືອງ"
+            </p>
+          </div>
+
           {/* ส่วนแสดงราคา */}
           <div className="mb-6">
             <div className="text-sm text-gray-500 mb-1">
@@ -212,7 +230,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </div>
           </div>
 
-          {/* ส่วนจำนวน - ปรับตามประเภทตั๋ว */}
+          {/* ส่วนจำนวน */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-semibold">
