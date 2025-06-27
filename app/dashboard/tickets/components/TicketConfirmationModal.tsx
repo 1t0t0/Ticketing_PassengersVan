@@ -1,6 +1,6 @@
 // app/dashboard/tickets/components/TicketConfirmationModal.tsx - Enhanced with Car Selection
 import React, { useState, useEffect, useRef } from 'react';
-import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin, FiTruck } from 'react-icons/fi';
+import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin, FiTruck, FiSearch } from 'react-icons/fi';
 
 interface Car {
   _id: string;
@@ -51,12 +51,20 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const [error, setError] = useState('');
   const [cars, setCars] = useState<Car[]>([]);
   const [carsLoading, setCarsLoading] = useState(false);
+  const [showAllCars, setShowAllCars] = useState(false); // ✅ NEW: สำหรับแสดง/ซ่อนรายการทั้งหมด
   const inputRef = useRef<HTMLInputElement>(null);
   
   // กำหนดขีดจำกัดตามประเภทตั๋ว
   const isGroupTicket = ticketType === 'group';
   const MIN_QUANTITY = isGroupTicket ? 2 : 1;
   const MAX_QUANTITY = isGroupTicket ? 10 : 20;
+
+  // ✅ UPDATED: Fetch available cars with drivers when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchCarsWithDrivers();
+    }
+  }, [isOpen]);
 
   // ✅ UPDATED: Fetch available cars with drivers when modal opens
   useEffect(() => {
@@ -72,15 +80,27 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
       const data = await response.json();
       
       if (response.ok) {
-        // เรียงลำดับ: รถที่คนขับเช็คอินแล้วขึ้นก่อน แล้วเรียงตามทะเบียนรถ
-        const sortedCars = data.sort((a: Car, b: Car) => {
-          // เช็คอินขึ้นก่อน
-          if (a.user_id?.checkInStatus === 'checked-in' && b.user_id?.checkInStatus === 'checked-out') return -1;
-          if (a.user_id?.checkInStatus === 'checked-out' && b.user_id?.checkInStatus === 'checked-in') return 1;
-          // เรียงตามทะเบียนรถ
+        // ✅ กรองเฉพาะรถที่คนขับเช็คอินแล้ว (ออนไลน์)
+        const onlineCars = data.filter((car: Car) => 
+          car.user_id?.checkInStatus === 'checked-in'
+        );
+        
+        // ✅ เรียงตามที่นั่งมากที่สุด (ที่ว่างที่สุด) ขึ้นก่อน
+        const sortedCars = onlineCars.sort((a: Car, b: Car) => {
+          // เรียงตามจำนวนที่นั่ง (มากไปน้อย) แล้วเรียงตามทะเบียนรถ
+          if (a.car_capacity !== b.car_capacity) {
+            return b.car_capacity - a.car_capacity; // มากไปน้อย
+          }
           return a.car_registration.localeCompare(b.car_registration);
         });
+        
         setCars(sortedCars);
+        
+        // ✅ เลือกรถคันแรกอัตโนมัติ (ที่มีที่นั่งมากที่สุด)
+        if (sortedCars.length > 0 && !selectedCarRegistration) {
+          onCarChange(sortedCars[0].car_registration);
+        }
+        
       } else {
         console.error('Failed to fetch cars:', data.error);
       }
@@ -207,81 +227,124 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
         </div>
         
         <div className="p-6">
-          {/* ✅ UPDATED: Car Selection Section */}
+          {/* ✅ UPDATED: Car Selection Section - แสดงรถคันเดียวหรือทั้งหมด */}
           <div className="mb-6">
-            <div className="text-sm font-semibold mb-3 text-gray-700 flex items-center">
-              <FiTruck className="h-4 w-4 mr-2" />
-              ເລືອກລົດ ແລະ ຄົນຂັບ
+            <div className="text-sm font-semibold mb-3 text-gray-700 flex items-center justify-between">
+              <div className="flex items-center">
+                <FiTruck className="h-4 w-4 mr-2" />
+                ເລືອກລົດ ແລະ ຄົນຂັບ
+              </div>
+              
+              {/* ✅ ปุ่มค้นหา/แสดงทั้งหมด */}
+              {!showAllCars && cars.length > 1 && (
+                <button
+                  onClick={() => setShowAllCars(true)}
+                  className="p-1 text-gray-400 hover:text-blue-600 transition rounded"
+                  title="ຄົ້ນຫາລົດອື່ນ"
+                  disabled={loading}
+                >
+                  <FiSearch className="h-4 w-4" />
+                </button>
+              )}
             </div>
+            
             {carsLoading ? (
               <div className="py-8 text-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
                 <p className="text-sm text-gray-500">ກຳລັງໂຫລດຂໍ້ມູນລົດ...</p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-32 overflow-y-auto border rounded-lg">
+              <div className="space-y-2 border rounded-lg">
                 {cars.length === 0 ? (
                   <div className="p-4 text-center text-gray-500">
                     <FiAlertCircle className="h-5 w-5 mx-auto mb-2" />
-                    <p className="text-sm">ບໍ່ພົບຂໍ້ມູນລົດ</p>
+                    <p className="text-sm">ບໍ່ພົບລົດທີ່ມີຄົນຂັບອອນລາຍ</p>
                   </div>
                 ) : (
-                  cars.map((car) => (
-                    <button
-                      key={car._id}
-                      onClick={() => onCarChange(car.car_registration)}
-                      className={`w-full p-3 text-left rounded-lg transition border ${
-                        selectedCarRegistration === car.car_registration
-                          ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-200' 
-                          : 'bg-white border-gray-200 hover:bg-gray-50'
-                      }`}
-                      disabled={loading}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          {/* ทะเบียนรถ */}
-                          <div className="flex items-center mb-1">
-                            <p className="font-bold text-lg text-gray-900">{car.car_registration}</p>
-                            <span className="ml-2 text-sm text-gray-500">({car.car_name})</span>
+                  <>
+                    {/* ✅ แสดงรถคันเดียว หรือทั้งหมด */}
+                    {(showAllCars ? cars : cars.slice(0, 1)).map((car) => (
+                      <button
+                        key={car._id}
+                        onClick={() => onCarChange(car.car_registration)}
+                        className={`w-full p-3 text-left rounded-lg transition border ${
+                          selectedCarRegistration === car.car_registration
+                            ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-200' 
+                            : 'bg-white border-gray-200 hover:bg-gray-50'
+                        }`}
+                        disabled={loading}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            {/* ทะเบียนรถ */}
+                            <div className="flex items-center mb-1">
+                              <p className="font-bold text-lg text-gray-900">{car.car_registration}</p>
+                              <span className="ml-2 text-sm text-gray-500">({car.car_name})</span>
+                            </div>
+                            
+                            {/* ข้อมูลคนขับ */}
+                            <div className="flex items-center text-sm text-gray-600">
+                              <span>ຄົນຂັບ: <strong>{car.user_id?.name || 'ไม่ระบุ'}</strong></span>
+                              <span className="mx-2">•</span>
+                              <span>รหัส: {car.user_id?.employeeId || 'N/A'}</span>
+                            </div>
+                            
+                            {/* ข้อมูลรถ */}
+                            <div className="flex items-center text-xs text-gray-500 mt-1">
+                              <span>ที่นั่ง: {car.car_capacity} คน</span>
+                              {car.carType && (
+                                <>
+                                  <span className="mx-2">•</span>
+                                  <span>{car.carType.carType_name}</span>
+                                </>
+                              )}
+                            </div>
                           </div>
                           
-                          {/* ข้อมูลคนขับ */}
-                          <div className="flex items-center text-sm text-gray-600">
-                            <span>ຄົນຂັບ: <strong>{car.user_id?.name || 'ไม่ระบุ'}</strong></span>
-                            <span className="mx-2">•</span>
-                            <span>รหัส: {car.user_id?.employeeId || 'N/A'}</span>
-                          </div>
-                          
-                          {/* ข้อมูลรถ */}
-                          <div className="flex items-center text-xs text-gray-500 mt-1">
-                            <span>ที่นั่ง: {car.car_capacity} คน</span>
-                            {car.carType && (
-                              <>
-                                <span className="mx-2">•</span>
-                                <span>{car.carType.carType_name}</span>
-                              </>
+                          <div className="flex flex-col items-end ml-3">
+                            {/* สถานะคนขับ - เฉพาะออนไลน์เท่านั้น */}
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mb-1 bg-green-100 text-green-800">
+                              🟢 ອອນລາຍ
+                            </span>
+                            
+                            {/* เลือกแล้ว */}
+                            {selectedCarRegistration === car.car_registration && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                             )}
                           </div>
                         </div>
-                        
-                        <div className="flex flex-col items-end ml-3">
-                          {/* สถานะคนขับ */}
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mb-1 ${
-                            car.user_id?.checkInStatus === 'checked-in'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {car.user_id?.checkInStatus === 'checked-in' ? '🟢 ອອນລາຍ' : '🔴 ອອຟລາຍ'}
-                          </span>
-                          
-                          {/* เลือกแล้ว */}
-                          {selectedCarRegistration === car.car_registration && (
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          )}
-                        </div>
+                      </button>
+                    ))}
+                    
+                    {/* ✅ ปุ่มแสดงน้อยลง */}
+                    {showAllCars && cars.length > 1 && (
+                      <div className="p-2 text-center border-t">
+                        <button
+                          onClick={() => setShowAllCars(false)}
+                          className="text-sm text-gray-500 hover:text-gray-700 transition"
+                          disabled={loading}
+                        >
+                          ປິດລາຍການ
+                        </button>
                       </div>
-                    </button>
-                  ))
+                    )}
+                    
+                    {/* ✅ ข้อความแสดงจำนวนรถ */}
+                    {!showAllCars && cars.length > 1 && (
+                      <div className="p-2 text-center border-t bg-gray-50">
+                        <p className="text-xs text-gray-500">
+                          ມີລົດອື່ນອີກ {cars.length - 1} ຄັນ • 
+                          <button 
+                            onClick={() => setShowAllCars(true)}
+                            className="ml-1 text-blue-600 hover:text-blue-700 underline"
+                            disabled={loading}
+                          >
+                            ເບິ່ງທັງໝົດ
+                          </button>
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -292,10 +355,8 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                 <div className="flex items-center">
                   <FiTruck className="h-4 w-4 text-blue-600 mr-2" />
                   <span className="text-sm text-blue-800">
-                    <strong>ເລືອກແລ້ວ:</strong> {selectedCar.car_registration} - {selectedCar.user_id?.name} ({selectedCar.user_id?.employeeId})
-                    {selectedCar.user_id?.checkInStatus === 'checked-in' && (
-                      <span className="ml-2 text-green-600">✓ ພ້ອມຮັບງານ</span>
-                    )}
+                    <strong>ເລືອກແລ้ວ:</strong> {selectedCar.car_registration} - {selectedCar.user_id?.name} ({selectedCar.user_id?.employeeId})
+                    <span className="ml-2 text-green-600">✓ ພ້ອມຮັບງານ</span>
                   </span>
                 </div>
               </div>
