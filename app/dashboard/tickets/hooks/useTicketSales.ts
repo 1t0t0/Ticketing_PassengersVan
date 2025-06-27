@@ -1,4 +1,4 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts - Enhanced with destination support
+// app/dashboard/tickets/hooks/useTicketSales.ts - Enhanced with driver selection
 import { useState, useCallback, useEffect } from 'react';
 import { createTicket } from '../api/ticket';
 import { PAYMENT_METHODS } from '../config/constants';
@@ -15,9 +15,10 @@ export default function useTicketSales() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [ticketType, setTicketType] = useState<'individual' | 'group'>('individual');
-  
-  // ✅ เพิ่ม State สำหรับปลายทาง
   const [destination, setDestination] = useState('');
+  
+  // ✅ UPDATED: Car Selection State (แทน Driver Selection)
+  const [selectedCarRegistration, setSelectedCarRegistration] = useState('');
   
   // ฟังก์ชันดึงราคาปี้จาก API
   const fetchTicketPrice = useCallback(async () => {
@@ -69,9 +70,8 @@ export default function useTicketSales() {
     }
   };
 
-  // ✅ ฟังก์ชันกำหนดปลายทาง
   const getDestinationText = () => {
-    return destination.trim() || 'ຕົວເມືອງ'; // ถ้าไม่มีการกรอก ใช้ค่าเริ่มต้น
+    return destination.trim() || 'ຕົວເມືອງ';
   };
 
   const generateQRCodeData = (ticket: Ticket) => {
@@ -109,8 +109,9 @@ export default function useTicketSales() {
   const cancelConfirmation = useCallback(() => {
     setShowConfirmModal(false);
     setQuantity(ticketType === 'group' ? 2 : 1);
-    // ✅ รีเซ็ตปลายทางเมื่อยกเลิก
     setDestination('');
+    // ✅ UPDATED: Reset car selection
+    setSelectedCarRegistration('');
   }, [ticketType]);
 
   const updateQuantity = useCallback((newQuantity: number) => {
@@ -126,9 +127,14 @@ export default function useTicketSales() {
     }
   }, [quantity]);
 
-  // ✅ เพิ่มฟังก์ชันอัพเดทปลายทาง
   const updateDestination = useCallback((newDestination: string) => {
     setDestination(newDestination);
+  }, []);
+
+  // ✅ UPDATED: Car Selection Functions
+  const updateSelectedCar = useCallback((carRegistration: string) => {
+    setSelectedCarRegistration(carRegistration);
+    console.log('✅ Car selected:', carRegistration);
   }, []);
 
   // รีเฟรชราคา
@@ -137,8 +143,14 @@ export default function useTicketSales() {
     return fetchTicketPrice();
   }, [fetchTicketPrice]);
 
-  // ขายตั๋ว
+  // ✅ UPDATED: ขายตั๋ว - รวมข้อมูลรถ
   const confirmSellTicket = useCallback(async () => {
+    // ✅ UPDATED: Validate car selection
+    if (!selectedCarRegistration) {
+      notificationService.error('❌ ກະລຸນາເລືອກລົດກ່ອນ');
+      return;
+    }
+
     setLoading(true);
     try {
       let tickets: Ticket[] = [];
@@ -150,8 +162,9 @@ export default function useTicketSales() {
           ticketType: 'group' as const,
           passengerCount: quantity,
           pricePerPerson: ticketPrice,
-          // ✅ เพิ่มข้อมูลปลายทาง
-          destination: getDestinationText()
+          destination: getDestinationText(),
+          // ✅ UPDATED: Include car registration
+          assignedCarRegistration: selectedCarRegistration
         };
         
         const groupTicket = await createTicket(groupTicketData);
@@ -166,8 +179,9 @@ export default function useTicketSales() {
             ticketType: 'individual' as const,
             passengerCount: 1,
             pricePerPerson: ticketPrice,
-            // ✅ เพิ่มข้อมูลปลายทาง
-            destination: getDestinationText()
+            destination: getDestinationText(),
+            // ✅ UPDATED: Include car registration
+            assignedCarRegistration: selectedCarRegistration
           };
           
           const individualTicket = await createTicket(individualTicketData);
@@ -180,9 +194,9 @@ export default function useTicketSales() {
       setCreatedTickets(tickets);
       setShowConfirmModal(false);
       setQuantity(ticketType === 'group' ? 2 : 1);
-      
-      // ✅ รีเซ็ตปลายทางหลังขายสำเร็จ
       setDestination('');
+      // ✅ UPDATED: Reset car selection
+      setSelectedCarRegistration('');
       
       // พิมพ์ตั๋ว
       setTimeout(() => {
@@ -197,9 +211,9 @@ export default function useTicketSales() {
     } finally {
       setLoading(false);
     }
-  }, [ticketPrice, paymentMethod, quantity, ticketType, destination, getDestinationText]);
+  }, [ticketPrice, paymentMethod, quantity, ticketType, destination, selectedCarRegistration, getDestinationText]);
 
-  // ✅ Print function - อัพเดทให้แสดงปลายทางที่ถูกต้อง
+  // Print function - รวมข้อมูลคนขับในการพิมพ์
   const handlePrintWithTickets = useCallback(async (tickets: Ticket[]) => {
     if (tickets && tickets.length > 0) {
       const ticketsWithQR = await Promise.all(
@@ -209,6 +223,28 @@ export default function useTicketSales() {
           return { ...ticket, qrCodeImage };
         })
       );
+
+      // ✅ UPDATED: Fetch car information for printing
+      let carInfo = null;
+      if (selectedCarRegistration) {
+        try {
+          const response = await fetch(`/api/cars`);
+          if (response.ok) {
+            const cars = await response.json();
+            const selectedCar = cars.find((car: any) => car.car_registration === selectedCarRegistration);
+            if (selectedCar) {
+              carInfo = {
+                registration: selectedCar.car_registration,
+                name: selectedCar.car_name,
+                driverName: selectedCar.user_id?.name || 'Unknown',
+                driverEmployeeId: selectedCar.user_id?.employeeId || 'N/A'
+              };
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to fetch car info for printing:', error);
+        }
+      }
 
       const iframe = document.createElement('iframe');
       iframe.style.position = 'absolute';
@@ -246,6 +282,7 @@ export default function useTicketSales() {
             .qr-code { margin: 0mm 0; }
             .qr-code img { width: 200px; height: 200px; border: 1px solid #ddd; background: white; padding: 2px; }
             .receipt-footer { text-align: center; margin-top: 2mm; font-size: 13px; font-weight: bold; color: #666; }
+            .driver-info { background: #e3f2fd; padding: 2mm; margin: 2mm 0; border-radius: 2mm; }
           </style>
         </head>
         <body>
@@ -302,6 +339,23 @@ export default function useTicketSales() {
               
               <div class="divider"></div>
               
+              ${carInfo ? `
+                <div class="driver-info">
+                  <div style="font-weight: bold; text-align: center; margin-bottom: 1mm;">🚐 ຂໍ້ມູນລົດ ແລະ ຄົນຂັບ</div>
+                  <div class="detail-item">
+                    <span class="detail-label">ທະບຽນລົດ/Car</span>
+                    <span class="detail-colon">:</span>
+                    <span class="detail-value">${carInfo.registration}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">ຄົນຂັບ/Driver</span>
+                    <span class="detail-colon">:</span>
+                    <span class="detail-value">${carInfo.driverName}</span>
+                  </div>
+                </div>
+                <div class="divider"></div>
+              ` : ''}
+              
               <div class="content-section" style="text-align: center;">
                 <div style="font-weight: bold; margin-bottom: 0mm;">ສະຖານີລົດໄຟ → ${ticket.destination || getDestinationText()}</div>
                 <div style="font-weight: bold;">TRAIN STATION → ${ticket.destination || getDestinationText().toUpperCase()}</div>
@@ -357,7 +411,7 @@ export default function useTicketSales() {
         };
       }
     }
-  }, [getDestinationText]);
+  }, [getDestinationText, selectedCarRegistration]);
   
   return {
     ticketPrice,
@@ -376,9 +430,11 @@ export default function useTicketSales() {
     ticketType,
     updateTicketType,
     refreshTicketPrice,
-    
-    // ✅ เพิ่ม destination functions
     destination,
-    updateDestination
+    updateDestination,
+    
+    // ✅ UPDATED: Car Selection
+    selectedCarRegistration,
+    updateSelectedCar
   };
 }

@@ -1,4 +1,4 @@
-// app/dashboard/tickets/page.tsx - Enhanced with Destination Support
+// app/dashboard/tickets/page.tsx - Enhanced with Driver Selection
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -29,11 +29,22 @@ export default function TicketSalesPage() {
     // Group Ticket related
     ticketType, updateTicketType, refreshTicketPrice,
     
-    // ✅ Destination related
-    destination, updateDestination
+    // Destination related
+    destination, updateDestination,
+    
+    // ✅ UPDATED: Car Selection related
+    selectedCarRegistration, updateSelectedCar
   } = useTicketSales();
   
-  const { stats, recentTickets, loading: statsLoading, fetchData } = useTicketStats();
+  const { 
+    stats, 
+    recentTickets, 
+    loading: statsLoading, 
+    error: statsError,
+    fetchData,
+    retryFetch,
+    clearError
+  } = useTicketStats();
 
   // ตรวจสอบสิทธิ์ Admin
   const isAdmin = session?.user?.role === 'admin';
@@ -74,6 +85,31 @@ export default function TicketSalesPage() {
     setShowSettingsModal(false);
   };
 
+  // ✅ UPDATED: Get selected car info for display
+  const [selectedCarInfo, setSelectedCarInfo] = useState<{registration: string, name: string, driverName: string, driverEmployeeId: string} | null>(null);
+  
+  useEffect(() => {
+    if (selectedCarRegistration) {
+      // Fetch car info for display
+      fetch('/api/cars')
+        .then(res => res.json())
+        .then(cars => {
+          const selectedCar = cars.find((car: any) => car.car_registration === selectedCarRegistration);
+          if (selectedCar) {
+            setSelectedCarInfo({
+              registration: selectedCar.car_registration,
+              name: selectedCar.car_name,
+              driverName: selectedCar.user_id?.name || 'Unknown',
+              driverEmployeeId: selectedCar.user_id?.employeeId || 'N/A'
+            });
+          }
+        })
+        .catch(err => console.warn('Failed to fetch car info:', err));
+    } else {
+      setSelectedCarInfo(null);
+    }
+  }, [selectedCarRegistration]);
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
@@ -82,13 +118,23 @@ export default function TicketSalesPage() {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">ຫນ້າການອອກປີ້</h1>
             <p className="text-gray-600">ລະບົບອອກປີ້ລົດໂດຍສານ ແລະ ຈັດການຂໍ້ມູນສະຖິຕິ</p>
             
-            {/* ✅ แสดงข้อมูลปลายทางปัจจุบัน */}
-            {destination && (
-              <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800">
-                <span className="mr-1">🎯</span>
-                <span>ປາຍທາງຕໍ່ໄປ: {destination}</span>
-              </div>
-            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {/* แสดงข้อมูลปลายทางปัจจุบัน */}
+              {destination && (
+                <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800">
+                  <span className="mr-1">🎯</span>
+                  <span>ປາຍທາງຕໍ່ໄປ: {destination}</span>
+                </div>
+              )}
+              
+              {/* ✅ UPDATED: แสดงข้อมูลรถที่เลือก */}
+              {selectedCarInfo && (
+                <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
+                  <span className="mr-1">🚐</span>
+                  <span>ລົດ: {selectedCarInfo.registration} - {selectedCarInfo.driverName} ({selectedCarInfo.driverEmployeeId})</span>
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="flex items-center gap-3">
@@ -104,6 +150,36 @@ export default function TicketSalesPage() {
       </div>
       
       <StatsCards stats={stats} loading={statsLoading} />
+
+      {/* ✅ Error Display */}
+      {statsError && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="text-red-600 mr-2">⚠️</div>
+              <div>
+                <h4 className="font-medium text-red-800">ເກີດຂໍ້ຜິດພາດໃນການໂຫລດຂໍ້ມູນ</h4>
+                <p className="text-sm text-red-600 mt-1">{statsError}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={retryFetch}
+                className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition"
+                disabled={statsLoading}
+              >
+                ລອງໃໝ່
+              </button>
+              <button
+                onClick={clearError}
+                className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition"
+              >
+                ປິດ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <div className="xl:col-span-2">
@@ -171,7 +247,7 @@ export default function TicketSalesPage() {
         </div>
       </div>
 
-      {/* ✅ Enhanced Confirmation Modal with Destination Support */}
+      {/* ✅ Enhanced Confirmation Modal with Driver Selection */}
       <TicketConfirmationModal
         isOpen={showConfirmModal}
         ticketPrice={ticketPrice}
@@ -186,9 +262,13 @@ export default function TicketSalesPage() {
         ticketType={ticketType}
         onTicketTypeChange={updateTicketType}
         
-        // ✅ Destination Props
+        // Destination Props
         destination={destination}
         onDestinationChange={updateDestination}
+        
+        // ✅ UPDATED: Car Selection Props
+        selectedCarRegistration={selectedCarRegistration}
+        onCarChange={updateSelectedCar}
       />
 
       {/* Admin Settings Modal */}
@@ -203,7 +283,7 @@ export default function TicketSalesPage() {
         />
       )}
 
-      {/* ✅ Print Area - รองรับ Destination */}
+      {/* Print Area - รองรับ Driver และ Destination */}
       <div className="hidden">
         {createdTickets.length > 0 && createdTickets.map((ticket, index) => (
           <PrintableTicket
@@ -219,7 +299,7 @@ export default function TicketSalesPage() {
             passengerCount={ticket.passengerCount}
             pricePerPerson={ticket.pricePerPerson}
             
-            // ✅ Destination Props
+            // Destination Props
             destination={ticket.destination}
           />
         ))}

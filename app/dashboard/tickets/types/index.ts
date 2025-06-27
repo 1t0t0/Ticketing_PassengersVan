@@ -1,7 +1,7 @@
-// app/dashboard/tickets/types/index.ts - Enhanced with Destination Support
+// app/dashboard/tickets/types/index.ts - Enhanced with Driver Assignment
 // Types for Ticket Management
 
-// Ticket interface - Enhanced with destination support
+// Ticket interface - Enhanced with driver assignment
 export interface Ticket {
   _id: string;
   ticketNumber: string;
@@ -15,8 +15,23 @@ export interface Ticket {
   passengerCount: number;        // จำนวนผู้โดยสาร (default: 1)
   pricePerPerson: number;        // ราคาต่อคน (45,000)
   
-  // ✅ เพิ่มฟิลด์ปลายทาง
+  // Destination field
   destination?: string;          // ปลายทาง (ไม่บังคับ)
+  
+  // ✅ UPDATED: Car Assignment (แทน Driver Assignment)
+  assignedCarRegistration?: string;  // ทะเบียนรถที่ได้รับมอบหมาย
+  assignedCar?: {                    // ข้อมูลรถ (populated)
+    _id: string;
+    car_registration: string;
+    car_name: string;
+    car_capacity: number;
+    user_id: {                       // คนขับของรถคันนั้น
+      _id: string;
+      name: string;
+      employeeId: string;
+      checkInStatus: 'checked-in' | 'checked-out';
+    };
+  };
 }
 
 // Dashboard Stats interface
@@ -34,7 +49,7 @@ export interface DashboardStats {
   };
 }
 
-// New Ticket interface for creating tickets - Enhanced with destination
+// New Ticket interface for creating tickets - Enhanced with driver assignment
 export interface NewTicket {
   price: number;
   paymentMethod: 'cash' | 'qr';
@@ -44,8 +59,29 @@ export interface NewTicket {
   passengerCount: number;
   pricePerPerson: number;
   
-  // ✅ เพิ่มฟิลด์ปลายทาง
+  // Destination field
   destination?: string;          // ปลายทาง (ไม่บังคับ)
+  
+  // ✅ UPDATED: Car Assignment (แทน Driver Assignment)
+  assignedCarRegistration?: string;  // ทะเบียนรถที่ได้รับมอบหมาย
+}
+
+// ✅ UPDATED: Car interface (แทน Driver interface)
+export interface Car {
+  _id: string;
+  car_id: string;
+  car_name: string;
+  car_registration: string;
+  car_capacity: number;
+  user_id: {
+    _id: string;
+    name: string;
+    employeeId: string;
+    checkInStatus: 'checked-in' | 'checked-out';
+  };
+  carType?: {
+    carType_name: string;
+  };
 }
 
 // Ticket Filter interface
@@ -55,6 +91,7 @@ export interface TicketFilter {
   endDate?: string;
   paymentMethod?: 'all' | 'cash' | 'qr';
   ticketType?: 'all' | 'individual' | 'group';
+  assignedCarRegistration?: string;  // ✅ UPDATED: Filter by assigned car
   page: number;
   limit: number;
 }
@@ -71,6 +108,13 @@ export interface Pagination {
 export interface TicketSearchResults {
   tickets: Ticket[];
   pagination: Pagination;
+  // ✅ NEW: Driver statistics
+  driverStats?: Array<{
+    driverId: string;
+    driverName: string;
+    ticketCount: number;
+    totalRevenue: number;
+  }>;
 }
 
 // API Error interface
@@ -87,7 +131,7 @@ export interface GroupTicketConfig {
   pricePerPerson: number;   // ราคาต่อคน 45,000
 }
 
-// QR Code Data for Group Tickets - Enhanced with destination
+// QR Code Data for Group Tickets - Enhanced with driver info
 export interface QRCodeData {
   ticketNumber: string;
   ticketType: 'individual' | 'group';
@@ -98,20 +142,22 @@ export interface QRCodeData {
   paymentMethod: string;
   soldBy: string;
   validationKey: string;
-  
-  // ✅ เพิ่มข้อมูลปลายทาง
   destination?: string;
+  // ✅ NEW: Driver info in QR
+  assignedDriverId?: string;
+  assignedDriverName?: string;
 }
 
-// ✅ เพิ่ม: Route Information Interface
+// Route Information Interface
 export interface RouteInfo {
   origin: string;             // จุดเริ่มต้น (มักจะเป็น "ສະຖານີລົດໄຟ")
   destination: string;        // ปลายทาง
   duration?: string;          // ระยะเวลาการเดินทาง
   distance?: string;          // ระยะทาง
+  assignedDriver?: Driver;    // ✅ NEW: คนขับที่รับผิดชอบเส้นทางนี้
 }
 
-// ✅ เพิ่ม: Default destinations
+// Default destinations
 export const DEFAULT_DESTINATIONS = [
   'ຕົວເມືອງ',              // ตัวเมือง (ค่าเริ่มต้น)
   'ໂຮງແຮມ',                // โรงแรม
@@ -122,5 +168,37 @@ export const DEFAULT_DESTINATIONS = [
   'ເກລັກ',                  // แกลง
 ] as const;
 
-// ✅ เพิ่ม: Destination Type
+// Destination Type
 export type DestinationType = typeof DEFAULT_DESTINATIONS[number] | string;
+
+// ✅ NEW: Driver Assignment Status
+export interface DriverAssignmentStatus {
+  driverId: string;
+  driverName: string;
+  employeeId: string;
+  totalAssignedTickets: number;
+  completedTrips: number;
+  pendingTickets: number;
+  checkInStatus: 'checked-in' | 'checked-out';
+  lastActivity?: Date;
+}
+
+// ✅ NEW: Ticket Assignment Summary
+export interface TicketAssignmentSummary {
+  totalTickets: number;
+  assignedTickets: number;
+  unassignedTickets: number;
+  driverAssignments: DriverAssignmentStatus[];
+}
+
+// ✅ NEW: Driver Performance Stats
+export interface DriverPerformanceStats {
+  driverId: string;
+  driverName: string;
+  totalTicketsAssigned: number;
+  totalRevenue: number;
+  completedTrips: number;
+  averagePassengersPerTrip: number;
+  totalWorkingDays: number;
+  efficiency: number; // percentage
+}

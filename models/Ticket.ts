@@ -1,4 +1,4 @@
-// models/Ticket.ts - Enhanced with Destination Support
+// models/Ticket.ts - Enhanced with Driver Assignment Support
 import mongoose, { Document, Model } from 'mongoose';
 
 export interface ITicketDocument extends Document {
@@ -13,8 +13,19 @@ export interface ITicketDocument extends Document {
   passengerCount: number;        // จำนวนผู้โดยสาร
   pricePerPerson: number;        // ราคาต่อคน
   
-  // ✅ เพิ่มฟิลด์ปลายทาง
+  // Destination Support
   destination?: string;          // ปลายทาง (ไม่บังคับ)
+  
+  // ✅ NEW: Driver Assignment Support
+  assignedDriverId?: mongoose.Schema.Types.ObjectId; // คนขับที่ได้รับมอบหมาย
+  isAssigned?: boolean;          // สถานะการมอบหมาย
+  assignedAt?: Date;             // วันที่มอบหมาย
+  
+  // Trip Status (เมื่อคนขับสแกน QR Code)
+  isScanned?: boolean;           // สถานะการสแกน
+  scannedAt?: Date;              // วันที่สแกน
+  scannedBy?: mongoose.Schema.Types.ObjectId; // คนขับที่สแกน
+  tripId?: mongoose.Schema.Types.ObjectId;    // ID ของรอบเดินทาง
 }
 
 const ticketSchema = new mongoose.Schema({
@@ -58,15 +69,54 @@ const ticketSchema = new mongoose.Schema({
   pricePerPerson: {
     type: Number,
     required: true,
-    default: 4500
+    default: 45000
   },
   
-  // ✅ เพิ่มฟิลด์ปลายทาง
+  // Destination field
   destination: {
     type: String,
     trim: true,
-    maxlength: 100,        // จำกัดความยาวสูงสุด 100 ตัวอักษร
-    default: 'ຕົວເມືອງ'    // ค่าเริ่มต้น
+    maxlength: 100,
+    default: 'ຕົວເມືອງ'
+  },
+  
+  // ✅ NEW: Driver Assignment fields
+  assignedDriverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  isAssigned: {
+    type: Boolean,
+    default: function() {
+      return !!this.assignedDriverId;
+    }
+  },
+  assignedAt: {
+    type: Date,
+    default: function() {
+      return this.assignedDriverId ? new Date() : null;
+    }
+  },
+  
+  // ✅ NEW: Trip Status fields (when scanned by driver)
+  isScanned: {
+    type: Boolean,
+    default: false
+  },
+  scannedAt: {
+    type: Date,
+    default: null
+  },
+  scannedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  tripId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DriverTrip',
+    default: null
   }
 });
 
@@ -74,7 +124,12 @@ const ticketSchema = new mongoose.Schema({
 ticketSchema.index({ ticketType: 1 });
 ticketSchema.index({ passengerCount: 1 });
 ticketSchema.index({ soldAt: -1, ticketType: 1 });
-ticketSchema.index({ destination: 1 }); // ✅ เพิ่ม index สำหรับปลายทาง
+ticketSchema.index({ destination: 1 });
+// ✅ NEW: Indexes for driver assignment
+ticketSchema.index({ assignedDriverId: 1 });
+ticketSchema.index({ isAssigned: 1 });
+ticketSchema.index({ isScanned: 1 });
+ticketSchema.index({ assignedDriverId: 1, isScanned: 1 });
 
 // Virtual Fields
 ticketSchema.virtual('isGroupTicket').get(function() {
@@ -85,13 +140,19 @@ ticketSchema.virtual('totalPassengers').get(function() {
   return this.passengerCount;
 });
 
-// ✅ เพิ่ม Virtual Field สำหรับ route information
 ticketSchema.virtual('routeInfo').get(function() {
   return {
     origin: 'ສະຖານີລົດໄຟ',
     destination: this.destination || 'ຕົວເມືອງ',
     fullRoute: `ສະຖານີລົດໄຟ → ${this.destination || 'ຕົວເມືອງ'}`
   };
+});
+
+// ✅ NEW: Virtual field for assignment status
+ticketSchema.virtual('assignmentStatus').get(function() {
+  if (!this.assignedDriverId) return 'unassigned';
+  if (this.isScanned) return 'completed';
+  return 'assigned';
 });
 
 // Static Methods
@@ -109,15 +170,123 @@ ticketSchema.statics.findIndividualTickets = function(filter = {}) {
   });
 };
 
-// ✅ เพิ่ม Static Method: ค้นหาตั๋วตามปลายทาง
 ticketSchema.statics.findByDestination = function(destination: string, filter = {}) {
   return this.find({
-    destination: new RegExp(destination, 'i'), // ค้นหาแบบไม่สนใจตัวพิมพ์ใหญ่เล็ก
+    destination: new RegExp(destination, 'i'),
     ...filter
   });
 };
 
-// ✅ เพิ่ม Static Method: สถิติปลายทาง
+// ✅ NEW: Static Methods for Driver Assignment
+ticketSchema.statics.findByDriver = function(driverId: string, filter = {}) {
+  return this.find({
+    assignedDriverId: driverId,
+    ...filter
+  }).populate('assignedDriverId', 'name employeeId checkInStatus');
+};
+
+ticketSchema.statics.findUnassignedTickets = function(filter = {}) {
+  return this.find({
+    $or: [
+      { assignedDriverId: null },
+      { assignedDriverId: { $exists: false } }
+    ],
+    ...filter
+  });
+};
+
+ticketSchema.statics.findAssignedButNotScanned = function(driverId?: string) {
+  const query: any = {
+    assignedDriverId: { $ne: null, $exists: true },
+    isScanned: false
+  };
+  
+  if (driverId) {
+    query.assignedDriverId = driverId;
+  }
+  
+  return this.find(query).populate('assignedDriverId', 'name employeeId');
+};
+
+// ✅ NEW: Driver Assignment Statistics
+ticketSchema.statics.getDriverAssignmentStats = async function(startDate?: Date, endDate?: Date) {
+  const matchFilter: any = {};
+  
+  if (startDate && endDate) {
+    matchFilter.soldAt = { $gte: startDate, $lte: endDate };
+  }
+  
+  const stats = await this.aggregate([
+    { $match: matchFilter },
+    {
+      $group: {
+        _id: null,
+        totalTickets: { $sum: 1 },
+        assignedTickets: {
+          $sum: {
+            $cond: [{ $ne: ['$assignedDriverId', null] }, 1, 0]
+          }
+        },
+        scannedTickets: {
+          $sum: {
+            $cond: ['$isScanned', 1, 0]
+          }
+        }
+      }
+    }
+  ]);
+  
+  const result = stats[0] || {
+    totalTickets: 0,
+    assignedTickets: 0,
+    scannedTickets: 0
+  };
+  
+  result.unassignedTickets = result.totalTickets - result.assignedTickets;
+  result.pendingTickets = result.assignedTickets - result.scannedTickets;
+  
+  return result;
+};
+
+// ✅ NEW: Driver Performance Statistics
+ticketSchema.statics.getDriverPerformanceStats = async function(driverId: string, startDate?: Date, endDate?: Date) {
+  const matchFilter: any = { assignedDriverId: driverId };
+  
+  if (startDate && endDate) {
+    matchFilter.soldAt = { $gte: startDate, $lte: endDate };
+  }
+  
+  const stats = await this.aggregate([
+    { $match: matchFilter },
+    {
+      $group: {
+        _id: null,
+        totalTicketsAssigned: { $sum: 1 },
+        totalRevenue: { $sum: '$price' },
+        totalPassengers: { $sum: '$passengerCount' },
+        scannedTickets: {
+          $sum: {
+            $cond: ['$isScanned', 1, 0]
+          }
+        }
+      }
+    }
+  ]);
+  
+  const result = stats[0] || {
+    totalTicketsAssigned: 0,
+    totalRevenue: 0,
+    totalPassengers: 0,
+    scannedTickets: 0
+  };
+  
+  result.efficiency = result.totalTicketsAssigned > 0 
+    ? Math.round((result.scannedTickets / result.totalTicketsAssigned) * 100)
+    : 0;
+  
+  return result;
+};
+
 ticketSchema.statics.getDestinationStats = async function(startDate?: Date, endDate?: Date) {
   const matchFilter: any = {};
   
@@ -143,7 +312,6 @@ ticketSchema.statics.getDestinationStats = async function(startDate?: Date, endD
   return stats;
 };
 
-// สถิติตั๋วกลุ่ม
 ticketSchema.statics.getGroupTicketStats = async function(startDate?: Date, endDate?: Date) {
   const matchFilter: any = { ticketType: 'group' };
   
@@ -176,7 +344,6 @@ ticketSchema.statics.getGroupTicketStats = async function(startDate?: Date, endD
   };
 };
 
-// สถิติรวม Individual + Group + Destination
 ticketSchema.statics.getComprehensiveStats = async function(startDate?: Date, endDate?: Date) {
   const matchFilter: any = {};
   
@@ -220,6 +387,15 @@ ticketSchema.statics.getComprehensiveStats = async function(startDate?: Date, en
   return result;
 };
 
+// ✅ NEW: Method to mark ticket as scanned
+ticketSchema.methods.markAsScanned = function(scannedByDriverId: string, tripId: string) {
+  this.isScanned = true;
+  this.scannedAt = new Date();
+  this.scannedBy = scannedByDriverId;
+  this.tripId = tripId;
+  return this.save();
+};
+
 // Pre-save middleware: ตรวจสอบความถูกต้องของข้อมูล
 ticketSchema.pre('save', function(next) {
   // ตรวจสอบว่า price = pricePerPerson * passengerCount
@@ -237,15 +413,20 @@ ticketSchema.pre('save', function(next) {
     this.passengerCount = 1;
   }
   
-  // ✅ ตรวจสอบและทำความสะอาดปลายทาง
+  // ตรวจสอบและทำความสะอาดปลายทาง
   if (this.destination) {
     this.destination = this.destination.trim();
-    // ถ้าปลายทางว่างหลังจาก trim ให้ใช้ค่าเริ่มต้น
     if (!this.destination) {
       this.destination = 'ຕົວເມືອງ';
     }
   } else {
     this.destination = 'ຕົວເມືອງ';
+  }
+  
+  // ✅ NEW: Update assignment status automatically
+  this.isAssigned = !!this.assignedDriverId;
+  if (this.assignedDriverId && !this.assignedAt) {
+    this.assignedAt = new Date();
   }
   
   next();

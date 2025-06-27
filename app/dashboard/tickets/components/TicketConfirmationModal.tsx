@@ -1,6 +1,23 @@
-// app/dashboard/tickets/components/TicketConfirmationModal.tsx - Enhanced with Destination Input
+// app/dashboard/tickets/components/TicketConfirmationModal.tsx - Enhanced with Car Selection
 import React, { useState, useEffect, useRef } from 'react';
-import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin } from 'react-icons/fi';
+import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin, FiTruck } from 'react-icons/fi';
+
+interface Car {
+  _id: string;
+  car_id: string;
+  car_name: string;
+  car_registration: string;
+  car_capacity: number;
+  user_id: {
+    _id: string;
+    name: string;
+    employeeId: string;
+    checkInStatus: 'checked-in' | 'checked-out';
+  };
+  carType?: {
+    carType_name: string;
+  };
+}
 
 interface TicketConfirmationModalProps {
   isOpen: boolean;
@@ -16,17 +33,24 @@ interface TicketConfirmationModalProps {
   ticketType: 'individual' | 'group';
   onTicketTypeChange: (type: 'individual' | 'group') => void;
   
-  // ✅ เพิ่ม Props สำหรับที่อยู่ปลายทาง
+  // Destination Props
   destination: string;
   onDestinationChange: (destination: string) => void;
+  
+  // ✅ UPDATED: Car Selection Props (แทน Driver Selection)
+  selectedCarRegistration: string;
+  onCarChange: (carRegistration: string) => void;
 }
 
 const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   isOpen, ticketPrice, paymentMethod, quantity, onQuantityChange, onConfirm, onCancel, loading,
-  ticketType, onTicketTypeChange, destination, onDestinationChange
+  ticketType, onTicketTypeChange, destination, onDestinationChange,
+  selectedCarRegistration, onCarChange
 }) => {
   const [inputValue, setInputValue] = useState(quantity.toString());
   const [error, setError] = useState('');
+  const [cars, setCars] = useState<Car[]>([]);
+  const [carsLoading, setCarsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
   // กำหนดขีดจำกัดตามประเภทตั๋ว
@@ -34,10 +58,42 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const MIN_QUANTITY = isGroupTicket ? 2 : 1;
   const MAX_QUANTITY = isGroupTicket ? 10 : 20;
 
+  // ✅ UPDATED: Fetch available cars with drivers when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchCarsWithDrivers();
+    }
+  }, [isOpen]);
+
+  const fetchCarsWithDrivers = async () => {
+    setCarsLoading(true);
+    try {
+      const response = await fetch('/api/cars');
+      const data = await response.json();
+      
+      if (response.ok) {
+        // เรียงลำดับ: รถที่คนขับเช็คอินแล้วขึ้นก่อน แล้วเรียงตามทะเบียนรถ
+        const sortedCars = data.sort((a: Car, b: Car) => {
+          // เช็คอินขึ้นก่อน
+          if (a.user_id?.checkInStatus === 'checked-in' && b.user_id?.checkInStatus === 'checked-out') return -1;
+          if (a.user_id?.checkInStatus === 'checked-out' && b.user_id?.checkInStatus === 'checked-in') return 1;
+          // เรียงตามทะเบียนรถ
+          return a.car_registration.localeCompare(b.car_registration);
+        });
+        setCars(sortedCars);
+      } else {
+        console.error('Failed to fetch cars:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching cars:', error);
+    } finally {
+      setCarsLoading(false);
+    }
+  };
+
   // Sync กับ quantity prop
   useEffect(() => {
     if (isOpen) {
-      // เมื่อเปลี่ยนประเภทตั๋ว ให้ปรับ quantity ให้เหมาะสม
       let newQuantity = quantity;
       if (isGroupTicket && quantity < MIN_QUANTITY) {
         newQuantity = MIN_QUANTITY;
@@ -129,10 +185,13 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
     }
   };
 
+  // ✅ UPDATED: Get selected car info
+  const selectedCar = cars.find(c => c.car_registration === selectedCarRegistration);
+
   return (
     <div className="fixed inset-0 bg-white/80 backdrop-blur flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border">
-        <div className="bg-blue-500 text-white p-4 flex items-center justify-between">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 border max-h-[90vh] overflow-y-auto">
+        <div className="bg-blue-500 text-white p-4 flex items-center justify-between sticky top-0">
           <div className="flex items-center">
             <FiPrinter className="mr-2" />
             <h3 className="text-lg font-bold">ຢືນຢັນອອກປີ້</h3>
@@ -148,6 +207,101 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
         </div>
         
         <div className="p-6">
+          {/* ✅ UPDATED: Car Selection Section */}
+          <div className="mb-6">
+            <div className="text-sm font-semibold mb-3 text-gray-700 flex items-center">
+              <FiTruck className="h-4 w-4 mr-2" />
+              ເລືອກລົດ ແລະ ຄົນຂັບ
+            </div>
+            {carsLoading ? (
+              <div className="py-8 text-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                <p className="text-sm text-gray-500">ກຳລັງໂຫລດຂໍ້ມູນລົດ...</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-32 overflow-y-auto border rounded-lg">
+                {cars.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    <FiAlertCircle className="h-5 w-5 mx-auto mb-2" />
+                    <p className="text-sm">ບໍ່ພົບຂໍ້ມູນລົດ</p>
+                  </div>
+                ) : (
+                  cars.map((car) => (
+                    <button
+                      key={car._id}
+                      onClick={() => onCarChange(car.car_registration)}
+                      className={`w-full p-3 text-left rounded-lg transition border ${
+                        selectedCarRegistration === car.car_registration
+                          ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-200' 
+                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                      }`}
+                      disabled={loading}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          {/* ทะเบียนรถ */}
+                          <div className="flex items-center mb-1">
+                            <p className="font-bold text-lg text-gray-900">{car.car_registration}</p>
+                            <span className="ml-2 text-sm text-gray-500">({car.car_name})</span>
+                          </div>
+                          
+                          {/* ข้อมูลคนขับ */}
+                          <div className="flex items-center text-sm text-gray-600">
+                            <span>ຄົນຂັບ: <strong>{car.user_id?.name || 'ไม่ระบุ'}</strong></span>
+                            <span className="mx-2">•</span>
+                            <span>รหัส: {car.user_id?.employeeId || 'N/A'}</span>
+                          </div>
+                          
+                          {/* ข้อมูลรถ */}
+                          <div className="flex items-center text-xs text-gray-500 mt-1">
+                            <span>ที่นั่ง: {car.car_capacity} คน</span>
+                            {car.carType && (
+                              <>
+                                <span className="mx-2">•</span>
+                                <span>{car.carType.carType_name}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end ml-3">
+                          {/* สถานะคนขับ */}
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mb-1 ${
+                            car.user_id?.checkInStatus === 'checked-in'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {car.user_id?.checkInStatus === 'checked-in' ? '🟢 ອອນລາຍ' : '🔴 ອອຟລາຍ'}
+                          </span>
+                          
+                          {/* เลือกแล้ว */}
+                          {selectedCarRegistration === car.car_registration && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+            
+            {/* แสดงข้อมูลรถที่เลือก */}
+            {selectedCar && (
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center">
+                  <FiTruck className="h-4 w-4 text-blue-600 mr-2" />
+                  <span className="text-sm text-blue-800">
+                    <strong>ເລືອກແລ້ວ:</strong> {selectedCar.car_registration} - {selectedCar.user_id?.name} ({selectedCar.user_id?.employeeId})
+                    {selectedCar.user_id?.checkInStatus === 'checked-in' && (
+                      <span className="ml-2 text-green-600">✓ ພ້ອມຮັບງານ</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* ส่วนเลือกประเภทตั๋ว */}
           <div className="mb-6">
             <div className="text-sm font-semibold mb-3 text-gray-700">ປະເພດປີ້</div>
@@ -190,7 +344,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </div>
           </div>
 
-          {/* ✅ เพิ่มส่วนใส่ที่อยู่ปลายทาง */}
+          {/* ส่วนใส่ที่อยู่ปลายทาง */}
           <div className="mb-6">
             <div className="text-sm font-semibold mb-3 text-gray-700 flex items-center">
               <FiMapPin className="h-4 w-4 mr-2" />
@@ -312,6 +466,18 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </div>
           </div>
 
+          {/* ✅ UPDATED: Validation Alert for Car Selection */}
+          {!selectedCarRegistration && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+              <div className="flex items-start">
+                <FiAlertCircle className="text-yellow-600 mr-2 mt-0.5" />
+                <div className="text-yellow-700 text-sm">
+                  <strong>ກະລຸນາເລືອກລົດ ແລະ ຄົນຂັບ</strong> ກ່ອນທີ່ຈະອອກປີ້
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
             <div className="flex items-start">
               <div className="text-blue-600 mr-2 font-bold">ໝາຍເຫດ:</div>
@@ -332,11 +498,11 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             
             <button
               className={`flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition flex items-center justify-center ${
-                loading || !hasValidQuantity ? 'opacity-70 cursor-not-allowed' : ''
+                loading || !hasValidQuantity || !selectedCarRegistration ? 'opacity-70 cursor-not-allowed' : ''
               }`}
               onClick={onConfirm}
-              disabled={loading || !hasValidQuantity}
-              title={hasValidQuantity ? "ຢືນຢັນ (Enter)" : "ກະລຸນາແກ້ໄຂຂໍ້ມູນກ່ອນ"}
+              disabled={loading || !hasValidQuantity || !selectedCarRegistration}
+              title={hasValidQuantity && selectedCarRegistration ? "ຢືນຢັນ (Enter)" : "ກະລຸນາແກ້ໄຂຂໍ້ມູນກ່ອນ"}
             >
               {loading ? (
                 <div className="flex items-center">

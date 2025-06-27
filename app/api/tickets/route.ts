@@ -1,7 +1,8 @@
-// app/api/tickets/route.ts - Enhanced with Destination Support
+// app/api/tickets/route.ts - Enhanced with Driver Assignment Support
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
+import User from '@/models/User'; // ✅ NEW: Import User model for driver validation
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -56,7 +57,7 @@ async function generateUniqueTicketNumber(): Promise<string> {
 }
 
 /**
- * สร้าง Ticket พร้อมกับการป้องกันการซ้ำ - รองรับ Destination
+ * สร้าง Ticket พร้อมกับการป้องกันการซ้ำ - รองรับ Driver Assignment
  */
 async function createTicketSafely(ticketData: any): Promise<any> {
   const maxRetries = 3;
@@ -76,12 +77,15 @@ async function createTicketSafely(ticketData: any): Promise<any> {
         ...fullTicketData,
         isGroupTicket: fullTicketData.ticketType === 'group',
         passengerCount: fullTicketData.passengerCount,
-        destination: fullTicketData.destination || 'ຕົວເມືອງ' // ✅ แสดงปลายทาง
+        destination: fullTicketData.destination || 'ຕົວເມືອງ',
+        // ✅ NEW: Driver assignment info
+        hasAssignedDriver: !!fullTicketData.assignedDriverId,
+        assignedDriverId: fullTicketData.assignedDriverId
       });
       
       const ticket = await Ticket.create(fullTicketData);
       
-      console.log(`🎉 ${ticketData.ticketType} ticket created successfully: ${ticket.ticketNumber} → ${ticket.destination}`);
+      console.log(`🎉 ${ticketData.ticketType} ticket created successfully: ${ticket.ticketNumber} → ${ticket.destination}${ticket.assignedDriverId ? ` (assigned to driver: ${ticket.assignedDriverId})` : ''}`);
       return ticket;
       
     } catch (error: any) {
@@ -100,10 +104,10 @@ async function createTicketSafely(ticketData: any): Promise<any> {
   throw new Error('Failed to create ticket after multiple attempts');
 }
 
-// API Route สำหรับสร้าง Ticket - Enhanced with Destination Support
+// API Route สำหรับสร้าง Ticket - Enhanced with Driver Assignment Support
 export async function POST(request: Request) {
   try {
-    console.log('🎯 Starting ticket creation with Destination support...');
+    console.log('🎯 Starting ticket creation with Driver Assignment support...');
     
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -119,7 +123,9 @@ export async function POST(request: Request) {
       ticketType = 'individual',
       passengerCount = 1,
       pricePerPerson = 45000,
-      destination = 'ຕົວເມືອງ' // ✅ เพิ่มรับค่า destination
+      destination = 'ຕົວເມືອງ',
+      // ✅ NEW: Driver assignment
+      assignedDriverId
     } = body;
 
     console.log('📋 Request data:', { 
@@ -128,7 +134,8 @@ export async function POST(request: Request) {
       ticketType,
       passengerCount,
       pricePerPerson,
-      destination, // ✅ แสดงปลายทาง
+      destination,
+      assignedDriverId, // ✅ NEW
       soldBy: session.user.email 
     });
 
@@ -138,6 +145,27 @@ export async function POST(request: Request) {
         { error: 'Price and Payment Method are required' }, 
         { status: 400 }
       );
+    }
+
+    // ✅ NEW: Validate assigned driver if provided
+    if (assignedDriverId) {
+      const assignedDriver = await User.findById(assignedDriverId);
+      
+      if (!assignedDriver) {
+        return NextResponse.json(
+          { error: 'Assigned driver not found' },
+          { status: 404 }
+        );
+      }
+      
+      if (assignedDriver.role !== 'driver') {
+        return NextResponse.json(
+          { error: 'Assigned user must be a driver' },
+          { status: 400 }
+        );
+      }
+      
+      console.log(`✅ Driver validation passed: ${assignedDriver.name} (${assignedDriver.employeeId})`);
     }
 
     // ตรวจสอบความถูกต้องของ Group Ticket
@@ -169,7 +197,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // ✅ ตรวจสอบและทำความสะอาดปลายทาง
+    // ตรวจสอบและทำความสะอาดปลายทาง
     const cleanDestination = (destination || 'ຕົວເມືອງ').trim();
     if (cleanDestination.length > 100) {
       return NextResponse.json(
@@ -190,8 +218,11 @@ export async function POST(request: Request) {
       passengerCount: Number(passengerCount),
       pricePerPerson: Number(pricePerPerson),
       
-      // ✅ Destination Support
-      destination: cleanDestination
+      // Destination Support
+      destination: cleanDestination,
+      
+      // ✅ NEW: Driver Assignment Support
+      ...(assignedDriverId && { assignedDriverId })
     };
 
     // สร้าง ticket ด้วยระบบ UUID
@@ -204,12 +235,28 @@ export async function POST(request: Request) {
       passengerCount: ticket.passengerCount,
       price: ticket.price,
       pricePerPerson: ticket.pricePerPerson,
-      destination: ticket.destination, // ✅ แสดงปลายทาง
+      destination: ticket.destination,
+      assignedDriverId: ticket.assignedDriverId, // ✅ NEW
+      isAssigned: ticket.isAssigned, // ✅ NEW
       soldAt: ticket.soldAt
     });
 
+    // ✅ NEW: Populate driver information if assigned
+    let populatedTicket = ticket.toObject();
+    if (ticket.assignedDriverId) {
+      const driverInfo = await User.findById(ticket.assignedDriverId).select('name employeeId checkInStatus');
+      if (driverInfo) {
+        populatedTicket.assignedDriver = {
+          _id: driverInfo._id,
+          name: driverInfo.name,
+          employeeId: driverInfo.employeeId,
+          checkInStatus: driverInfo.checkInStatus
+        };
+      }
+    }
+
     // ส่งกลับข้อมูล ticket
-    return NextResponse.json(ticket.toObject());
+    return NextResponse.json(populatedTicket);
 
   } catch (error) {
     console.error('💥 Ticket Creation Error:', error);
@@ -225,7 +272,7 @@ export async function POST(request: Request) {
   }
 }
 
-// API Route สำหรับดึงข้อมูล Ticket - Enhanced with Destination filtering
+// API Route สำหรับดึงข้อมูล Ticket - Enhanced with Driver Assignment filtering
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -241,14 +288,19 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const paymentMethod = searchParams.get('paymentMethod');
     const ticketType = searchParams.get('ticketType');
-    const destination = searchParams.get('destination'); // ✅ เพิ่มการกรองตามปลายทาง
+    const destination = searchParams.get('destination');
+    // ✅ NEW: Driver filtering
+    const assignedDriverId = searchParams.get('assignedDriverId');
+    const assignmentStatus = searchParams.get('assignmentStatus'); // 'assigned', 'unassigned', 'completed'
     
     console.log('📖 GET tickets request:', { 
       page, 
       limit, 
       paymentMethod, 
       ticketType,
-      destination // ✅ แสดงการกรองปลายทาง
+      destination,
+      assignedDriverId, // ✅ NEW
+      assignmentStatus // ✅ NEW
     });
     
     // สร้าง filter
@@ -262,9 +314,31 @@ export async function GET(request: Request) {
       filter.ticketType = ticketType;
     }
     
-    // ✅ เพิ่มการกรองตามปลายทาง
     if (destination && destination.trim()) {
-      filter.destination = new RegExp(destination.trim(), 'i'); // ค้นหาแบบไม่สนใจตัวพิมพ์ใหญ่เล็ก
+      filter.destination = new RegExp(destination.trim(), 'i');
+    }
+    
+    // ✅ NEW: Driver assignment filters
+    if (assignedDriverId) {
+      filter.assignedDriverId = assignedDriverId;
+    }
+    
+    if (assignmentStatus) {
+      switch (assignmentStatus) {
+        case 'unassigned':
+          filter.$or = [
+            { assignedDriverId: null },
+            { assignedDriverId: { $exists: false } }
+          ];
+          break;
+        case 'assigned':
+          filter.assignedDriverId = { $ne: null, $exists: true };
+          filter.isScanned = false;
+          break;
+        case 'completed':
+          filter.isScanned = true;
+          break;
+      }
     }
     
     // คำนวณ pagination
@@ -275,7 +349,8 @@ export async function GET(request: Request) {
     
     // ดึงข้อมูล
     const tickets = await Ticket.find(filter)
-      .sort({ soldAt: -1 }) // เรียงจากใหม่ไปเก่า
+      .populate('assignedDriverId', 'name employeeId checkInStatus') // ✅ NEW: Populate driver info
+      .sort({ soldAt: -1 })
       .skip(skip)
       .limit(limit);
     
@@ -283,7 +358,7 @@ export async function GET(request: Request) {
     
     console.log(`📊 Retrieved ${tickets.length} tickets from ${totalItems} total`);
     
-    // เพิ่มสถิติ Group vs Individual + Destination
+    // เพิ่มสถิติ Group vs Individual + Destination + Driver Assignment
     const ticketStats = await Ticket.aggregate([
       { $match: filter },
       {
@@ -311,7 +386,7 @@ export async function GET(request: Request) {
       }
     });
     
-    // ✅ เพิ่มสถิติปลายทาง
+    // สถิติปลายทาง
     const destinationStats = await Ticket.aggregate([
       { $match: filter },
       {
@@ -325,9 +400,25 @@ export async function GET(request: Request) {
         $sort: { count: -1 }
       },
       {
-        $limit: 10 // แสดงแค่ 10 อันดับแรก
+        $limit: 10
       }
     ]);
+    
+    // ✅ NEW: Driver assignment statistics
+    const driverAssignmentStats = await Ticket.getDriverAssignmentStats(
+      filter.soldAt?.$gte,
+      filter.soldAt?.$lte
+    );
+    
+    // ✅ NEW: Driver performance statistics (if filtering by specific driver)
+    let driverPerformanceStats = null;
+    if (assignedDriverId) {
+      driverPerformanceStats = await Ticket.getDriverPerformanceStats(
+        assignedDriverId,
+        filter.soldAt?.$gte,
+        filter.soldAt?.$lte
+      );
+    }
     
     return NextResponse.json({
       tickets: tickets,
@@ -338,7 +429,10 @@ export async function GET(request: Request) {
         limit
       },
       statistics: statsFormatted,
-      destinationStats: destinationStats, // ✅ เพิ่มสถิติปลายทาง
+      destinationStats: destinationStats,
+      // ✅ NEW: Driver-related statistics
+      driverAssignmentStats: driverAssignmentStats,
+      driverPerformanceStats: driverPerformanceStats,
       meta: {
         generationType: 'UUID',
         ticketFormat: 'T + 5 random chars (6 total)',
@@ -348,11 +442,16 @@ export async function GET(request: Request) {
           minPassengers: 2,
           maxPassengers: 10
         },
-        // ✅ เพิ่มข้อมูลเกี่ยวกับปลายทาง
         destinationSupport: {
           enabled: true,
           maxLength: 100,
           defaultDestination: 'ຕົວເມືອງ'
+        },
+        // ✅ NEW: Driver assignment features
+        driverAssignmentSupport: {
+          enabled: true,
+          assignmentStatuses: ['unassigned', 'assigned', 'completed'],
+          features: ['assignment', 'filtering', 'performance_tracking']
         }
       }
     });
