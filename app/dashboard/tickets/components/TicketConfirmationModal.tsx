@@ -1,4 +1,4 @@
-// app/dashboard/tickets/components/TicketConfirmationModal.tsx - Simplified POS Version
+// app/dashboard/tickets/components/TicketConfirmationModal.tsx - FIXED Real-time Capacity Update
 import React, { useState, useEffect, useRef } from 'react';
 import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin, FiTruck, FiSearch, FiChevronDown } from 'react-icons/fi';
 
@@ -17,6 +17,9 @@ interface Car {
   carType?: {
     carType_name: string;
   };
+  // ✅ เพิ่มข้อมูลการใช้งานปัจจุบัน
+  currentUsage?: number; // จำนวนผู้โดยสารที่จองแล้ว
+  availableSeats?: number; // ที่นั่งที่เหลือ
 }
 
 interface TicketConfirmationModalProps {
@@ -42,11 +45,11 @@ interface TicketConfirmationModalProps {
   onCarChange: (carRegistration: string) => void;
 }
 
-const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
+const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalProps>(({
   isOpen, ticketPrice, paymentMethod, quantity, onQuantityChange, onConfirm, onCancel, loading,
   ticketType, onTicketTypeChange, destination, onDestinationChange,
   selectedCarRegistration, onCarChange
-}) => {
+}, ref) => {
   const [inputValue, setInputValue] = useState(quantity.toString());
   const [error, setError] = useState('');
   const [cars, setCars] = useState<Car[]>([]);
@@ -65,6 +68,28 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const isGroupTicket = ticketType === 'group';
   const MIN_QUANTITY = isGroupTicket ? 2 : 1;
   const MAX_QUANTITY = isGroupTicket ? 10 : 20;
+
+  // ✅ เพิ่มฟังก์ชันคำนวณการใช้งานรถแบบ real-time ด้วย API ใหม่
+  const calculateCarUsage = async (carRegistration: string): Promise<{ currentUsage: number; availableSeats: number }> => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const response = await fetch(`/api/cars/usage?carRegistration=${carRegistration}&date=${today}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          return {
+            currentUsage: data.usage.currentUsage,
+            availableSeats: data.usage.availableSeats
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Error calculating car usage:', error);
+    }
+    
+    return { currentUsage: 0, availableSeats: 0 };
+  };
 
   // Fetch available cars with drivers when modal opens
   useEffect(() => {
@@ -97,6 +122,15 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
     }
   }, [isCarDropdownOpen]);
 
+  // ✅ FIXED: Fetch cars with real-time usage data
+  // ✅ เพิ่ม method สำหรับ refresh car data ผ่าน ref
+  React.useImperativeHandle(ref, () => ({
+    refreshCarData: () => {
+      console.log('🔄 Modal: Refreshing car data...');
+      fetchCarsWithDrivers();
+    }
+  }), []);
+
   const fetchCarsWithDrivers = async () => {
     setCarsLoading(true);
     try {
@@ -109,22 +143,35 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
           car.user_id?.checkInStatus === 'checked-in'
         );
         
-        // เรียงตามที่นั่งมากที่สุด (ที่ว่างที่สุด) ขึ้นก่อน
-        const sortedCars = onlineCars.sort((a: Car, b: Car) => {
-          if (a.car_capacity !== b.car_capacity) {
-            return b.car_capacity - a.car_capacity; // มากไปน้อย
+        // ✅ เพิ่มข้อมูลการใช้งานปัจจุบันให้แต่ละคัน
+        const carsWithUsage = await Promise.all(
+          onlineCars.map(async (car: Car) => {
+            const { currentUsage, availableSeats } = await calculateCarUsage(car.car_registration);
+            return {
+              ...car,
+              currentUsage,
+              availableSeats
+            };
+          })
+        );
+        
+        // เรียงตามที่นั่งที่เหลือมากที่สุด ขึ้นก่อน
+        const sortedCars = carsWithUsage.sort((a: Car, b: Car) => {
+          if (a.availableSeats !== b.availableSeats) {
+            return (b.availableSeats || 0) - (a.availableSeats || 0); // ที่นั่งเหลือมากขึ้นก่อน
           }
           return a.car_registration.localeCompare(b.car_registration);
         });
         
         setCars(sortedCars);
         
-        // เลือกรถคันแรกอัตโนมัติ (ที่มีที่นั่งมากที่สุด) ถ้ายังไม่เลือก
+        // เลือกรถคันแรกอัตโนมัติ (ที่มีที่นั่งเหลือมากที่สุด) ถ้ายังไม่เลือก
         if (sortedCars.length > 0 && !selectedCarRegistration) {
-          onCarChange(sortedCars[0].car_registration);
-          setSelectedCar(sortedCars[0]);
+          const bestCar = sortedCars[0];
+          onCarChange(bestCar.car_registration);
+          setSelectedCar(bestCar);
         } else if (selectedCarRegistration) {
-          // หารถที่เลือกไว้
+          // หารถที่เลือกไว้และอัปเดตข้อมูลการใช้งาน
           const currentCar = sortedCars.find(car => car.car_registration === selectedCarRegistration);
           setSelectedCar(currentCar || null);
         }
@@ -137,6 +184,29 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
     } finally {
       setCarsLoading(false);
     }
+  };
+
+  // ✅ อัปเดตข้อมูลการใช้งานเมื่อเปลี่ยนรถ
+  const refreshCarUsage = async (carRegistration: string) => {
+    const { currentUsage, availableSeats } = await calculateCarUsage(carRegistration);
+    
+    // อัปเดตข้อมูลรถที่เลือก
+    if (selectedCar && selectedCar.car_registration === carRegistration) {
+      setSelectedCar({
+        ...selectedCar,
+        currentUsage,
+        availableSeats
+      });
+    }
+    
+    // อัปเดตข้อมูลในรายการรถทั้งหมด
+    setCars(prevCars => 
+      prevCars.map(car => 
+        car.car_registration === carRegistration 
+          ? { ...car, currentUsage, availableSeats }
+          : car
+      )
+    );
   };
 
   // Filter cars with proper null/undefined handling
@@ -158,12 +228,17 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   });
 
   // Handle car selection from dropdown
-  const handleCarSelect = (carRegistration: string) => {
+  const handleCarSelect = async (carRegistration: string) => {
     onCarChange(carRegistration);
     const selected = cars.find(car => car.car_registration === carRegistration);
     setSelectedCar(selected || null);
     setIsCarDropdownOpen(false);
     setCarSearchTerm('');
+    
+    // ✅ รีเฟรชข้อมูลการใช้งานของรถที่เลือก
+    if (selected) {
+      await refreshCarUsage(carRegistration);
+    }
   };
 
   // Sync กับ quantity prop
@@ -232,9 +307,9 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
       return;
     }
     
-    // ตรวจสอบความจุรถ
-    if (selectedCar && numericValue > selectedCar.car_capacity) {
-      setError(`ຈຳນວນຜູ້ໂດຍສານເກີນຄວາມຈຸລົດ (ສູງສຸດ ${selectedCar.car_capacity} ຄົນ)`);
+    // ✅ ตรวจสอบความจุรถแบบ real-time
+    if (selectedCar && numericValue > (selectedCar.availableSeats || 0)) {
+      setError(`ຈຳນວນຜູ້ໂດຍສານເກີນທີ່ນັ່ງທີ່ເຫຼືອ (ເຫຼືອ ${selectedCar.availableSeats} ທີ່ນັ່ງ)`);
       return;
     }
     
@@ -246,7 +321,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const changeQuantity = (change: number) => {
     const newQuantity = quantity + change;
     const maxLimit = selectedCar ? 
-      Math.min(MAX_QUANTITY, selectedCar.car_capacity) : MAX_QUANTITY;
+      Math.min(MAX_QUANTITY, selectedCar.availableSeats || 0) : MAX_QUANTITY;
     
     if (newQuantity >= MIN_QUANTITY && newQuantity <= maxLimit) {
       const newValue = newQuantity.toString();
@@ -258,11 +333,23 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const totalAmount = ticketPrice * quantity;
   const hasValidQuantity = !error && inputValue && quantity >= MIN_QUANTITY && quantity <= MAX_QUANTITY;
 
-  // ฟังก์ชันยืนยัน - เรียบง่าย
+  // ฟังก์ชันยืนยัน - รีเฟรชข้อมูลก่อนส่ง
   const handleConfirm = async () => {
     if (!hasValidQuantity || !selectedCarRegistration) {
       return;
     }
+    
+    // ✅ รีเฟรชข้อมูลการใช้งานล่าสุดก่อนยืนยัน
+    if (selectedCar) {
+      await refreshCarUsage(selectedCar.car_registration);
+      
+      // ตรวจสอบอีกครั้งหลังรีเฟรช
+      if (quantity > (selectedCar.availableSeats || 0)) {
+        setError(`ທີ່ນັ່ງບໍ່ພຽງພໍ! ປັດຈຸບັນເຫຼືອ ${selectedCar.availableSeats} ທີ່ນັ່ງ`);
+        return;
+      }
+    }
+    
     onConfirm();
   };
 
@@ -277,9 +364,13 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
     }
   };
 
-  // คำนวณข้อมูลรถที่เลือก
-  const remainingCapacity = selectedCar ? selectedCar.car_capacity - quantity : 0;
-  const occupancyPercentage = selectedCar ? Math.round((quantity / selectedCar.car_capacity) * 100) : 0;
+  // ✅ คำนวณข้อมูลรถที่เลือกแบบ real-time
+  const currentUsage = selectedCar?.currentUsage || 0;
+  const availableSeats = selectedCar?.availableSeats || 0;
+  const totalCapacity = selectedCar?.car_capacity || 0;
+  const afterBooking = currentUsage + quantity;
+  const remainingAfterBooking = Math.max(0, totalCapacity - afterBooking);
+  const usagePercentage = totalCapacity > 0 ? Math.round((afterBooking / totalCapacity) * 100) : 0;
 
   return (
     <div className="fixed inset-0 bg-white/80 backdrop-blur flex items-center justify-center z-50 p-4">
@@ -340,10 +431,17 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                             </div>
                             
                             {/* ข้อมูลคนขับ */}
-                            <div className="flex items-center text-sm text-gray-600">
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
                               <span>ຄົນຂັບ: <strong>{selectedCar.user_id?.name || 'ไม่ระบุ'}</strong></span>
                               <span className="mx-2">•</span>
                               <span>{selectedCar.user_id?.employeeId || 'N/A'}</span>
+                            </div>
+                            
+                            {/* ✅ แสดงข้อมูลการใช้งานแบบ real-time */}
+                            <div className="flex items-center text-xs">
+                              <span className="text-green-600">เหลือ {availableSeats} ที่นั่ง</span>
+                              <span className="mx-2 text-gray-400">•</span>
+                              <span className="text-blue-600">ใช้แล้ว {currentUsage}/{totalCapacity}</span>
                             </div>
                           </div>
                         ) : (
@@ -413,19 +511,28 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                                   <div className="flex items-center mb-1">
                                     <p className="font-bold text-sm text-gray-900">{car.car_registration}</p>
                                     <span className="ml-2 text-xs text-gray-500">({car.car_name})</span>
-                                    <span className="ml-2 text-xs text-blue-600">{car.car_capacity}ທີ່</span>
+                                    <span className="ml-2 text-xs text-blue-600">{car.car_capacity}ที่</span>
                                   </div>
                                   
                                   {/* ข้อมูลคนขับ */}
-                                  <div className="flex items-center text-xs text-gray-600">
+                                  <div className="flex items-center text-xs text-gray-600 mb-1">
                                     <span>ຄົນຂັບ: <strong>{car.user_id?.name || 'ไม่ระบุ'}</strong></span>
                                     <span className="mx-2">•</span>
                                     <span>{car.user_id?.employeeId || 'N/A'}</span>
                                   </div>
+                                  
+                                  {/* ✅ แสดงข้อมูลการใช้งานแบบ real-time */}
+                                  <div className="flex items-center text-xs">
+                                    <span className={`${(car.availableSeats || 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      เหลือ {car.availableSeats || 0} ที่นั่ง
+                                    </span>
+                                    <span className="mx-2 text-gray-400">•</span>
+                                    <span className="text-blue-600">ใช้แล้ว {car.currentUsage || 0}/{car.car_capacity}</span>
+                                  </div>
                                 </div>
                                 
                                 <div className="flex flex-col items-end ml-3">
-                                  {/* สถานะคนขับ - เฉพาะออนไลน์เท่านั้น */}
+                                  {/* สถานะคนขับ */}
                                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mb-1 bg-green-100 text-green-800">
                                     🟢 ອອນລາຍ
                                   </span>
@@ -520,7 +627,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                 </label>
                 <div className="text-xs text-gray-500">
                   {selectedCar ? (
-                    `ສູງສຸດ ${selectedCar.car_capacity} ຄົນ (ຄວາມຈຸລົດ)`
+                    `ເຫຼືອ ${availableSeats} ທີ່ນັ່ງ (ທັງໝົດ ${totalCapacity})`
                   ) : (
                     isGroupTicket ? 'ສູງສຸດ 10 ຄົນ/ກຸ່ມ' : 'ສູງສຸດ 20 ໃບ/ຄັ້ງ'
                   )}
@@ -569,9 +676,9 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                 
                 <button
                   onClick={() => changeQuantity(1)}
-                  disabled={quantity >= (selectedCar ? Math.min(MAX_QUANTITY, selectedCar.car_capacity) : MAX_QUANTITY) || loading}
+                  disabled={quantity >= (selectedCar ? Math.min(MAX_QUANTITY, availableSeats) : MAX_QUANTITY) || loading}
                   className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center font-bold text-lg transition ${
-                    quantity >= (selectedCar ? Math.min(MAX_QUANTITY, selectedCar.car_capacity) : MAX_QUANTITY) || loading 
+                    quantity >= (selectedCar ? Math.min(MAX_QUANTITY, availableSeats) : MAX_QUANTITY) || loading 
                       ? 'border-gray-300 text-gray-300 cursor-not-allowed bg-gray-100' 
                       : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50'
                   }`}
@@ -582,45 +689,63 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </div>
           </div>
 
-          {/* Car Capacity Information (แสดงเมื่อเลือกรถแล้ว) */}
+          {/* ✅ Enhanced Car Capacity Information with Real-time Data */}
           {selectedCar && (
             <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">ຂໍ້ມູນຄວາມຈຸລົດ</span>
+                <span className="text-sm font-medium text-gray-700">ຂໍ້ມູນຄວາມຈຸລົດ (Real-time)</span>
                 <span className="text-xs text-blue-600">{selectedCar.car_registration}</span>
               </div>
               
-              <div className="grid grid-cols-3 gap-4 text-center text-sm">
+              <div className="grid grid-cols-4 gap-3 text-center text-sm mb-3">
                 <div className="bg-blue-100 rounded p-2">
-                  <div className="font-bold text-blue-600">{quantity}</div>
-                  <div className="text-gray-600">ກຳລັງເລືອກ</div>
+                  <div className="font-bold text-blue-600">{currentUsage}</div>
+                  <div className="text-gray-600 text-xs">ກຳລັງໃຊ້</div>
                 </div>
-                <div className="bg-green-50 rounded p-2">
-                  <div className="font-bold text-green-600">{remainingCapacity}</div>
-                  <div className="text-gray-600">ຍັງວ່າງ</div>
+                <div className="bg-orange-100 rounded p-2">
+                  <div className="font-bold text-orange-600">{quantity}</div>
+                  <div className="text-gray-600 text-xs">ຈະຈອງ</div>
                 </div>
-                <div className="bg-gray-50 rounded p-2">
-                  <div className="font-bold text-gray-600">{selectedCar.car_capacity}</div>
-                  <div className="text-gray-600">ທັງໝົດ</div>
+                <div className="bg-green-100 rounded p-2">
+                  <div className="font-bold text-green-600">{remainingAfterBooking}</div>
+                  <div className="text-gray-600 text-xs">ຈະເຫຼືອ</div>
+                </div>
+                <div className="bg-gray-100 rounded p-2">
+                  <div className="font-bold text-gray-600">{totalCapacity}</div>
+                  <div className="text-gray-600 text-xs">ທັງໝົດ</div>
                 </div>
               </div>
               
               {/* Progress Bar */}
-              <div className="mt-3">
+              <div className="mb-2">
                 <div className="flex justify-between text-xs text-gray-600 mb-1">
-                  <span>ອັດຕາການນັ່ງ: {occupancyPercentage}%</span>
-                  <span>{quantity}/{selectedCar.car_capacity} ຄົນ</span>
+                  <span>ອັດຕາການໃຊ້ງານຫຼັງຈອງ: {usagePercentage}%</span>
+                  <span>{afterBooking}/{totalCapacity} ຄົນ</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
                     className={`h-2 rounded-full transition-all duration-300 ${
-                      occupancyPercentage >= 80 ? 'bg-green-500' : 
-                      occupancyPercentage >= 50 ? 'bg-yellow-500' : 'bg-blue-500'
+                      usagePercentage >= 100 ? 'bg-red-500' :
+                      usagePercentage >= 80 ? 'bg-orange-500' : 
+                      usagePercentage >= 50 ? 'bg-yellow-500' : 'bg-green-500'
                     }`}
-                    style={{ width: `${Math.min(occupancyPercentage, 100)}%` }}
+                    style={{ width: `${Math.min(usagePercentage, 100)}%` }}
                   ></div>
                 </div>
               </div>
+              
+              {/* Warning messages */}
+              {quantity > availableSeats && (
+                <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs text-red-800">
+                  ⚠️ ຈຳນວນຜູ້ໂດຍສານເກີນທີ່ນັ່ງທີ່ເຫຼືອ!
+                </div>
+              )}
+              
+              {usagePercentage === 100 && (
+                <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded text-xs text-orange-800">
+                  🚌 ລົດຈະເຕັມພໍດີຫຼັງຈາກຈອງນີ້
+                </div>
+              )}
             </div>
           )}
 
@@ -675,10 +800,10 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             
             <button
               className={`flex-1 py-3 rounded-lg font-medium transition flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white ${
-                loading || !hasValidQuantity || !selectedCarRegistration ? 'opacity-70 cursor-not-allowed' : ''
+                loading || !hasValidQuantity || !selectedCarRegistration || (selectedCar && quantity > (selectedCar.availableSeats || 0)) ? 'opacity-70 cursor-not-allowed' : ''
               }`}
               onClick={handleConfirm}
-              disabled={loading || !hasValidQuantity || !selectedCarRegistration}
+              disabled={loading || !hasValidQuantity || !selectedCarRegistration || (selectedCar && quantity > (selectedCar.availableSeats || 0))}
               title={hasValidQuantity && selectedCarRegistration ? "ຢືນຢັນ (Enter)" : "ກະລຸນາແກ້ໄຂຂໍ້ມູນກ່ອນ"}
             >
               {loading ? (
@@ -699,13 +824,13 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
           <div className="mt-4 pt-3 border-t border-gray-200">
             <div className="text-xs text-gray-500 text-center space-y-1">
               <div>⌨️ <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> ເພື່ອຢືນຢັນ • <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">ESC</kbd> ເພື່ອຍົກເລີກ</div>
-              <div className="text-blue-600">📝 ລະບົບ POS: ຮະບຸລົດໃຫ້ລູກຄ້າທັນທີ</div>
+              <div className="text-blue-600">📝 ລະບົບ POS: ຮະບຸລົດໃຫ້ລູກຄ້າທັນທີ (แสดงข้อมูล Real-time)</div>
             </div>
           </div>
         </div>
       </div>
     </div>
   );
-};
+});
 
 export default TicketConfirmationModal;

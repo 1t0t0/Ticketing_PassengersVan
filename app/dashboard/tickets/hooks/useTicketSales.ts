@@ -1,9 +1,14 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts - FIXED selectedCarRegistration
+// app/dashboard/tickets/hooks/useTicketSales.ts - FIXED with Car Data Refresh
 import { useState, useCallback, useEffect } from 'react';
 import { createTicket } from '../api/ticket';
 import { PAYMENT_METHODS } from '../config/constants';
 import { Ticket } from '../types';
 import notificationService from '@/lib/notificationService';
+
+// ✅ เพิ่ม interface สำหรับ Car Data
+interface CarRefreshCallback {
+  (): void;
+}
 
 export default function useTicketSales() {
   // State
@@ -21,6 +26,9 @@ export default function useTicketSales() {
   
   // Car Selection State
   const [selectedCarRegistration, setSelectedCarRegistration] = useState('');
+  
+  // ✅ เพิ่ม callback สำหรับ refresh car data
+  const [carRefreshCallback, setCarRefreshCallback] = useState<CarRefreshCallback | null>(null);
   
   // ฟังก์ชันดึงราคาปี้จาก API
   const fetchTicketPrice = useCallback(async () => {
@@ -152,15 +160,20 @@ export default function useTicketSales() {
     console.log('✅ Car selected for ticket assignment:', carRegistration);
   }, []);
 
+  // ✅ เพิ่มฟังก์ชันสำหรับ register car refresh callback
+  const registerCarRefreshCallback = useCallback((callback: CarRefreshCallback) => {
+    setCarRefreshCallback(() => callback);
+  }, []);
+
   // รีเฟรชราคา
   const refreshTicketPrice = useCallback(() => {
     setPriceLoading(true);
     return fetchTicketPrice();
   }, [fetchTicketPrice]);
 
-  // ✅ FIXED: ขายตั๋ว - แก้ไขการส่งข้อมูลรถ
+  // ✅ FIXED: ขายตั๋ว - รีเฟรชข้อมูลรถหลังสำเร็จ
   const confirmSellTicket = useCallback(async () => {
-    // ✅ FIXED: ตรวจสอบการเลือกรถ
+    // ตรวจสอบการเลือกรถ
     if (!selectedCarRegistration) {
       notificationService.error('❌ ກະລຸນາເລືອກລົດກ່ອນ');
       return;
@@ -173,7 +186,7 @@ export default function useTicketSales() {
       let tickets: Ticket[] = [];
       
       if (ticketType === 'group') {
-        // ✅ FIXED: เพิ่ม selectedCarRegistration ใน request
+        // เพิ่ม selectedCarRegistration ใน request
         const groupTicketData = {
           price: ticketPrice * quantity,
           paymentMethod,
@@ -181,7 +194,7 @@ export default function useTicketSales() {
           passengerCount: quantity,
           pricePerPerson: ticketPrice,
           destination: getDestinationText(),
-          selectedCarRegistration: selectedCarRegistration // ✅ FIXED: เพิ่มข้อมูลรถ
+          selectedCarRegistration: selectedCarRegistration
         };
         
         console.log('📋 Creating group ticket:', groupTicketData);
@@ -192,7 +205,7 @@ export default function useTicketSales() {
         notificationService.success(`✅ ອອກປີ້ກຸ່ມສຳເລັດ: ${quantity} ຄົນ ລົດ ${selectedCarRegistration} (₭${(ticketPrice * quantity).toLocaleString()})`);
       } else {
         for (let i = 0; i < quantity; i++) {
-          // ✅ FIXED: เพิ่ม selectedCarRegistration ใน request
+          // เพิ่ม selectedCarRegistration ใน request
           const individualTicketData = {
             price: ticketPrice,
             paymentMethod,
@@ -200,7 +213,7 @@ export default function useTicketSales() {
             passengerCount: 1,
             pricePerPerson: ticketPrice,
             destination: getDestinationText(),
-            selectedCarRegistration: selectedCarRegistration // ✅ FIXED: เพิ่มข้อมูลรถ
+            selectedCarRegistration: selectedCarRegistration
           };
           
           console.log(`📋 Creating individual ticket ${i + 1}:`, individualTicketData);
@@ -225,6 +238,12 @@ export default function useTicketSales() {
       setDestination('');
       setSelectedCarRegistration('');
       
+      // ✅ รีเฟรชข้อมูลรถหลังจากออกตั๋วสำเร็จ
+      if (carRefreshCallback) {
+        console.log('🔄 Refreshing car data after ticket creation...');
+        carRefreshCallback();
+      }
+      
       // พิมพ์ตั๋ว
       setTimeout(() => {
         handlePrintWithTickets(tickets);
@@ -240,7 +259,7 @@ export default function useTicketSales() {
     }
   }, [
     ticketPrice, paymentMethod, quantity, ticketType, destination, selectedCarRegistration, 
-    getDestinationText
+    getDestinationText, carRefreshCallback
   ]);
 
   // Print function - ไม่มี booking info
@@ -481,6 +500,9 @@ export default function useTicketSales() {
     
     // Car Selection
     selectedCarRegistration,
-    updateSelectedCar
+    updateSelectedCar,
+    
+    // ✅ เพิ่ม function สำหรับ register car refresh callback
+    registerCarRefreshCallback
   };
 }
