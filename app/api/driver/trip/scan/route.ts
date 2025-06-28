@@ -1,4 +1,4 @@
-// app/api/driver/trip/scan/route.ts - แก้ไขการ parse Group Ticket QR Code
+// app/api/driver/trip/scan/route.ts - Enhanced with Assignment Check
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
@@ -31,12 +31,10 @@ export async function POST(request: Request) {
       try {
         console.log('📱 Processing QR Data:', qrData);
         
-        // ลองตรวจสอบว่าเป็น JSON ของ Group Ticket หรือไม่
         const parsedQRData = JSON.parse(qrData);
         console.log('✅ Parsed QR Data:', parsedQRData);
         
         if (parsedQRData.ticketType === 'group' && parsedQRData.ticketNumber) {
-          // เป็น Group Ticket QR Code
           ticketNumber = parsedQRData.ticketNumber;
           groupTicketData = parsedQRData;
           console.log('🎫 Group Ticket QR detected:', {
@@ -45,13 +43,11 @@ export async function POST(request: Request) {
             totalPrice: parsedQRData.totalPrice
           });
         } else if (parsedQRData.ticketNumber) {
-          // เป็น Individual Ticket QR Code แบบ JSON
           ticketNumber = parsedQRData.ticketNumber;
           console.log('🎫 Individual Ticket QR (JSON) detected:', ticketNumber);
         }
       } catch (parseError) {
         console.log('⚠️ QR data is not JSON, treating as plain string:', qrData);
-        // ถ้า parse ไม่ได้ ให้ใช้เป็น string ธรรมดา (Individual Ticket)
         if (typeof qrData === 'string' && qrData.trim()) {
           ticketNumber = qrData.trim();
           console.log('📝 Using QR data as ticket number:', ticketNumber);
@@ -70,7 +66,7 @@ export async function POST(request: Request) {
     const driverId = session.user.id;
     const today = new Date().toISOString().split('T')[0];
     
-    // ตรวจสอบว่ามีรอบที่กำลังดำเนินการอยู่หรือไม่
+    // ✅ 1. ตรวจสอบว่ามีรอบที่กำลังดำเนินการอยู่หรือไม่
     const activeTrip = await DriverTrip.findOne({
       driver_id: driverId,
       date: today,
@@ -92,7 +88,7 @@ export async function POST(request: Request) {
       capacity: activeTrip.car_capacity
     });
     
-    // ค้นหา ticket โดยใช้ ticketNumber
+    // ✅ 2. ค้นหา ticket โดยใช้ ticketNumber
     const ticket = await Ticket.findOne({ ticketNumber: ticketNumber.trim() });
     if (!ticket) {
       console.error('❌ Ticket not found:', ticketNumber);
@@ -106,10 +102,49 @@ export async function POST(request: Request) {
       ticketNumber: ticket.ticketNumber,
       ticketType: ticket.ticketType,
       passengerCount: ticket.passengerCount,
-      price: ticket.price
+      price: ticket.price,
+      assignedDriverId: ticket.assignedDriverId,
+      isScanned: ticket.isScanned
     });
     
-    // ตรวจสอบว่า ticket นี้ถูกสแกนไปแล้วในระบบหรือไม่
+    // ✅ 3. NEW: ตรวจสอบ Assignment - ตั๋วนี้ถูก assign ให้คนขับคนนี้หรือไม่
+    if (ticket.assignedDriverId) {
+      const assignedDriverId = ticket.assignedDriverId.toString();
+      const currentDriverId = driverId.toString();
+      
+      if (assignedDriverId !== currentDriverId) {
+        console.error('❌ Ticket assigned to different driver:', {
+          ticketNumber: ticket.ticketNumber,
+          assignedTo: assignedDriverId,
+          currentDriver: currentDriverId
+        });
+        
+        // ดึงข้อมูลคนขับที่ถูก assign
+        const assignedDriver = await require('@/models/User').default.findById(assignedDriverId)
+          .select('name employeeId');
+        
+        return NextResponse.json(
+          { 
+            error: `❌ ປີ້ນີ້ຖືກມອບໝາຍໃຫ້ຄົນຂັບຄົນອື່ນ`,
+            details: {
+              message: assignedDriver 
+                ? `ມອບໝາຍໃຫ້: ${assignedDriver.name} (${assignedDriver.employeeId})`
+                : 'ມອບໝາຍໃຫ້ຄົນຂັບຄົນອື່ນ',
+              assignedDriverInfo: assignedDriver || null,
+              recommendation: 'ກະລຸນາຕິດຕໍ່ພະນັກງານຂາຍປີ້'
+            }
+          },
+          { status: 403 } // Forbidden
+        );
+      } else {
+        console.log('✅ Ticket assignment verified: assigned to current driver');
+      }
+    } else {
+      // ตั๋วไม่ได้ถูก assign ให้ใคร - อนุญาตให้สแกนได้ (backward compatibility)
+      console.log('⚠️ Ticket has no assignment - allowing scan for backward compatibility');
+    }
+    
+    // ✅ 4. ตรวจสอบว่า ticket นี้ถูกสแกนไปแล้วในระบบหรือไม่
     const ticketUsedInSystem = await DriverTrip.findOne({
       'scanned_tickets.ticket_id': ticket._id
     });
@@ -150,7 +185,7 @@ export async function POST(request: Request) {
       );
     }
     
-    // ✅ ตรวจสอบความจุรถรองรับ Group Ticket
+    // ✅ 5. ตรวจสอบความจุรถรองรับ Group Ticket
     const passengersToAdd = ticket.ticketType === 'group' ? ticket.passengerCount : 1;
     const newTotalPassengers = activeTrip.current_passengers + passengersToAdd;
     
@@ -173,7 +208,7 @@ export async function POST(request: Request) {
       );
     }
     
-    // ✅ เพิ่มผู้โดยสาร (รองรับ Group Ticket)
+    // ✅ 6. เพิ่มผู้โดยสาร (รองรับ Group Ticket)
     const passengerOrder = activeTrip.current_passengers + 1;
     
     activeTrip.scanned_tickets.push({
@@ -190,6 +225,24 @@ export async function POST(request: Request) {
     
     await activeTrip.save();
     
+    // ✅ 7. NEW: อัปเดตสถานะ Ticket เป็น "scanned"
+    try {
+      ticket.isScanned = true;
+      ticket.scannedAt = new Date();
+      ticket.scannedBy = driverId;
+      ticket.tripId = activeTrip._id;
+      await ticket.save();
+      
+      console.log('✅ Ticket marked as scanned:', {
+        ticketNumber: ticket.ticketNumber,
+        scannedBy: driverId,
+        tripId: activeTrip._id
+      });
+    } catch (ticketUpdateError) {
+      console.error('⚠️ Failed to update ticket scan status:', ticketUpdateError);
+      // ไม่ให้ error นี้หยุดการทำงาน - trip ยังดำเนินการต่อได้
+    }
+    
     console.log('✅ Trip updated successfully:', {
       tripNumber: activeTrip.trip_number,
       currentPassengers: activeTrip.current_passengers,
@@ -197,7 +250,7 @@ export async function POST(request: Request) {
       is80PercentReached
     });
     
-    // ✅ สร้างข้อความแจ้งเตือนรองรับ Group Ticket
+    // ✅ 8. สร้างข้อความแจ้งเตือนรองรับ Group Ticket และ Assignment
     let message = '';
     let statusMessage = '';
     
@@ -205,6 +258,11 @@ export async function POST(request: Request) {
       message = `✅ ສະແກນປີ້ກະລຸ່ມສຳເລັດ: +${passengersToAdd} ຄົນ (ລວມ ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ)`;
     } else {
       message = `✅ ສະແກນສຳເລັດ: ${activeTrip.current_passengers}/${activeTrip.car_capacity} ຄົນ`;
+    }
+    
+    // เพิ่มข้อความเกี่ยวกับ assignment
+    if (ticket.assignedDriverId && ticket.assignedDriverId.toString() === driverId.toString()) {
+      message += ' 🎯 (ປີ້ທີ່ໄດ້ຮັບມອບໝາຍ)';
     }
     
     if (is80PercentReached && activeTrip.current_passengers < activeTrip.car_capacity) {
@@ -218,7 +276,7 @@ export async function POST(request: Request) {
       }
     }
     
-    // ✅ Response รองรับ Group Ticket
+    // ✅ 9. Response รองรับ Group Ticket และ Assignment Info
     const responseData = {
       success: true,
       trip_number: activeTrip.trip_number,
@@ -242,7 +300,9 @@ export async function POST(request: Request) {
         price: ticket.price,
         price_per_person: ticket.pricePerPerson,
         passenger_order: passengerOrder,
-        passengers_added: passengersToAdd
+        passengers_added: passengersToAdd,
+        was_assigned: !!ticket.assignedDriverId,
+        assignment_verified: ticket.assignedDriverId?.toString() === driverId.toString()
       },
       
       // ✅ ข้อมูลเพิ่มเติมสำหรับ Group Ticket
@@ -256,6 +316,15 @@ export async function POST(request: Request) {
         }
       } : {
         is_group_ticket: false
+      },
+      
+      // ✅ NEW: Assignment Info
+      assignment_info: {
+        was_assigned: !!ticket.assignedDriverId,
+        assigned_to_current_driver: ticket.assignedDriverId?.toString() === driverId.toString(),
+        verification_status: ticket.assignedDriverId 
+          ? (ticket.assignedDriverId.toString() === driverId.toString() ? 'verified' : 'wrong_driver')
+          : 'no_assignment'
       }
     };
     
@@ -266,7 +335,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('💥 Scan QR Code Error:', error);
     
-    // ส่งข้อมูล error ที่ละเอียดมากขึ้น
     const errorMessage = error instanceof Error ? error.message : 'Failed to scan QR code';
     const errorStack = error instanceof Error ? error.stack : 'No stack trace';
     

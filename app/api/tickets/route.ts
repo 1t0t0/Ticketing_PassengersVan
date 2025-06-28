@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       passengerCount = 1,
       pricePerPerson = 45000,
       destination = 'ຕົວເມືອງ',
-      assignedDriverId
+      selectedCarRegistration // ✅ รับ car registration แทน assignedDriverId
     } = body;
 
     console.log('📋 Parsed request data:', { 
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       passengerCount,
       pricePerPerson,
       destination,
-      assignedDriverId,
+      selectedCarRegistration,
       soldBy: session.user.email 
     });
 
@@ -187,34 +187,56 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ 5. Driver Validation (if provided)
-    if (assignedDriverId) {
+    // ✅ 5. Driver Assignment Logic - แปลง Car Registration → Driver ID
+    let assignedDriverId = null;
+    let carInfo = null;
+    let assignmentInfo = null;
+    
+    if (selectedCarRegistration) {
       try {
-        const assignedDriver = await User.findById(assignedDriverId);
+        console.log(`🚗 Looking up driver for car: ${selectedCarRegistration}`);
         
-        if (!assignedDriver) {
-          console.error('❌ Assigned driver not found:', assignedDriverId);
-          return NextResponse.json(
-            { error: 'Assigned driver not found' },
-            { status: 404 }
-          );
+        // ดึงข้อมูลรถและคนขับ
+        const Car = mongoose.models.Car || (await import('@/models/Car')).default;
+        carInfo = await Car.findOne({ 
+          car_registration: selectedCarRegistration 
+        }).populate('user_id', '_id name employeeId checkInStatus phone');
+        
+        if (carInfo && carInfo.user_id) {
+          assignedDriverId = carInfo.user_id._id;
+          
+          // ตรวจสอบว่าคนขับ check-in แล้วหรือไม่
+          if (carInfo.user_id.checkInStatus === 'checked-in') {
+            assignmentInfo = {
+              driverId: assignedDriverId,
+              driverName: carInfo.user_id.name,
+              driverEmployeeId: carInfo.user_id.employeeId,
+              carRegistration: selectedCarRegistration,
+              carName: carInfo.car_name,
+              carCapacity: carInfo.car_capacity,
+              assignedAt: new Date()
+            };
+            
+            console.log(`✅ Assigned to checked-in driver: ${carInfo.user_id.name} (${carInfo.user_id.employeeId})`);
+          } else {
+            console.log(`⚠️ Driver ${carInfo.user_id.name} is not checked-in, assignment will be pending`);
+            assignmentInfo = {
+              driverId: assignedDriverId,
+              driverName: carInfo.user_id.name,
+              driverEmployeeId: carInfo.user_id.employeeId,
+              carRegistration: selectedCarRegistration,
+              carName: carInfo.car_name,
+              carCapacity: carInfo.car_capacity,
+              assignedAt: new Date(),
+              note: 'Driver not checked-in'
+            };
+          }
+        } else {
+          console.warn(`❌ Car ${selectedCarRegistration} not found or has no assigned driver`);
         }
-        
-        if (assignedDriver.role !== 'driver') {
-          console.error('❌ Assigned user is not a driver:', assignedDriver.role);
-          return NextResponse.json(
-            { error: 'Assigned user must be a driver' },
-            { status: 400 }
-          );
-        }
-        
-        console.log(`✅ Driver validation passed: ${assignedDriver.name} (${assignedDriver.employeeId})`);
-      } catch (driverError) {
-        console.error('❌ Error validating driver:', driverError);
-        return NextResponse.json(
-          { error: 'Error validating assigned driver' },
-          { status: 500 }
-        );
+      } catch (carLookupError) {
+        console.error('❌ Error looking up car/driver:', carLookupError);
+        // ไม่ให้ error นี้หยุดการสร้างตั๋ว - แค่ไม่ assign driver
       }
     }
 
@@ -272,11 +294,16 @@ export async function POST(request: Request) {
       // Destination Support
       destination: cleanDestination,
       
-      // Driver Assignment Support
-      ...(assignedDriverId && { assignedDriverId })
+      // ✅ Driver Assignment Support
+      assignedDriverId: assignedDriverId,
+      isAssigned: !!assignedDriverId,
+      assignedAt: assignedDriverId ? new Date() : null
     };
 
-    console.log('✅ Final ticket data prepared:', ticketData);
+    console.log('✅ Final ticket data prepared:', {
+      ...ticketData,
+      hasDriverAssignment: !!assignedDriverId
+    });
 
     // ✅ 10. Create Ticket
     let ticket;
@@ -294,38 +321,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ 11. Populate Driver Information (if assigned)
-    let populatedTicket = ticket.toObject();
-    if (ticket.assignedDriverId) {
-      try {
-        const driverInfo = await User.findById(ticket.assignedDriverId).select('name employeeId checkInStatus');
-        if (driverInfo) {
-          populatedTicket.assignedDriver = {
-            _id: driverInfo._id,
-            name: driverInfo.name,
-            employeeId: driverInfo.employeeId,
-            checkInStatus: driverInfo.checkInStatus
-          };
-        }
-      } catch (populateError) {
-        console.warn('⚠️ Failed to populate driver info, continuing without it:', populateError);
-      }
-    }
+    // ✅ 11. Prepare Response with Assignment Info
+    const response = {
+      ...ticket.toObject(),
+      assignmentInfo: assignmentInfo, // ข้อมูลการ assign driver
+      success: true,
+      message: assignmentInfo 
+        ? `Ticket created and assigned to ${assignmentInfo.driverName}` 
+        : 'Ticket created successfully'
+    };
 
     console.log('🎊 Ticket creation completed successfully:', {
       id: ticket._id,
       ticketNumber: ticket.ticketNumber,
       ticketType: ticket.ticketType,
-      destination: ticket.destination
+      destination: ticket.destination,
+      assignedDriver: assignmentInfo?.driverName || 'None'
     });
 
     // ✅ 12. Return Success Response
-    return NextResponse.json(populatedTicket, { status: 201 });
+    return NextResponse.json(response, { status: 201 });
 
   } catch (error) {
     console.error('💥 Unexpected error in POST /api/tickets:', error);
     
-    // ✅ Return detailed error information
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     const errorStack = error instanceof Error ? error.stack : 'No stack trace available';
     
@@ -351,47 +370,31 @@ export async function GET(request: Request) {
   console.log('📖 GET /api/tickets - Starting ticket fetch...');
   
   try {
-    // ✅ 1. Session Authentication
     const session = await getServerSession(authOptions);
     if (!session) {
       console.log('❌ No session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    console.log('✅ Session authenticated:', session.user?.email);
 
-    // ✅ 2. Database Connection
-    try {
-      await connectDB();
-      console.log('✅ Database connected successfully');
-    } catch (dbError) {
-      console.error('❌ Database connection failed:', dbError);
-      return NextResponse.json(
-        { error: 'Database connection failed' },
-        { status: 500 }
-      );
-    }
+    await connectDB();
     
-    // ✅ 3. Parse Query Parameters
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const paymentMethod = searchParams.get('paymentMethod');
     const ticketType = searchParams.get('ticketType');
     const destination = searchParams.get('destination');
+    
+    // ✅ NEW: Driver Assignment Filters
     const assignedDriverId = searchParams.get('assignedDriverId');
-    const assignmentStatus = searchParams.get('assignmentStatus');
+    const assignmentStatus = searchParams.get('assignmentStatus'); // unassigned, assigned, completed
     
     console.log('📋 Query parameters:', { 
-      page, 
-      limit, 
-      paymentMethod, 
-      ticketType,
-      destination,
-      assignedDriverId,
-      assignmentStatus
+      page, limit, paymentMethod, ticketType, destination,
+      assignedDriverId, assignmentStatus
     });
     
-    // ✅ 4. Build Filter
+    // ✅ Build Filter with Driver Assignment Support
     const filter: any = {};
     
     if (paymentMethod && ['cash', 'qr'].includes(paymentMethod)) {
@@ -406,6 +409,7 @@ export async function GET(request: Request) {
       filter.destination = new RegExp(destination.trim(), 'i');
     }
     
+    // ✅ Driver Assignment Filters
     if (assignedDriverId) {
       filter.assignedDriverId = assignedDriverId;
     }
@@ -430,10 +434,8 @@ export async function GET(request: Request) {
     
     console.log('🔍 Final filter:', filter);
     
-    // ✅ 5. Calculate Pagination
     const skip = (page - 1) * limit;
     
-    // ✅ 6. Count Total Items
     let totalItems;
     try {
       totalItems = await Ticket.countDocuments(filter);
@@ -446,56 +448,31 @@ export async function GET(request: Request) {
       );
     }
     
-    // ✅ 7. Fetch Tickets with safe populate
+    // ✅ Fetch Tickets with Driver Population
     let tickets;
     try {
-      console.log('🔍 Checking Ticket model schema...');
-      
-      // Import the debug function
-      const { debugTicketSchema, safePopulateTickets } = await import('@/models/Ticket');
-      
-      // Debug the schema first
-      const schemaExists = debugTicketSchema();
-      if (!schemaExists) {
-        // Fallback: try to load the model first
-        await import('@/models/Ticket');
-      }
-      
-      // Use safe populate function
-      tickets = await safePopulateTickets(filter, {
-        sort: { soldAt: -1 },
-        skip: skip,
-        limit: limit
-      });
+      tickets = await Ticket.find(filter)
+        .populate('assignedDriverId', 'name employeeId checkInStatus phone') // ✅ Populate driver info
+        .sort({ soldAt: -1 })
+        .skip(skip)
+        .limit(limit);
       
       console.log(`✅ Retrieved ${tickets.length} tickets`);
       
     } catch (fetchError) {
       console.error('❌ Error fetching tickets:', fetchError);
-      
-      // Fallback: try basic query without any population
-      try {
-        console.log('🔄 Attempting fallback query without population...');
-        tickets = await Ticket.find(filter)
-          .sort({ soldAt: -1 })
-          .skip(skip)
-          .limit(limit);
-        console.log(`✅ Fallback query successful: ${tickets.length} tickets`);
-      } catch (fallbackError) {
-        console.error('❌ Even fallback query failed:', fallbackError);
-        return NextResponse.json(
-          { 
-            error: 'Error fetching tickets from database',
-            details: fallbackError instanceof Error ? fallbackError.message : 'Unknown error'
-          },
-          { status: 500 }
-        );
-      }
+      return NextResponse.json(
+        { 
+          error: 'Error fetching tickets from database',
+          details: fetchError instanceof Error ? fetchError.message : 'Unknown error'
+        },
+        { status: 500 }
+      );
     }
     
     const totalPages = Math.ceil(totalItems / limit);
     
-    // ✅ 8. Generate Statistics
+    // ✅ Generate Enhanced Statistics with Driver Assignment
     let ticketStats;
     try {
       ticketStats = await Ticket.aggregate([
@@ -531,26 +508,7 @@ export async function GET(request: Request) {
       }
     });
     
-    // ✅ 9. Generate Destination Statistics
-    let destinationStats = [];
-    try {
-      destinationStats = await Ticket.aggregate([
-        { $match: filter },
-        {
-          $group: {
-            _id: '$destination',
-            count: { $sum: 1 },
-            totalPassengers: { $sum: '$passengerCount' }
-          }
-        },
-        { $sort: { count: -1 } },
-        { $limit: 10 }
-      ]);
-    } catch (destStatsError) {
-      console.warn('⚠️ Error generating destination statistics:', destStatsError);
-    }
-    
-    // ✅ 10. Generate Driver Assignment Statistics
+    // ✅ Generate Driver Assignment Statistics
     let driverAssignmentStats = null;
     try {
       const assignmentStatsResult = await Ticket.aggregate([
@@ -585,7 +543,6 @@ export async function GET(request: Request) {
       console.warn('⚠️ Error generating driver assignment statistics:', assignStatsError);
     }
 
-    // ✅ 11. Prepare Response
     const response = {
       tickets: tickets,
       pagination: {
@@ -595,22 +552,12 @@ export async function GET(request: Request) {
         limit
       },
       statistics: statsFormatted,
-      destinationStats: destinationStats,
       driverAssignmentStats: driverAssignmentStats,
       meta: {
         generationType: 'UUID',
         ticketFormat: 'T + 5 random chars (6 total)',
         sampleFormat: 'TK7M2X',
         supportedTypes: ['individual', 'group'],
-        groupTicketLimits: {
-          minPassengers: 2,
-          maxPassengers: 10
-        },
-        destinationSupport: {
-          enabled: true,
-          maxLength: 100,
-          defaultDestination: 'ຕົວເມືອງ'
-        },
         driverAssignmentSupport: {
           enabled: true,
           assignmentStatuses: ['unassigned', 'assigned', 'completed'],
@@ -627,13 +574,6 @@ export async function GET(request: Request) {
     console.error('💥 Unexpected error in GET /api/tickets:', error);
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    const errorStack = error instanceof Error ? error.stack : 'No stack trace available';
-    
-    console.error('Error details:', {
-      message: errorMessage,
-      stack: errorStack,
-      timestamp: new Date().toISOString()
-    });
     
     return NextResponse.json(
       { 
