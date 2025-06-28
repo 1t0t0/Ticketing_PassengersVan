@@ -1,5 +1,5 @@
-// app/dashboard/tickets/components/TicketConfirmationModal.tsx - FIXED ESLint Issues
-import React, { useState, useEffect, useRef } from 'react';
+// app/dashboard/tickets/components/TicketConfirmationModal.tsx - FIXED Car Data Refresh
+import React, { useState, useEffect, useRef, useImperativeHandle } from 'react';
 import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin, FiTruck, FiSearch, FiChevronDown } from 'react-icons/fi';
 
 interface Car {
@@ -78,7 +78,7 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
   const calculateCarUsage = async (carRegistration: string): Promise<{ currentUsage: number; availableSeats: number }> => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`/api/cars/usage?carRegistration=${carRegistration}&date=${today}`);
+      const response = await fetch(`/api/cars/usage?carRegistration=${carRegistration}&date=${today}&_t=${Date.now()}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -90,7 +90,6 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
         }
       }
     } catch (error) {
-      // ✅ FIXED: Better error handling without console.error
       console.warn('Error calculating car usage:', error);
     }
     
@@ -127,17 +126,27 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
     }
   }, [isCarDropdownOpen]);
 
-  // ✅ FIXED: Proper imperative handle setup
+  // ✅ FIXED: Enhanced imperative handle with proper car data refresh
   React.useImperativeHandle(ref, () => ({
-    refreshCarData: () => {
-      fetchCarsWithDrivers();
+    refreshCarData: async () => {
+      console.log('🔄 Refreshing car data from external trigger...');
+      await fetchCarsWithDrivers();
+      
+      // ✅ Auto-refresh selected car usage if still selected
+      if (selectedCarRegistration) {
+        await refreshCarUsage(selectedCarRegistration);
+      }
     }
-  }), []);
+  }), [selectedCarRegistration]);
 
+  // ✅ FIXED: Enhanced fetchCarsWithDrivers with proper refresh logic
   const fetchCarsWithDrivers = async () => {
     setCarsLoading(true);
     try {
-      const response = await fetch('/api/cars');
+      console.log('🚗 Fetching updated car data...');
+      
+      // Add cache busting parameter
+      const response = await fetch(`/api/cars?_t=${Date.now()}`);
       const data = await response.json();
       
       if (response.ok && Array.isArray(data)) {
@@ -146,10 +155,13 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
           car.user_id?.checkInStatus === 'checked-in'
         );
         
-        // Add real-time usage data
+        // Add real-time usage data with fresh calculation
         const carsWithUsage = await Promise.all(
           onlineCars.map(async (car: Car) => {
             const { currentUsage, availableSeats } = await calculateCarUsage(car.car_registration);
+            
+            console.log(`🚗 ${car.car_registration}: Current usage: ${currentUsage}, Available: ${availableSeats}/${car.car_capacity}`);
+            
             return {
               ...car,
               currentUsage,
@@ -168,38 +180,54 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
         
         setCars(sortedCars);
         
-        // Auto-select first car if none selected
-        if (sortedCars.length > 0 && !selectedCarRegistration) {
+        // ✅ Update selected car if it exists in the new data
+        if (selectedCarRegistration) {
+          const updatedSelectedCar = sortedCars.find(car => car.car_registration === selectedCarRegistration);
+          if (updatedSelectedCar) {
+            console.log(`✅ Updated selected car: ${updatedSelectedCar.car_registration}, Available: ${updatedSelectedCar.availableSeats}`);
+            setSelectedCar(updatedSelectedCar);
+          } else {
+            console.warn(`⚠️ Previously selected car ${selectedCarRegistration} not found in updated data`);
+            setSelectedCar(null);
+          }
+        } else if (sortedCars.length > 0) {
+          // Auto-select first car if none selected
           const bestCar = sortedCars[0];
           onCarChange(bestCar.car_registration);
           setSelectedCar(bestCar);
-        } else if (selectedCarRegistration) {
-          const currentCar = sortedCars.find(car => car.car_registration === selectedCarRegistration);
-          setSelectedCar(currentCar || null);
+          console.log(`🎯 Auto-selected best available car: ${bestCar.car_registration}`);
         }
         
       } else {
         console.warn('Failed to fetch cars:', data.error);
       }
     } catch (error) {
-      console.warn('Error fetching cars:', error);
+      console.error('Error fetching cars:', error);
     } finally {
       setCarsLoading(false);
     }
   };
 
-  // ✅ FIXED: Better async function handling
+  // ✅ FIXED: Enhanced refresh car usage
   const refreshCarUsage = async (carRegistration: string) => {
+    console.log(`🔄 Refreshing usage for car: ${carRegistration}`);
+    
     const { currentUsage, availableSeats } = await calculateCarUsage(carRegistration);
     
+    console.log(`📊 Fresh usage data for ${carRegistration}: Used: ${currentUsage}, Available: ${availableSeats}`);
+    
+    // Update selected car if it matches
     if (selectedCar && selectedCar.car_registration === carRegistration) {
-      setSelectedCar({
+      const updatedSelectedCar = {
         ...selectedCar,
         currentUsage,
         availableSeats
-      });
+      };
+      setSelectedCar(updatedSelectedCar);
+      console.log(`✅ Updated selected car state for ${carRegistration}`);
     }
     
+    // Update cars array
     setCars(prevCars => 
       prevCars.map(car => 
         car.car_registration === carRegistration 
@@ -208,6 +236,34 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
       )
     );
   };
+
+  // ✅ FIXED: Enhanced car select with immediate refresh
+  const handleCarSelect = async (carRegistration: string) => {
+    console.log(`🎯 Selecting car: ${carRegistration}`);
+    
+    onCarChange(carRegistration);
+    const selected = cars.find(car => car.car_registration === carRegistration);
+    setSelectedCar(selected || null);
+    setIsCarDropdownOpen(false);
+    setCarSearchTerm('');
+    
+    if (selected) {
+      // Immediately refresh usage for selected car
+      await refreshCarUsage(carRegistration);
+    }
+  };
+
+  // ✅ FIXED: Auto refresh when modal opens
+  useEffect(() => {
+    if (isOpen && selectedCarRegistration) {
+      // Small delay to ensure modal is fully rendered
+      const timer = setTimeout(() => {
+        refreshCarUsage(selectedCarRegistration);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, selectedCarRegistration]);
 
   // ✅ FIXED: Better filtering with proper null checks
   const filteredCars = cars.filter(car => {
@@ -225,19 +281,6 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
            driverName.includes(searchLower) ||
            employeeId.includes(searchLower);
   });
-
-  // ✅ FIXED: Better async handling
-  const handleCarSelect = async (carRegistration: string) => {
-    onCarChange(carRegistration);
-    const selected = cars.find(car => car.car_registration === carRegistration);
-    setSelectedCar(selected || null);
-    setIsCarDropdownOpen(false);
-    setCarSearchTerm('');
-    
-    if (selected) {
-      await refreshCarUsage(carRegistration);
-    }
-  };
 
   // ✅ FIXED: Proper dependency array
   useEffect(() => {
@@ -305,7 +348,7 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
       return;
     }
     
-    // Check car capacity
+    // Check car capacity with fresh data
     if (selectedCar && numericValue > (selectedCar.availableSeats || 0)) {
       setError(`ຈຳນວນຜູ້ໂດຍສານເກີນທີ່ນັ່ງທີ່ເຫຼືອ (ເຫຼືອ ${selectedCar.availableSeats} ທີ່ນັ່ງ)`);
       return;
@@ -331,20 +374,29 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
   const totalAmount = ticketPrice * quantity;
   const hasValidQuantity = !error && inputValue && quantity >= MIN_QUANTITY && quantity <= MAX_QUANTITY;
 
-  // ✅ FIXED: Better confirm handling
+  // ✅ FIXED: Enhanced confirm handling with fresh data check
   const handleConfirm = async () => {
     if (!hasValidQuantity || !selectedCarRegistration) {
       return;
     }
     
-    // Refresh car usage before confirming
+    console.log('🎯 Confirming ticket creation...');
+    
+    // ✅ Force refresh car usage before confirming
     if (selectedCar) {
+      console.log('🔄 Final refresh before confirmation...');
       await refreshCarUsage(selectedCar.car_registration);
       
-      // Check again after refresh
-      if (quantity > (selectedCar.availableSeats || 0)) {
-        setError(`ທີ່ນັ່ງບໍ່ພຽງພໍ! ປັດຈຸບັນເຫຼືອ ${selectedCar.availableSeats} ທີ່ນັ່ງ`);
-        return;
+      // Get fresh selected car data
+      const freshCar = cars.find(car => car.car_registration === selectedCar.car_registration);
+      if (freshCar) {
+        console.log(`📊 Fresh data check: Available seats: ${freshCar.availableSeats}, Requested: ${quantity}`);
+        
+        // Check again with fresh data
+        if (quantity > (freshCar.availableSeats || 0)) {
+          setError(`ທີ່ນັ່ງບໍ່ພຽງພໍ! ປັດຈຸບັນເຫຼືອ ${freshCar.availableSeats} ທີ່ນັ່ງ`);
+          return;
+        }
       }
     }
     
@@ -362,7 +414,7 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
     }
   };
 
-  // Real-time car capacity calculations
+  // Real-time car capacity calculations with fresh data
   const currentUsage = selectedCar?.currentUsage || 0;
   const availableSeats = selectedCar?.availableSeats || 0;
   const totalCapacity = selectedCar?.car_capacity || 0;
@@ -396,6 +448,9 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
               <div className="text-sm font-semibold mb-3 text-gray-700 flex items-center">
                 <FiTruck className="h-4 w-4 mr-2" />
                 ເລືອກລົດ ແລະ ຄົນຂັບ
+                {carsLoading && (
+                  <div className="ml-2 animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                )}
               </div>
               
               {carsLoading ? (
@@ -434,7 +489,9 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
                             </div>
                             
                             <div className="flex items-center text-xs">
-                              <span className="text-green-600">เหลือ {availableSeats} ที่นั่ง</span>
+                              <span className={`${availableSeats > 0 ? 'text-green-600' : 'text-red-600'} font-medium`}>
+                                เหลือ {availableSeats} ที่นั่ง
+                              </span>
                               <span className="mx-2 text-gray-400">•</span>
                               <span className="text-blue-600">ใช้แล้ว {currentUsage}/{totalCapacity}</span>
                             </div>
@@ -814,7 +871,7 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
           <div className="mt-4 pt-3 border-t border-gray-200">
             <div className="text-xs text-gray-500 text-center space-y-1">
               <div>⌨️ <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> ເພື່ອຢືນຢັນ • <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">ESC</kbd> ເພື່ອຍົກເລີກ</div>
-              <div className="text-blue-600">📝 ລະບົບ POS: ຮະບຸລົດໃຫ້ລູກຄ້າທັນທີ (แสดงข้อมูล Real-time)</div>
+              <div className="text-blue-600">📝 ລະບົບ POS: ຮະບຸລົດໃຫ້ລູກຄ້າທັນທີ (Real-time capacity updates)</div>
             </div>
           </div>
         </div>

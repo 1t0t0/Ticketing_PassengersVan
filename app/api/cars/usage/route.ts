@@ -1,15 +1,15 @@
-// app/api/cars/usage/route.ts - API สำหรับดูการใช้งานรถแบบ Real-time
+// app/api/cars/usage/route.ts - แก้ไขให้คำนวณการใช้งานจาก scanned tickets เฉพาะที่ยังไม่ complete
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
 import Car from '@/models/Car';
+import DriverTrip from '@/models/DriverTrip';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// GET - ดูการใช้งานรถปัจจุบัน
+// GET - ดูการใช้งานรถปัจจุบัน (Real-time)
 export async function GET(request: Request) {
   try {
-    // Check authorization
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json(
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log(`🚗 Checking usage for car: ${carRegistration} on date: ${date}`);
+    console.log(`🚗 Checking real-time usage for car: ${carRegistration} on date: ${date}`);
     
     // หาข้อมูลรถ
     const car = await Car.findOne({ car_registration: carRegistration })
@@ -44,24 +44,38 @@ export async function GET(request: Request) {
       );
     }
 
-    // หาตั๋วที่จองรถคันนี้แล้วในวันที่กำหนด
+    // ✅ FIXED: หาการใช้งานปัจจุบัน - เฉพาะจากรอบที่กำลังดำเนินการ
+    let currentUsage = 0;
+    
+    // หารอบที่กำลังดำเนินการของคนขับคนนี้
+    const activeTrip = await DriverTrip.findOne({
+      driver_id: car.user_id._id,
+      date: date,
+      status: 'in_progress' // เฉพาะรอบที่กำลังดำเนินการ
+    });
+    
+    if (activeTrip) {
+      // ใช้ current_passengers จาก active trip ตรงๆ
+      currentUsage = activeTrip.current_passengers || 0;
+      console.log(`📊 Found active trip ${activeTrip.trip_number} with ${currentUsage} passengers`);
+    } else {
+      // ไม่มีรอบที่กำลังดำเนินการ = รถว่าง
+      currentUsage = 0;
+      console.log(`📊 No active trip found - car is available`);
+    }
+    
+    // คำนวณที่นั่งที่เหลือ
+    const availableSeats = Math.max(0, car.car_capacity - currentUsage);
+    const usagePercentage = car.car_capacity > 0 ? Math.round((currentUsage / car.car_capacity) * 100) : 0;
+    
+    // ✅ หาตั๋วที่ assigned ให้รถคันนี้ในวันนี้ (สำหรับ reference)
     const startOfDay = new Date(date + 'T00:00:00.000Z');
     const endOfDay = new Date(date + 'T23:59:59.999Z');
     
     const assignedTickets = await Ticket.find({
       assignedDriverId: car.user_id._id,
       soldAt: { $gte: startOfDay, $lte: endOfDay }
-    }).select('ticketNumber passengerCount price ticketType soldAt isScanned');
-    
-    console.log(`📊 Found ${assignedTickets.length} tickets assigned to car ${carRegistration}`);
-    
-    // คำนวณการใช้งาน
-    const currentUsage = assignedTickets.reduce((total, ticket) => {
-      return total + (ticket.passengerCount || 1);
-    }, 0);
-    
-    const availableSeats = Math.max(0, car.car_capacity - currentUsage);
-    const usagePercentage = car.car_capacity > 0 ? Math.round((currentUsage / car.car_capacity) * 100) : 0;
+    }).select('ticketNumber passengerCount price ticketType soldAt isScanned assignedAt');
     
     // แยกตั๋วที่สแกนแล้วและยังไม่สแกน
     const scannedTickets = assignedTickets.filter(ticket => ticket.isScanned);
@@ -95,13 +109,19 @@ export async function GET(request: Request) {
       },
       usage: {
         date: date,
-        currentUsage: currentUsage,
+        currentUsage: currentUsage, // ✅ จากรอบที่กำลังดำเนินการเท่านั้น
         availableSeats: availableSeats,
         usagePercentage: usagePercentage,
         totalTickets: assignedTickets.length,
         scannedPassengers: scannedPassengers,
         pendingPassengers: pendingPassengers,
-        totalRevenue: totalRevenue
+        totalRevenue: totalRevenue,
+        activeTrip: activeTrip ? {
+          trip_id: activeTrip._id,
+          trip_number: activeTrip.trip_number,
+          status: activeTrip.status,
+          passengers_in_trip: activeTrip.current_passengers
+        } : null
       },
       tickets: {
         all: assignedTickets.length,
@@ -113,16 +133,18 @@ export async function GET(request: Request) {
           passengerCount: ticket.passengerCount,
           price: ticket.price,
           soldAt: ticket.soldAt,
-          isScanned: ticket.isScanned
+          isScanned: ticket.isScanned,
+          assignedAt: ticket.assignedAt
         }))
       }
     };
     
-    console.log(`✅ Usage calculation for ${carRegistration}:`, {
+    console.log(`✅ Real-time usage for ${carRegistration}:`, {
       currentUsage,
       availableSeats,
       usagePercentage,
-      totalTickets: assignedTickets.length
+      hasActiveTrip: !!activeTrip,
+      tripNumber: activeTrip?.trip_number
     });
     
     return NextResponse.json(result);
@@ -139,7 +161,6 @@ export async function GET(request: Request) {
 // POST - รีเซ็ตการใช้งานรถ (สำหรับ admin เท่านั้น)
 export async function POST(request: Request) {
   try {
-    // Check authorization (admin only)
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== 'admin') {
       return NextResponse.json(
@@ -163,10 +184,12 @@ export async function POST(request: Request) {
     const targetDate = date || new Date().toISOString().split('T')[0];
     
     // หาข้อมูลรถ
-    const car = await Car.findOne({ car_registration: carRegistration })
-      .populate('user_id', 'name employeeId');
+    const Car = mongoose.models.Car || (await import('@/models/Car')).default;
+    const carInfo = await Car.findOne({ 
+      car_registration: carRegistration 
+    }).populate('user_id', 'name employeeId');
     
-    if (!car) {
+    if (!carInfo) {
       return NextResponse.json(
         { error: 'Car not found' },
         { status: 404 }
@@ -180,7 +203,7 @@ export async function POST(request: Request) {
       
       const result = await Ticket.updateMany(
         {
-          assignedDriverId: car.user_id._id,
+          assignedDriverId: carInfo.user_id._id,
           soldAt: { $gte: startOfDay, $lte: endOfDay },
           isScanned: false // เฉพาะตั๋วที่ยังไม่ได้สแกน
         },

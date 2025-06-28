@@ -1,4 +1,4 @@
-// app/api/driver/trip/scan/route.ts - Enhanced with Assignment Check
+// app/api/driver/trip/scan/route.ts - ปรับปรุงให้ตรวจสอบสถานะรถแบบ Real-time
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DriverTrip from '@/models/DriverTrip';
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     let ticketNumber = ticketId;
     let groupTicketData = null;
     
-    // ✅ ปรับปรุงการตรวจสอบ QR Code Data รองรับ Group Ticket
+    // ปรับปรุงการตรวจสอบ QR Code Data รองรับ Group Ticket
     if (qrData) {
       try {
         console.log('📱 Processing QR Data:', qrData);
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       isScanned: ticket.isScanned
     });
     
-    // ✅ 3. NEW: ตรวจสอบ Assignment - ตั๋วนี้ถูก assign ให้คนขับคนนี้หรือไม่
+    // ✅ 3. ตรวจสอบ Assignment - ตั๋วนี้ถูก assign ให้คนขับคนนี้หรือไม่
     if (ticket.assignedDriverId) {
       const assignedDriverId = ticket.assignedDriverId.toString();
       const currentDriverId = driverId.toString();
@@ -134,13 +134,12 @@ export async function POST(request: Request) {
               recommendation: 'ກະລຸນາຕິດຕໍ່ພະນັກງານຂາຍປີ້'
             }
           },
-          { status: 403 } // Forbidden
+          { status: 403 }
         );
       } else {
         console.log('✅ Ticket assignment verified: assigned to current driver');
       }
     } else {
-      // ตั๋วไม่ได้ถูก assign ให้ใคร - อนุญาตให้สแกนได้ (backward compatibility)
       console.log('⚠️ Ticket has no assignment - allowing scan for backward compatibility');
     }
     
@@ -185,14 +184,17 @@ export async function POST(request: Request) {
       );
     }
     
-    // ✅ 5. ตรวจสอบความจุรถรองรับ Group Ticket
+    // ✅ 5. ตรวจสอบความจุรถรองรับ Group Ticket แบบ Real-time
     const passengersToAdd = ticket.ticketType === 'group' ? ticket.passengerCount : 1;
-    const newTotalPassengers = activeTrip.current_passengers + passengersToAdd;
     
-    console.log('👥 Passenger calculation:', {
+    // ✅ IMPROVED: ใช้ current_passengers จาก active trip ตรงๆ (Real-time)
+    const currentPassengersInTrip = activeTrip.current_passengers || 0;
+    const newTotalPassengers = currentPassengersInTrip + passengersToAdd;
+    
+    console.log('👥 Real-time passenger calculation:', {
       ticketType: ticket.ticketType,
       passengersToAdd,
-      currentPassengers: activeTrip.current_passengers,
+      currentPassengersInTrip,
       newTotal: newTotalPassengers,
       carCapacity: activeTrip.car_capacity
     });
@@ -203,13 +205,13 @@ export async function POST(request: Request) {
         capacity: activeTrip.car_capacity
       });
       return NextResponse.json(
-        { error: `ລົດຈະເຕັມ! ປັດຈຸບັນ ${activeTrip.current_passengers} ຄົນ + ${passengersToAdd} ຄົນ = ${newTotalPassengers} ຄົນ (ຄວາມຈຸ: ${activeTrip.car_capacity} ຄົນ)` },
+        { error: `ລົດຈະເຕັມ! ປັດຈຸບັນ ${currentPassengersInTrip} ຄົນ + ${passengersToAdd} ຄົນ = ${newTotalPassengers} ຄົນ (ຄວາມຈຸ: ${activeTrip.car_capacity} ຄົນ)` },
         { status: 400 }
       );
     }
     
     // ✅ 6. เพิ่มผู้โดยสาร (รองรับ Group Ticket)
-    const passengerOrder = activeTrip.current_passengers + 1;
+    const passengerOrder = currentPassengersInTrip + 1;
     
     activeTrip.scanned_tickets.push({
       ticket_id: ticket._id,
@@ -225,7 +227,7 @@ export async function POST(request: Request) {
     
     await activeTrip.save();
     
-    // ✅ 7. NEW: อัปเดตสถานะ Ticket เป็น "scanned"
+    // ✅ 7. อัปเดตสถานะ Ticket เป็น "scanned"
     try {
       ticket.isScanned = true;
       ticket.scannedAt = new Date();
@@ -240,7 +242,6 @@ export async function POST(request: Request) {
       });
     } catch (ticketUpdateError) {
       console.error('⚠️ Failed to update ticket scan status:', ticketUpdateError);
-      // ไม่ให้ error นี้หยุดการทำงาน - trip ยังดำเนินการต่อได้
     }
     
     console.log('✅ Trip updated successfully:', {
@@ -291,7 +292,7 @@ export async function POST(request: Request) {
       message: message,
       status_message: statusMessage,
       
-      // ✅ ข้อมูล ticket ที่สแกน
+      // ข้อมูล ticket ที่สแกน
       ticket_info: {
         ticket_id: ticket._id,
         ticket_number: ticket.ticketNumber,
@@ -305,7 +306,7 @@ export async function POST(request: Request) {
         assignment_verified: ticket.assignedDriverId?.toString() === driverId.toString()
       },
       
-      // ✅ ข้อมูลเพิ่มเติมสำหรับ Group Ticket
+      // ข้อมูลเพิ่มเติมสำหรับ Group Ticket
       group_ticket_info: ticket.ticketType === 'group' ? {
         is_group_ticket: true,
         total_passengers_in_group: ticket.passengerCount,
@@ -318,13 +319,20 @@ export async function POST(request: Request) {
         is_group_ticket: false
       },
       
-      // ✅ NEW: Assignment Info
+      // Assignment Info
       assignment_info: {
         was_assigned: !!ticket.assignedDriverId,
         assigned_to_current_driver: ticket.assignedDriverId?.toString() === driverId.toString(),
         verification_status: ticket.assignedDriverId 
           ? (ticket.assignedDriverId.toString() === driverId.toString() ? 'verified' : 'wrong_driver')
           : 'no_assignment'
+      },
+      
+      // ✅ IMPROVED: Real-time car status
+      car_status: {
+        is_full: activeTrip.current_passengers >= activeTrip.car_capacity,
+        available_seats: Math.max(0, activeTrip.car_capacity - activeTrip.current_passengers),
+        ready_for_next_trip: false // จะเป็น true หลังจากปิดรอบ
       }
     };
     

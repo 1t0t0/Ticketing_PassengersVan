@@ -1,7 +1,7 @@
-// app/dashboard/tickets/page.tsx - Simplified POS Version
+// app/dashboard/tickets/page.tsx - FIXED Car Data Refresh Integration
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
@@ -14,12 +14,20 @@ import { FiRefreshCw, FiSettings, FiTruck } from 'react-icons/fi';
 import useTicketSales from './hooks/useTicketSales';
 import useTicketStats from './hooks/useTicketStats';
 
+// ✅ Interface for modal refresh
+interface CarRefreshHandle {
+  refreshCarData: () => void;
+}
+
 export default function TicketSalesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
   // เพิ่ม state สำหรับ Settings Modal
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  
+  // ✅ Ref for TicketConfirmationModal to trigger car data refresh
+  const ticketModalRef = useRef<CarRefreshHandle>(null);
   
   const { 
     ticketPrice, paymentMethod, setPaymentMethod, createdTickets,
@@ -60,23 +68,55 @@ export default function TicketSalesPage() {
   useEffect(() => {
     // ✅ FIXED: Safe check for createdTickets length
     if (createdTickets && Array.isArray(createdTickets) && createdTickets.length > 0) {
-      const timer = setTimeout(() => fetchData(), 1000);
+      const timer = setTimeout(() => {
+        fetchData();
+        
+        // ✅ CRITICAL FIX: Refresh car data in modal after ticket creation
+        if (ticketModalRef.current) {
+          console.log('🔄 Triggering car data refresh in modal after ticket creation...');
+          ticketModalRef.current.refreshCarData();
+        }
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [createdTickets, fetchData]);
 
-  // ✅ SIMPLIFIED: Enhanced confirm function - ไม่มี booking
+  // ✅ Enhanced confirm function with proper car data refresh
   const handleConfirmSellTicket = async () => {
     try {
-      // Create tickets with car assignment (not booking)
+      console.log('🎯 Starting ticket creation process...');
+      
+      // Create tickets with car assignment
       await confirmSellTicket();
       
-      // Refresh data after successful creation
+      console.log('✅ Ticket creation completed, refreshing data...');
+      
+      // Refresh dashboard data
       setTimeout(() => {
         fetchData();
       }, 500);
+      
+      // ✅ CRITICAL: Immediately refresh car data in modal
+      setTimeout(() => {
+        if (ticketModalRef.current) {
+          console.log('🔄 Force refreshing car data in modal after ticket creation...');
+          ticketModalRef.current.refreshCarData();
+        }
+      }, 1500);
+      
     } catch (error) {
-      console.error('Error in ticket sale process:', error);
+      console.error('❌ Error in ticket sale process:', error);
+    }
+  };
+
+  // ✅ Enhanced refresh function that also refreshes modal data
+  const handleRefreshData = async () => {
+    await fetchData();
+    
+    // Also refresh car data in modal if it's open
+    if (showConfirmModal && ticketModalRef.current) {
+      console.log('🔄 Refreshing car data in modal via manual refresh...');
+      ticketModalRef.current.refreshCarData();
     }
   };
 
@@ -92,7 +132,7 @@ export default function TicketSalesPage() {
     setShowSettingsModal(false);
   };
 
-  // ✅ SIMPLIFIED: Get selected car info for display with safe checking
+  // ✅ Get selected car info for display with safe checking
   const [selectedCarInfo, setSelectedCarInfo] = useState<{
     registration: string, 
     name: string, 
@@ -170,7 +210,7 @@ export default function TicketSalesPage() {
           
           <div className="flex items-center gap-3">
             <button
-              onClick={() => fetchData()}
+              onClick={handleRefreshData}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm"
               disabled={statsLoading}
             >
@@ -257,7 +297,7 @@ export default function TicketSalesPage() {
               
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => fetchData()}
+                  onClick={handleRefreshData}
                   className="p-2 text-gray-400 hover:text-blue-600 transition rounded-lg hover:bg-blue-50"
                   disabled={statsLoading}
                   title="ໂຫລດຂໍ້ມູນໃໝ່"
@@ -279,8 +319,9 @@ export default function TicketSalesPage() {
         </div>
       </div>
 
-      {/* ✅ SIMPLIFIED: Confirmation Modal - ไม่มี Booking Support */}
+      {/* ✅ FIXED: Confirmation Modal with ref for car data refresh */}
       <TicketConfirmationModal
+        ref={ticketModalRef}
         isOpen={showConfirmModal}
         ticketPrice={ticketPrice}
         paymentMethod={paymentMethod}
