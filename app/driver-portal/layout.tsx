@@ -1,4 +1,4 @@
-// app/driver-portal/layout.tsx - แก้ไขเมนูและเพิ่มเงื่อนไขการใช้งาน
+// app/driver-portal/layout.tsx - แก้ไขเมนูและ route เริ่มต้น
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -22,24 +22,26 @@ interface MenuItem {
   href: string;
   icon: React.ComponentType<any>;
   description?: string;
-  requiresCheckIn?: boolean; // ✅ เพิ่มเงื่อนไขการ check-in
+  requiresCheckIn?: boolean;
+  isDefault?: boolean; // ✅ เพิ่ม flag สำหรับหน้าแรก
 }
 
-// ✅ เปลี่ยนลำดับและชื่อเมนู
+// ✅ เปลี่ยนลำดับและตั้งค่าหน้าแรก
 const menuItems: MenuItem[] = [
   {
-    name: 'ສະແກນປີ້', // ✅ เปลี่ยนชื่อจาก "ຈັດການການເດີນທາງ"
-    href: '/driver-portal/trip-management',
-    icon: Scan, // ✅ เปลี่ยนไอคอน
-    description: 'ສະແກນ QR Code ແລະ ນັບຜູ້ໂດຍສານ',
-    requiresCheckIn: true // ✅ ต้อง check-in ถึงจะใช้ได้
+    name: 'ສະແກນປີ້', // ✅ หน้าแรก
+    href: '/driver-portal',
+    icon: Scan,
+    description: 'ສະແກນ QR Code, ຈອງລົດ ແລະ ນັບຜູ້ໂດຍສານ',
+    requiresCheckIn: true,
+    isDefault: true // ✅ หน้าแรก
   },
   {
-    name: 'ລາຍຮັບ', // ✅ ย้ายมาข้างล่าง
-    href: '/driver-portal',
+    name: 'ລາຍຮັບ', // ✅ หน้าที่สอง
+    href: '/driver-portal/income',
     icon: FiDollarSign,
     description: 'ເບິ່ງລາຍຮັບຂອງຕົນເອງ',
-    requiresCheckIn: false // ✅ ดูได้เสมอ
+    requiresCheckIn: false
   }
 ];
 
@@ -57,13 +59,22 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
     setMounted(true);
   }, []);
 
+  // ✅ เปลี่ยน routing logic
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
     } else if (status === 'authenticated' && session?.user?.role !== 'driver') {
       router.push('/dashboard');
+    } else if (status === 'authenticated' && session?.user?.role === 'driver') {
+      // ✅ ถ้าอยู่ที่ root path ให้ redirect ไปหน้าแรก
+      if (pathname === '/driver-portal' || pathname === '/driver-portal/') {
+        // อยู่ที่หน้าแรกแล้ว ไม่ต้องทำอะไร
+      } else if (pathname === '/driver-portal/trip-management') {
+        // ✅ Redirect จาก old trip-management path ไปหน้าแรก
+        router.replace('/driver-portal');
+      }
     }
-  }, [status, router, session]);
+  }, [status, router, session, pathname]);
 
   // รีเซ็ต image error เมื่อ user เปลี่ยน
   useEffect(() => {
@@ -202,8 +213,10 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
         {/* Navigation */}
         <nav className="mt-4 px-2">
           {menuItems.map((item) => {
-            // ใช้ exact matching เพื่อป้องกันปัญหา nested paths
-            const isActive = pathname === item.href;
+            // ✅ ใช้ exact matching สำหรับหน้าแรก
+            const isActive = item.isDefault 
+              ? (pathname === '/driver-portal' || pathname === '/driver-portal/')
+              : pathname === item.href;
             const isDisabled = isMenuItemDisabled(item);
             
             return (
