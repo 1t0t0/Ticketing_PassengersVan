@@ -1,4 +1,4 @@
-// app/driver-portal/page.tsx - อัปเดตเพิ่ม AssignedTicketsPanel
+// app/driver-portal/page.tsx - ลบ Booking System ออกแล้ว
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -15,16 +15,12 @@ import {
   FiTruck,
   FiSquare,
   FiAlertTriangle,
-  FiX,
-  FiCalendar,
-  FiMapPin,
-  FiTicket
+  FiX
 } from 'react-icons/fi';
 import notificationService from '@/lib/notificationService';
 import { Scan } from 'lucide-react';
-import DriverBookingStatus from './components/DriverBookingStatus';
 
-// ✅ Import Component ใหม่
+// ✅ เหลือแค่ AssignedTicketsPanel เท่านั้น
 import AssignedTicketsPanel from './components/AssignedTicketsPanel';
 
 // Dynamic import สำหรับ QR Scanner
@@ -72,9 +68,8 @@ export default function DriverPortalMainPage() {
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [showAllPassengers, setShowAllPassengers] = useState(false);
-  const [bookingRefreshTrigger, setBookingRefreshTrigger] = useState(0);
   
-  // ✅ เพิ่ม state สำหรับ assigned tickets
+  // ✅ เหลือแค่ assigned tickets refresh trigger
   const [assignedTicketsRefreshTrigger, setAssignedTicketsRefreshTrigger] = useState(0);
 
   // Authentication check
@@ -100,8 +95,7 @@ export default function DriverPortalMainPage() {
       
       setLastRefresh(new Date());
       
-      // ✅ Trigger refresh ทั้ง booking และ assigned tickets
-      setBookingRefreshTrigger(prev => prev + 1);
+      // ✅ Trigger refresh assigned tickets เท่านั้น
       setAssignedTicketsRefreshTrigger(prev => prev + 1);
       
     } catch (error) {
@@ -161,7 +155,6 @@ export default function DriverPortalMainPage() {
       if (result.success) {
         notificationService.success(result.message);
         
-        // แสดงข้อมูลเพิ่มเติม
         setTimeout(() => {
           notificationService.info(result.qualification_status);
         }, 1500);
@@ -178,7 +171,7 @@ export default function DriverPortalMainPage() {
     }
   };
 
-  // ✅ สแกน QR Code หรือ Manual Input - ปรับปรุงให้ refresh assigned tickets ด้วย
+  // สแกน QR Code หรือ Manual Input
   const processTicketScan = async (ticketData: string) => {
     if (!ticketData.trim()) {
       setScanResult('❌ ກະລຸນາໃສ່ເລກທີ່ຂອງປີ້');
@@ -232,7 +225,7 @@ export default function DriverPortalMainPage() {
         }
         
         setTicketInput('');
-        await fetchData(false); // ✅ refresh จะทำให้ assigned tickets update ด้วย
+        await fetchData(false);
       } else {
         const isDuplicateTicket = result.error && result.error.includes('ຖືກສະແກນໄປແລ້ວ');
         
@@ -250,7 +243,6 @@ export default function DriverPortalMainPage() {
     }
   };
 
-  // ✅ Handle QR Scanner result
   const handleQRScanResult = (ticketNumber: string) => {
     setShowQRScanner(false);
     setTicketInput(ticketNumber);
@@ -265,25 +257,17 @@ export default function DriverPortalMainPage() {
     processTicketScan(ticketInput);
   };
 
-  // Toggle แสดงผู้โดยสารทั้งหมด
   const toggleShowAllPassengers = () => {
     setShowAllPassengers(!showAllPassengers);
   };
 
-  // ✅ Handle booking actions
-  const handleBookingAction = (action: string, bookingId: string) => {
-    // Refresh trip data when booking action is performed
-    fetchData(false);
-  };
-
-  // ลดความถี่ในการ refresh
   useEffect(() => {
     if (session?.user?.role === 'driver') {
       fetchData();
       
       const interval = setInterval(() => {
         fetchData(false);
-      }, 120000); // 2 นาที
+      }, 120000);
       
       return () => clearInterval(interval);
     }
@@ -335,7 +319,7 @@ export default function DriverPortalMainPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center">
                 <Scan className="mr-3 text-blue-600" />
-                ສະແກນປີ້ ແລະ ການຈອງ
+                ສະແກນປີ້ ແລະ ຈັດການການເດີນທາງ
               </h1>
               <p className="text-gray-600 mt-1">ສະບາຍດີ, {session?.user?.name}</p>
               <p className="text-xs text-gray-500 mt-1">
@@ -386,9 +370,9 @@ export default function DriverPortalMainPage() {
           </div>
         </div>
 
-        {/* ✅ เพิ่ม Grid Layout 3 คอลัมน์ - เพิ่ม Assigned Tickets Panel */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
-          {/* ✅ Assigned Tickets Panel - คอลัมน์แรก */}
+        {/* ✅ Layout ใหม่: 2 คอลัมน์ (Assigned Tickets + QR Scanner) */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+          {/* ✅ Assigned Tickets Panel - ครึ่งแรก */}
           <div className="xl:col-span-1">
             <AssignedTicketsPanel 
               driverId={session?.user?.id || ''} 
@@ -396,16 +380,7 @@ export default function DriverPortalMainPage() {
             />
           </div>
 
-          {/* Booking Status - คอลัมน์ที่สอง */}
-          <div className="xl:col-span-1">
-            <DriverBookingStatus 
-              driverId={session?.user?.id || ''} 
-              onBookingAction={handleBookingAction}
-              refreshTrigger={bookingRefreshTrigger}
-            />
-          </div>
-
-          {/* QR Scanner Section - คอลัมน์ที่สาม */}
+          {/* ✅ QR Scanner Section - ครึ่งหลัง */}
           <div className="xl:col-span-1">
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-lg border border-blue-200">
               <div className="p-6">
