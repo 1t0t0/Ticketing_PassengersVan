@@ -1,4 +1,4 @@
-// app/driver-portal/page.tsx - Updated พร้อมระบบ Booking
+// app/driver-portal/page.tsx - แก้ไขให้แสดงเฉพาะคนขับที่มีสิทธิ์
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -15,8 +15,7 @@ import {
   FiCheckCircle,
   FiClock,
   FiUsers,
-  FiTruck,
-  FiBookOpen
+  FiTruck
 } from 'react-icons/fi';
 import { Doughnut } from 'react-chartjs-2';
 import {
@@ -30,9 +29,6 @@ import {
   LineElement,
   Title,
 } from 'chart.js';
-
-// ✅ NEW: Import Booking Status Component
-import DriverBookingStatus from './components/DriverBookingStatus';
 
 ChartJS.register(
   ArcElement, 
@@ -109,10 +105,6 @@ export default function EnhancedDriverPortalPage() {
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [pdfLibraryLoaded, setPdfLibraryLoaded] = useState(false);
-  
-  // ✅ NEW: Booking related states
-  const [bookingRefreshTrigger, setBookingRefreshTrigger] = useState(0);
-  const [showBookingSection, setShowBookingSection] = useState(true);
 
   // Authentication check
   useEffect(() => {
@@ -165,29 +157,6 @@ export default function EnhancedDriverPortalPage() {
     }
   };
 
-  // ✅ NEW: Handle booking actions and refresh
-  const handleBookingAction = (action: string, bookingId: string) => {
-    // Trigger booking data refresh
-    setBookingRefreshTrigger(prev => prev + 1);
-    
-    // Show appropriate toast message
-    switch (action) {
-      case 'start_trip':
-        toast.success('🚗 ເລີ່ມການເດີນທາງສຳເລັດ!');
-        break;
-      case 'complete_trip':
-        toast.success('✅ ສຳເລັດການເດີນທາງ!');
-        // Refresh dashboard data as well since trip completion affects revenue
-        setTimeout(() => {
-          fetchDashboardData();
-        }, 1000);
-        break;
-      case 'cancel':
-        toast.info('❌ ຍົກເລີກການຈອງສຳເລັດ');
-        break;
-    }
-  };
-
   // Handle refresh
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -197,9 +166,6 @@ export default function EnhancedDriverPortalPage() {
     } else {
       await fetchDashboardData(selectedDate);
     }
-    
-    // Refresh booking data as well
-    setBookingRefreshTrigger(prev => prev + 1);
   };
 
   // Calculate date range based on period
@@ -276,7 +242,7 @@ export default function EnhancedDriverPortalPage() {
     await fetchDashboardData(startDate, endDate);
   };
 
-  // Export PDF function (keeping existing functionality)
+  // Export PDF function
   const handleExportPDF = async () => {
     if (!dashboardData) {
       toast.error('ບໍ່ມີຂໍ້ມູນສຳລັບສົ່ງອອກ PDF');
@@ -361,7 +327,7 @@ export default function EnhancedDriverPortalPage() {
     }
   };
 
-  // PDF content generator (keeping existing functionality)
+  // PDF content generator (enhanced with new data)
   const generateDriverPDFContent = (data: DashboardData, period: string, start: string, end: string) => {
     const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('lo-LA');
     const getDisplayPeriod = () => {
@@ -635,7 +601,7 @@ export default function EnhancedDriverPortalPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-6">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">ໜ້າຫຼັກພະນັກງານຂັບລົດ</h1>
+                <h1 className="text-2xl font-bold text-gray-900">ລາຍຮັບພະນັກງານຂັບລົດ</h1>
                 <p className="text-gray-600">ສະບາຍດີ, {session?.user?.name}</p>
                 {dashboardData && (
                   <div className="mt-1 flex items-center space-x-3">
@@ -724,30 +690,6 @@ export default function EnhancedDriverPortalPage() {
                   ລອງໃໝ່
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* ✅ NEW: Booking Status Section */}
-          {showBookingSection && session?.user?.id && (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                  <FiBookOpen className="mr-2 text-blue-600" />
-                  ສະຖານະການຈອງລົດ
-                </h2>
-                <button
-                  onClick={() => setShowBookingSection(!showBookingSection)}
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  {showBookingSection ? 'ປິດ' : 'ເປີດ'}
-                </button>
-              </div>
-              
-              <DriverBookingStatus
-                driverId={session.user.id}
-                onBookingAction={handleBookingAction}
-                refreshTrigger={bookingRefreshTrigger}
-              />
             </div>
           )}
 

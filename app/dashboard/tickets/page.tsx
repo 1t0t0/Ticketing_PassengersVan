@@ -1,4 +1,4 @@
-// app/dashboard/tickets/page.tsx - Updated รองรับระบบ Booking
+// app/dashboard/tickets/page.tsx - Simplified POS Version
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -9,7 +9,7 @@ import NeoCard from '@/components/ui/NotionCard';
 import { StatsCards, TicketSalesForm, RecentTicketsList, PrintableTicket } from './components';
 import TicketConfirmationModal from './components/TicketConfirmationModal';
 import AdminSettingsModal from './components/AdminSettingsModal';
-import { FiRefreshCw, FiSettings, FiCalendar, FiTruck } from 'react-icons/fi';
+import { FiRefreshCw, FiSettings, FiTruck } from 'react-icons/fi';
 
 import useTicketSales from './hooks/useTicketSales';
 import useTicketStats from './hooks/useTicketStats';
@@ -33,13 +33,7 @@ export default function TicketSalesPage() {
     destination, updateDestination,
     
     // Car Selection related
-    selectedCarRegistration, updateSelectedCar,
-    
-    // ✅ NEW: Booking related
-    enableBooking, updateEnableBooking,
-    expectedDeparture, updateExpectedDeparture,
-    bookingNotes, updateBookingNotes,
-    activeBooking, fetchActiveBookingForCar
+    selectedCarRegistration, updateSelectedCar
   } = useTicketSales();
   
   const { 
@@ -71,17 +65,15 @@ export default function TicketSalesPage() {
     }
   }, [createdTickets, fetchData]);
 
-  // ✅ NEW: Enhanced confirm function with booking support
+  // ✅ SIMPLIFIED: Enhanced confirm function - ไม่มี booking
   const handleConfirmSellTicket = async () => {
     try {
-      // Create tickets (and booking if enabled)
+      // Create tickets with car assignment (not booking)
       await confirmSellTicket();
       
       // Refresh data after successful creation
       setTimeout(() => {
         fetchData();
-        // Refresh active booking data
-        fetchActiveBookingForCar();
       }, 500);
     } catch (error) {
       console.error('Error in ticket sale process:', error);
@@ -100,7 +92,7 @@ export default function TicketSalesPage() {
     setShowSettingsModal(false);
   };
 
-  // ✅ FIXED: Get selected car info for display with safe checking
+  // ✅ SIMPLIFIED: Get selected car info for display with safe checking
   const [selectedCarInfo, setSelectedCarInfo] = useState<{
     registration: string, 
     name: string, 
@@ -155,7 +147,7 @@ export default function TicketSalesPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">ຫນ້າການອອກປີ້</h1>
-            <p className="text-gray-600">ລະບົບອອກປີ້ລົດໂດຍສານ ແລະ ຈັດການຂໍ້ມູນສະຖິຕິ</p>
+            <p className="text-gray-600">ລະບົບ POS ສຳລັບອອກປີ້ລົດໂດຍສານ ແລະ ກຳໜົດລົດໃຫ້ລູກຄ້າ</p>
             
             <div className="mt-3 flex flex-wrap gap-2">
               {/* แสดงข้อมูลปลายทางปัจจุบัน */}
@@ -170,23 +162,7 @@ export default function TicketSalesPage() {
               {selectedCarInfo && (
                 <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
                   <span className="mr-1">🚐</span>
-                  <span>ລົດ: {selectedCarInfo.registration} - {selectedCarInfo.driverName} ({selectedCarInfo.driverEmployeeId})</span>
-                </div>
-              )}
-              
-              {/* ✅ NEW: แสดงสถานะ Booking */}
-              {enableBooking && (
-                <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800">
-                  <span className="mr-1">📅</span>
-                  <span>ໂໝດຈອງລົດ: เปิดใช้งาน</span>
-                </div>
-              )}
-              
-              {/* แสดงข้อมูล Active Booking */}
-              {activeBooking && (
-                <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-orange-100 text-orange-800">
-                  <span className="mr-1">⚠️</span>
-                  <span>ລົດມີການຈອງ: {activeBooking.booked_passengers}/{selectedCarInfo?.capacity || 0} ຄົນ</span>
+                  <span>ລົດທີ່ແນະນຳ: {selectedCarInfo.registration} - {selectedCarInfo.driverName} ({selectedCarInfo.driverEmployeeId})</span>
                 </div>
               )}
             </div>
@@ -231,25 +207,6 @@ export default function TicketSalesPage() {
               >
                 ປິດ
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ✅ NEW: Active Booking Warning */}
-      {activeBooking && activeBooking.status === 'booked' && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <FiCalendar className="text-yellow-600 mr-3 mt-0.5" />
-            <div>
-              <h4 className="font-medium text-yellow-800">ລົດຖືກຈອງແລ້ວ</h4>
-              <p className="text-sm text-yellow-700 mt-1">
-                ລົດ {selectedCarInfo?.registration} ມີການຈອງຈາກລູກຄ້າ {activeBooking.booked_passengers} ຄົນ 
-                (ເຫຼືອ {selectedCarInfo ? selectedCarInfo.capacity - activeBooking.booked_passengers : 0} ທີ່ນັ່ງ)
-              </p>
-              <p className="text-xs text-yellow-600 mt-1">
-                💡 ຫາກທ່ານເປີດໃຊ້ "ໂໝດຈອງ" ລະບົບຈະບໍ່ອະນຸຍາດໃຫ້ຈອງລົດນີ້ຊ້ຳ
-              </p>
             </div>
           </div>
         </div>
@@ -322,7 +279,7 @@ export default function TicketSalesPage() {
         </div>
       </div>
 
-      {/* ✅ UPDATED: Enhanced Confirmation Modal with Booking Support */}
+      {/* ✅ SIMPLIFIED: Confirmation Modal - ไม่มี Booking Support */}
       <TicketConfirmationModal
         isOpen={showConfirmModal}
         ticketPrice={ticketPrice}
@@ -344,15 +301,6 @@ export default function TicketSalesPage() {
         // Car Selection Props
         selectedCarRegistration={selectedCarRegistration}
         onCarChange={updateSelectedCar}
-        
-        // ✅ NEW: Booking Props (passed to enhanced modal)
-        enableBooking={enableBooking}
-        onEnableBookingChange={updateEnableBooking}
-        expectedDeparture={expectedDeparture}
-        onExpectedDepartureChange={updateExpectedDeparture}
-        bookingNotes={bookingNotes}
-        onBookingNotesChange={updateBookingNotes}
-        activeBooking={activeBooking}
       />
 
       {/* Admin Settings Modal */}
@@ -367,7 +315,7 @@ export default function TicketSalesPage() {
         />
       )}
 
-      {/* Print Area - รองรับ Driver และ Destination และ Booking */}
+      {/* Print Area - รองรับ Car Assignment และ Destination */}
       <div className="hidden">
         {/* ✅ FIXED: Safe checking for createdTickets array */}
         {createdTickets && Array.isArray(createdTickets) && createdTickets.length > 0 && 

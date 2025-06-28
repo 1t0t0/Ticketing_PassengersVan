@@ -1,6 +1,6 @@
-// app/dashboard/tickets/components/TicketConfirmationModal.tsx - Updated รองรับระบบ Booking
+// app/dashboard/tickets/components/TicketConfirmationModal.tsx - Simplified POS Version
 import React, { useState, useEffect, useRef } from 'react';
-import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin, FiTruck, FiSearch, FiChevronDown, FiCalendar, FiClock } from 'react-icons/fi';
+import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin, FiTruck, FiSearch, FiChevronDown } from 'react-icons/fi';
 
 interface Car {
   _id: string;
@@ -51,11 +51,6 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const [error, setError] = useState('');
   const [cars, setCars] = useState<Car[]>([]);
   const [carsLoading, setCarsLoading] = useState(false);
-  
-  // ✅ NEW: Booking related states
-  const [enableBooking, setEnableBooking] = useState(false);
-  const [expectedDeparture, setExpectedDeparture] = useState('');
-  const [bookingNotes, setBookingNotes] = useState('');
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   
   // Car selection dropdown states
@@ -194,7 +189,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !loading && !error && inputValue) {
         e.preventDefault();
-        handleConfirmWithBooking();
+        handleConfirm();
       } else if (e.key === 'Escape' && !loading) {
         e.preventDefault();
         onCancel();
@@ -237,8 +232,8 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
       return;
     }
     
-    // ✅ NEW: Check car capacity when booking is enabled
-    if (enableBooking && selectedCar && numericValue > selectedCar.car_capacity) {
+    // ตรวจสอบความจุรถ
+    if (selectedCar && numericValue > selectedCar.car_capacity) {
       setError(`ຈຳນວນຜູ້ໂດຍສານເກີນຄວາມຈຸລົດ (ສູງສຸດ ${selectedCar.car_capacity} ຄົນ)`);
       return;
     }
@@ -250,7 +245,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   // ปุ่ม +/- สำหรับปรับจำนวน
   const changeQuantity = (change: number) => {
     const newQuantity = quantity + change;
-    const maxLimit = enableBooking && selectedCar ? 
+    const maxLimit = selectedCar ? 
       Math.min(MAX_QUANTITY, selectedCar.car_capacity) : MAX_QUANTITY;
     
     if (newQuantity >= MIN_QUANTITY && newQuantity <= maxLimit) {
@@ -263,24 +258,12 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
   const totalAmount = ticketPrice * quantity;
   const hasValidQuantity = !error && inputValue && quantity >= MIN_QUANTITY && quantity <= MAX_QUANTITY;
 
-  // ✅ NEW: Enhanced confirm function with booking
-  const handleConfirmWithBooking = async () => {
+  // ฟังก์ชันยืนยัน - เรียบง่าย
+  const handleConfirm = async () => {
     if (!hasValidQuantity || !selectedCarRegistration) {
       return;
     }
-
-    // ถ้าเปิดใช้งาน booking ให้สร้าง booking ก่อน
-    if (enableBooking) {
-      try {
-        // Call parent confirm function ซึ่งจะสร้างตั๋วและ booking
-        await onConfirm();
-      } catch (error) {
-        console.error('Error in booking process:', error);
-      }
-    } else {
-      // กระบวนการปกติ (ไม่มี booking)
-      onConfirm();
-    }
+    onConfirm();
   };
 
   const handleInputFocus = () => {
@@ -294,22 +277,17 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
     }
   };
 
-  // ✅ NEW: Calculate remaining capacity for booking
+  // คำนวณข้อมูลรถที่เลือก
   const remainingCapacity = selectedCar ? selectedCar.car_capacity - quantity : 0;
   const occupancyPercentage = selectedCar ? Math.round((quantity / selectedCar.car_capacity) * 100) : 0;
 
   return (
     <div className="fixed inset-0 bg-white/80 backdrop-blur flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl border max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl border max-h-[90vh] overflow-y-auto">
         <div className="bg-blue-500 text-white p-4 flex items-center justify-between sticky top-0">
           <div className="flex items-center">
             <FiPrinter className="mr-2" />
             <h3 className="text-lg font-bold">ຢືນຢັນອອກປີ້</h3>
-            {enableBooking && (
-              <span className="ml-3 px-2 py-1 bg-blue-400 rounded-full text-xs font-medium">
-                📅 ພ້ອມຈອງລົດ
-              </span>
-            )}
           </div>
           <button 
             onClick={onCancel} 
@@ -322,46 +300,13 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
         </div>
         
         <div className="p-6">
-          {/* ✅ NEW: Booking Toggle */}
-          <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-semibold text-gray-800 flex items-center">
-                  <FiCalendar className="mr-2 text-green-600" />
-                  ຈອງລົດພ້ອມອອກປີ້
-                </h4>
-                <p className="text-sm text-gray-600 mt-1">
-                  ເມື່ອເປີດໃຊ້ງານ ລົດຈະຖືກຈອງສຳລັບຜູ້ໂດຍສານທີ່ຊື້ປີ້
-                </p>
-              </div>
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={enableBooking}
-                  onChange={(e) => setEnableBooking(e.target.checked)}
-                  className="sr-only"
-                />
-                <div className={`relative w-12 h-6 rounded-full transition-colors ${
-                  enableBooking ? 'bg-green-500' : 'bg-gray-300'
-                }`}>
-                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    enableBooking ? 'translate-x-6' : 'translate-x-0'
-                  }`}></div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* 🎯 IMPROVED: Top Section - Car Selection + Ticket Type in Row */}
+          {/* Car Selection + Ticket Type Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Car Selection Section */}
             <div>
               <div className="text-sm font-semibold mb-3 text-gray-700 flex items-center">
                 <FiTruck className="h-4 w-4 mr-2" />
                 ເລືອກລົດ ແລະ ຄົນຂັບ
-                {enableBooking && (
-                  <span className="ml-2 text-xs text-green-600">(ສຳລັບຈອງ)</span>
-                )}
               </div>
               
               {carsLoading ? (
@@ -468,7 +413,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                                   <div className="flex items-center mb-1">
                                     <p className="font-bold text-sm text-gray-900">{car.car_registration}</p>
                                     <span className="ml-2 text-xs text-gray-500">({car.car_name})</span>
-                                    <span className="ml-2 text-xs text-blue-600">{car.car_capacity}ทີ่</span>
+                                    <span className="ml-2 text-xs text-blue-600">{car.car_capacity}ທີ່</span>
                                   </div>
                                   
                                   {/* ข้อมูลคนขับ */}
@@ -544,7 +489,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </div>
           </div>
 
-          {/* 🎯 IMPROVED: Middle Section - Destination + Quantity in Row */}
+          {/* Destination + Quantity Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Destination Input */}
             <div>
@@ -574,7 +519,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                   {isGroupTicket ? 'ຈຳນວນຄົນ' : 'ຈຳນວນໃບ'}
                 </label>
                 <div className="text-xs text-gray-500">
-                  {enableBooking && selectedCar ? (
+                  {selectedCar ? (
                     `ສູງສຸດ ${selectedCar.car_capacity} ຄົນ (ຄວາມຈຸລົດ)`
                   ) : (
                     isGroupTicket ? 'ສູງສຸດ 10 ຄົນ/ກຸ່ມ' : 'ສູງສຸດ 20 ໃບ/ຄັ້ງ'
@@ -624,9 +569,9 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                 
                 <button
                   onClick={() => changeQuantity(1)}
-                  disabled={quantity >= (enableBooking && selectedCar ? Math.min(MAX_QUANTITY, selectedCar.car_capacity) : MAX_QUANTITY) || loading}
+                  disabled={quantity >= (selectedCar ? Math.min(MAX_QUANTITY, selectedCar.car_capacity) : MAX_QUANTITY) || loading}
                   className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center font-bold text-lg transition ${
-                    quantity >= (enableBooking && selectedCar ? Math.min(MAX_QUANTITY, selectedCar.car_capacity) : MAX_QUANTITY) || loading 
+                    quantity >= (selectedCar ? Math.min(MAX_QUANTITY, selectedCar.car_capacity) : MAX_QUANTITY) || loading 
                       ? 'border-gray-300 text-gray-300 cursor-not-allowed bg-gray-100' 
                       : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50'
                   }`}
@@ -637,91 +582,49 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </div>
           </div>
 
-          {/* ✅ NEW: Booking Details Section (when booking is enabled) */}
-          {enableBooking && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-900 mb-4 flex items-center">
-                <FiCalendar className="mr-2" />
-                ລາຍລະອຽດການຈອງ
-              </h4>
+          {/* Car Capacity Information (แสดงเมื่อเลือกรถแล้ว) */}
+          {selectedCar && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">ຂໍ້ມູນຄວາມຈຸລົດ</span>
+                <span className="text-xs text-blue-600">{selectedCar.car_registration}</span>
+              </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {/* Expected Departure Time */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <FiClock className="inline mr-1" />
-                    ເວລາອອກເດີນທາງທີ່ຄາດວ່າ (ທາງເລືອກ)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={expectedDeparture}
-                    onChange={(e) => setExpectedDeparture(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    min={new Date().toISOString().slice(0, 16)}
-                  />
+              <div className="grid grid-cols-3 gap-4 text-center text-sm">
+                <div className="bg-blue-100 rounded p-2">
+                  <div className="font-bold text-blue-600">{quantity}</div>
+                  <div className="text-gray-600">ກຳລັງເລືອກ</div>
                 </div>
-                
-                {/* Booking Notes */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ໝາຍເຫດ (ທາງເລືອກ)
-                  </label>
-                  <input
-                    type="text"
-                    value={bookingNotes}
-                    onChange={(e) => setBookingNotes(e.target.value)}
-                    placeholder="ໝາຍເຫດເພີ່ມເຕີມ..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    maxLength={200}
-                  />
+                <div className="bg-green-50 rounded p-2">
+                  <div className="font-bold text-green-600">{remainingCapacity}</div>
+                  <div className="text-gray-600">ຍັງວ່າງ</div>
+                </div>
+                <div className="bg-gray-50 rounded p-2">
+                  <div className="font-bold text-gray-600">{selectedCar.car_capacity}</div>
+                  <div className="text-gray-600">ທັງໝົດ</div>
                 </div>
               </div>
-
-              {/* Car Capacity Information */}
-              {selectedCar && (
-                <div className="bg-white rounded-lg p-3 border border-blue-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">ຂໍ້ມູນຄວາມຈຸລົດ</span>
-                    <span className="text-xs text-blue-600">{selectedCar.car_registration}</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4 text-center text-sm">
-                    <div className="bg-blue-50 rounded p-2">
-                      <div className="font-bold text-blue-600">{quantity}</div>
-                      <div className="text-gray-600">ຈອງແລ້ວ</div>
-                    </div>
-                    <div className="bg-green-50 rounded p-2">
-                      <div className="font-bold text-green-600">{remainingCapacity}</div>
-                      <div className="text-gray-600">ຍັງວ່າງ</div>
-                    </div>
-                    <div className="bg-gray-50 rounded p-2">
-                      <div className="font-bold text-gray-600">{selectedCar.car_capacity}</div>
-                      <div className="text-gray-600">ທັງໝົດ</div>
-                    </div>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
-                      <span>ອັດຕາການຈອງ: {occupancyPercentage}%</span>
-                      <span>{quantity}/{selectedCar.car_capacity} ຄົນ</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          occupancyPercentage >= 80 ? 'bg-green-500' : 
-                          occupancyPercentage >= 50 ? 'bg-yellow-500' : 'bg-blue-500'
-                        }`}
-                        style={{ width: `${Math.min(occupancyPercentage, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
+              
+              {/* Progress Bar */}
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                  <span>ອັດຕາການນັ່ງ: {occupancyPercentage}%</span>
+                  <span>{quantity}/{selectedCar.car_capacity} ຄົນ</span>
                 </div>
-              )}
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      occupancyPercentage >= 80 ? 'bg-green-500' : 
+                      occupancyPercentage >= 50 ? 'bg-yellow-500' : 'bg-blue-500'
+                    }`}
+                    style={{ width: `${Math.min(occupancyPercentage, 100)}%` }}
+                  ></div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* 🎯 IMPROVED: Price Summary Section - More Compact */}
+          {/* Price Summary Section */}
           <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-4 mb-6">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
               <div>
@@ -759,7 +662,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </div>
           )}
           
-          {/* 🎯 IMPROVED: Action Buttons */}
+          {/* Action Buttons */}
           <div className="flex space-x-3">
             <button
               className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition border"
@@ -771,14 +674,10 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
             </button>
             
             <button
-              className={`flex-1 py-3 rounded-lg font-medium transition flex items-center justify-center ${
-                enableBooking 
-                  ? 'bg-green-500 hover:bg-green-600 text-white' 
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
-              } ${
+              className={`flex-1 py-3 rounded-lg font-medium transition flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white ${
                 loading || !hasValidQuantity || !selectedCarRegistration ? 'opacity-70 cursor-not-allowed' : ''
               }`}
-              onClick={handleConfirmWithBooking}
+              onClick={handleConfirm}
               disabled={loading || !hasValidQuantity || !selectedCarRegistration}
               title={hasValidQuantity && selectedCarRegistration ? "ຢືນຢັນ (Enter)" : "ກະລຸນາແກ້ໄຂຂໍ້ມູນກ່ອນ"}
             >
@@ -789,14 +688,8 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
                 </div>
               ) : (
                 <>
-                  {enableBooking ? (
-                    <>
-                      <FiCalendar className="mr-2" />
-                      ຢືນຢັນ ແລະ ຈອງລົດ
-                    </>
-                  ) : (
-                    'ຢືນຢັນ'
-                  )}
+                  <FiPrinter className="mr-2" />
+                  ຢືນຢັນອອກປີ້
                 </>
               )}
             </button>
@@ -806,9 +699,7 @@ const TicketConfirmationModal: React.FC<TicketConfirmationModalProps> = ({
           <div className="mt-4 pt-3 border-t border-gray-200">
             <div className="text-xs text-gray-500 text-center space-y-1">
               <div>⌨️ <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> ເພື່ອຢືນຢັນ • <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">ESC</kbd> ເພື່ອຍົກເລີກ</div>
-              {enableBooking && (
-                <div className="text-green-600">📅 ໂໝດຈອງລົດ: ລົດຈະຖືກຈອງພ້ອມກັບການອອກປີ້</div>
-              )}
+              <div className="text-blue-600">📝 ລະບົບ POS: ຮະບຸລົດໃຫ້ລູກຄ້າທັນທີ</div>
             </div>
           </div>
         </div>
