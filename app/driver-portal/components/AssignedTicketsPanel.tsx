@@ -1,4 +1,4 @@
-// app/driver-portal/components/AssignedTicketsPanel.tsx
+// app/driver-portal/components/AssignedTicketsPanel.tsx - FIXED with debugging
 'use client';
 
 import { Ticket } from 'lucide-react';
@@ -11,7 +11,8 @@ import {
   FiAlertTriangle,
   FiCheckCircle,
   FiEye,
-  FiEyeOff
+  FiEyeOff,
+  FiInfo
 } from 'react-icons/fi';
 
 interface AssignedTicket {
@@ -28,6 +29,7 @@ interface AssignedTicket {
   isScanned: boolean;
   scannedAt?: string;
   assignedAt: string;
+  assignedDriverId?: string;
 }
 
 interface AssignedTicketStats {
@@ -59,8 +61,9 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'assigned' | 'scanned'>('assigned');
   const [showAll, setShowAll] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
-  // ✅ ดึงตั๋วที่ได้รับมอบหมาย
+  // ✅ ดึงตั๋วที่ได้รับมอบหมาย พร้อม debug
   const fetchAssignedTickets = async (showLoadingState = true) => {
     try {
       if (showLoadingState) {
@@ -70,23 +73,38 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
       }
       setError(null);
       
+      console.log('🎫 Fetching assigned tickets for driver:', driverId, 'filter:', filter);
+      
       const response = await fetch(`/api/driver/assigned-tickets?status=${filter}`);
       
+      console.log('📡 API Response status:', response.status);
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API Response error:', errorText);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log('📋 API Response data:', data);
       
       if (data.success) {
         setAssignedTickets(data.tickets || []);
         setStats(data.stats || null);
+        setDebugInfo(data.debug || null);
+        
+        console.log('✅ Assigned tickets loaded:', {
+          ticketCount: data.tickets?.length || 0,
+          filter: filter,
+          driverId: driverId,
+          stats: data.stats
+        });
       } else {
         throw new Error(data.error || 'Failed to fetch assigned tickets');
       }
       
     } catch (error) {
-      console.error('Error fetching assigned tickets:', error);
+      console.error('💥 Error fetching assigned tickets:', error);
       setError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setLoading(false);
@@ -97,12 +115,14 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
   // เรียกใช้เมื่อ component mount หรือมีการ refresh
   useEffect(() => {
     if (driverId) {
+      console.log('🔄 Effect triggered - fetching tickets:', { driverId, refreshTrigger, filter });
       fetchAssignedTickets();
     }
   }, [driverId, refreshTrigger, filter]);
 
   // Handle manual refresh
   const handleRefresh = () => {
+    console.log('🔄 Manual refresh triggered');
     fetchAssignedTickets(false);
   };
 
@@ -150,6 +170,14 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
             <div>
               <h4 className="font-medium text-red-800">ເກີດຂໍ້ຜິດພາດ</h4>
               <p className="text-sm text-red-600 mt-1">{error}</p>
+              {debugInfo && (
+                <details className="mt-2">
+                  <summary className="text-xs text-red-500 cursor-pointer">Debug Info</summary>
+                  <pre className="text-xs text-red-500 mt-1 whitespace-pre-wrap">
+                    {JSON.stringify(debugInfo, null, 2)}
+                  </pre>
+                </details>
+              )}
             </div>
           </div>
           <button
@@ -204,6 +232,24 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
         </div>
       </div>
 
+      {/* Debug Info */}
+      {debugInfo && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-3 m-4">
+          <div className="flex items-start">
+            <FiInfo className="text-blue-600 mr-2 mt-0.5" />
+            <div className="text-sm text-blue-800">
+              <p><strong>Debug:</strong> กำลังค้นหาตั๋วที่มี assignedDriverId = {driverId}</p>
+              <details className="mt-2">
+                <summary className="cursor-pointer font-medium">รายละเอียด Debug</summary>
+                <pre className="mt-2 text-xs bg-blue-100 p-2 rounded overflow-auto">
+                  {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+              </details>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filter Tabs */}
       <div className="border-b border-gray-200">
         <div className="flex">
@@ -256,6 +302,13 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
                filter === 'scanned' ? 'ຕັ້ວທີ່ທ່ານສະແກນແລ້ວຈະປາກົດທີ່ນີ້' :
                'ຕັ້ວທີ່ລູກຄ້າເລືອກລົດຂອງທ່ານຈະປາກົດທີ່ນີ້'}
             </p>
+            
+            {/* Debug info for no tickets */}
+            <div className="mt-4 text-xs text-gray-500">
+              <p>Driver ID: {driverId}</p>
+              <p>Total tickets in database: {assignedTickets.length}</p>
+              <p>Current filter: {filter}</p>
+            </div>
           </div>
         ) : (
           <>
@@ -349,6 +402,13 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
                     <div className="text-xs text-gray-500 mt-1">
                       ຂາຍໂດຍ: {ticket.soldBy}
                     </div>
+                    
+                    {/* Assignment info */}
+                    {ticket.assignedAt && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        ມອບໝາຍເມື່ອ: {formatDate(ticket.assignedAt)} {formatTime(ticket.assignedAt)}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

@@ -1,4 +1,4 @@
-// app/dashboard/tickets/api/ticket.ts - Fixed error handling
+// app/dashboard/tickets/api/ticket.ts - FIXED to ensure selectedCarRegistration is sent
 import { Ticket, NewTicket } from '../types';
 
 const API_BASE_URL = '/api/tickets';
@@ -12,7 +12,6 @@ export async function fetchTickets(page: number = 1, limit: number = 10): Promis
   try {
     const response = await fetch(`${API_BASE_URL}?page=${page}&limit=${limit}`);
     
-    // ✅ Check if response is ok before trying to parse JSON
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Fetch tickets failed:', {
@@ -25,7 +24,6 @@ export async function fetchTickets(page: number = 1, limit: number = 10): Promis
     
     const data = await response.json();
     
-    // ✅ Validate that we got the expected data structure
     if (!data || typeof data !== 'object') {
       throw new Error('Invalid response format from tickets API');
     }
@@ -43,7 +41,6 @@ export async function fetchTickets(page: number = 1, limit: number = 10): Promis
   } catch (error) {
     console.error('Error in fetchTickets:', error);
     
-    // ✅ Re-throw with more specific error message
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error('Network error: Unable to connect to tickets API');
     }
@@ -59,7 +56,14 @@ export async function fetchTickets(page: number = 1, limit: number = 10): Promis
 // ✅ FIXED: Better error handling for create ticket
 export async function createTicket(ticketData: NewTicket): Promise<Ticket> {
   try {
-    console.log('Creating ticket with data:', ticketData);
+    console.log('🎯 Creating ticket with data:', ticketData);
+    
+    // ✅ FIXED: Validate that selectedCarRegistration is included
+    if (!ticketData.selectedCarRegistration) {
+      console.warn('⚠️ No selectedCarRegistration provided in ticket data');
+    } else {
+      console.log('✅ selectedCarRegistration included:', ticketData.selectedCarRegistration);
+    }
     
     const response = await fetch(API_BASE_URL, {
       method: 'POST',
@@ -69,19 +73,21 @@ export async function createTicket(ticketData: NewTicket): Promise<Ticket> {
       body: JSON.stringify(ticketData),
     });
     
-    // ✅ Better error handling
+    console.log('📡 API Response status:', response.status);
+    
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       
       try {
         const errorData = await response.json();
+        console.error('❌ API Error response:', errorData);
+        
         if (errorData.error) {
           errorMessage = errorData.error;
         } else if (errorData.message) {
           errorMessage = errorData.message;
         }
       } catch (parseError) {
-        // If we can't parse the error response, use the status text
         console.warn('Could not parse error response:', parseError);
       }
       
@@ -90,22 +96,27 @@ export async function createTicket(ticketData: NewTicket): Promise<Ticket> {
     
     const createdTicket = await response.json();
     
-    // ✅ Validate created ticket structure
+    // ✅ FIXED: Log the created ticket for debugging
+    console.log('✅ Ticket created successfully:', {
+      ticketNumber: createdTicket.ticketNumber,
+      assignedDriverId: createdTicket.assignedDriverId,
+      isAssigned: createdTicket.isAssigned,
+      assignmentInfo: createdTicket.assignmentInfo,
+      selectedCarRegistration: ticketData.selectedCarRegistration
+    });
+    
     if (!createdTicket || !createdTicket.ticketNumber) {
       throw new Error('Invalid ticket data returned from server');
     }
     
-    console.log('Ticket created successfully:', createdTicket.ticketNumber);
     return createdTicket;
   } catch (error) {
     console.error('Error creating ticket:', error);
     
-    // ✅ Network error handling
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error('ເກີດຂໍ້ຜິດພາດໃນການເຊື່ອມຕໍ່ເຄືອຂ່າຍ');
     }
     
-    // ✅ Re-throw known errors
     if (error instanceof Error) {
       throw error;
     }
@@ -114,7 +125,6 @@ export async function createTicket(ticketData: NewTicket): Promise<Ticket> {
   }
 }
 
-// ✅ FIXED: Better error handling for search tickets
 export async function searchTickets(params: {
   query?: string;
   date?: string;
@@ -130,7 +140,6 @@ export async function searchTickets(params: {
   try {
     const searchParams = new URLSearchParams();
     
-    // Build search parameters
     if (params.query) searchParams.append('query', params.query);
     if (params.date) searchParams.append('date', params.date);
     if (params.paymentMethod) searchParams.append('paymentMethod', params.paymentMethod);
@@ -177,7 +186,6 @@ export async function searchTickets(params: {
   }
 }
 
-// ✅ FIXED: Better error handling for delete ticket
 export async function deleteTicket(ticketId: string): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/${ticketId}`, {
@@ -199,7 +207,6 @@ export async function deleteTicket(ticketId: string): Promise<void> {
       throw new Error(errorMessage);
     }
     
-    // Check if response has content before trying to parse JSON
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       const result = await response.json();
@@ -222,7 +229,6 @@ export async function deleteTicket(ticketId: string): Promise<void> {
   }
 }
 
-// ✅ NEW: Function to get ticket by ID
 export async function getTicketById(ticketId: string): Promise<Ticket> {
   try {
     const response = await fetch(`${API_BASE_URL}/${ticketId}`);
@@ -256,7 +262,6 @@ export async function getTicketById(ticketId: string): Promise<Ticket> {
   }
 }
 
-// ✅ NEW: Function to update ticket payment method
 export async function updateTicketPaymentMethod(
   ticketId: string, 
   paymentMethod: 'cash' | 'qr'

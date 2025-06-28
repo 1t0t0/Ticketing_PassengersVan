@@ -1,4 +1,4 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts - Simplified POS Version
+// app/dashboard/tickets/hooks/useTicketSales.ts - FIXED selectedCarRegistration
 import { useState, useCallback, useEffect } from 'react';
 import { createTicket } from '../api/ticket';
 import { PAYMENT_METHODS } from '../config/constants';
@@ -12,7 +12,6 @@ export default function useTicketSales() {
   const [loading, setLoading] = useState(false);
   const [priceLoading, setPriceLoading] = useState(true);
   
-  // ✅ FIXED: Initialize as empty array to prevent undefined
   const [createdTickets, setCreatedTickets] = useState<Ticket[]>([]);
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -159,20 +158,22 @@ export default function useTicketSales() {
     return fetchTicketPrice();
   }, [fetchTicketPrice]);
 
-  // ✅ SIMPLIFIED: ขายตั๋ว - เรียบง่าย ไม่มี booking
+  // ✅ FIXED: ขายตั๋ว - แก้ไขการส่งข้อมูลรถ
   const confirmSellTicket = useCallback(async () => {
-    // Validate car selection
+    // ✅ FIXED: ตรวจสอบการเลือกรถ
     if (!selectedCarRegistration) {
       notificationService.error('❌ ກະລຸນາເລືອກລົດກ່ອນ');
       return;
     }
 
+    console.log('🎯 Starting ticket sale with car:', selectedCarRegistration);
+
     setLoading(true);
     try {
-      // ✅ FIXED: Initialize as empty array
       let tickets: Ticket[] = [];
       
       if (ticketType === 'group') {
+        // ✅ FIXED: เพิ่ม selectedCarRegistration ใน request
         const groupTicketData = {
           price: ticketPrice * quantity,
           paymentMethod,
@@ -180,8 +181,10 @@ export default function useTicketSales() {
           passengerCount: quantity,
           pricePerPerson: ticketPrice,
           destination: getDestinationText(),
-          assignedCarRegistration: selectedCarRegistration // ✅ แค่ระบุรถ ไม่ใช่จอง
+          selectedCarRegistration: selectedCarRegistration // ✅ FIXED: เพิ่มข้อมูลรถ
         };
+        
+        console.log('📋 Creating group ticket:', groupTicketData);
         
         const groupTicket = await createTicket(groupTicketData);
         tickets.push(groupTicket);
@@ -189,6 +192,7 @@ export default function useTicketSales() {
         notificationService.success(`✅ ອອກປີ້ກຸ່ມສຳເລັດ: ${quantity} ຄົນ ລົດ ${selectedCarRegistration} (₭${(ticketPrice * quantity).toLocaleString()})`);
       } else {
         for (let i = 0; i < quantity; i++) {
+          // ✅ FIXED: เพิ่ม selectedCarRegistration ใน request
           const individualTicketData = {
             price: ticketPrice,
             paymentMethod,
@@ -196,8 +200,10 @@ export default function useTicketSales() {
             passengerCount: 1,
             pricePerPerson: ticketPrice,
             destination: getDestinationText(),
-            assignedCarRegistration: selectedCarRegistration // ✅ แค่ระบุรถ ไม่ใช่จอง
+            selectedCarRegistration: selectedCarRegistration // ✅ FIXED: เพิ่มข้อมูลรถ
           };
+          
+          console.log(`📋 Creating individual ticket ${i + 1}:`, individualTicketData);
           
           const individualTicket = await createTicket(individualTicketData);
           tickets.push(individualTicket);
@@ -206,7 +212,13 @@ export default function useTicketSales() {
         notificationService.success(`✅ ອອກປີ້ສຳເລັດ ${quantity} ໃບ ລົດ ${selectedCarRegistration} (₭${(ticketPrice * quantity).toLocaleString()})`);
       }
       
-      // ✅ FIXED: Ensure tickets is always an array
+      // Log created tickets for debugging
+      console.log('🎉 Created tickets:', tickets.map(t => ({
+        ticketNumber: t.ticketNumber,
+        assignedDriverId: t.assignedDriverId,
+        assignmentInfo: t.assignmentInfo
+      })));
+      
       setCreatedTickets(Array.isArray(tickets) ? tickets : []);
       setShowConfirmModal(false);
       setQuantity(ticketType === 'group' ? 2 : 1);
@@ -231,9 +243,8 @@ export default function useTicketSales() {
     getDestinationText
   ]);
 
-  // ✅ SIMPLIFIED: Print function - ไม่มี booking info
+  // Print function - ไม่มี booking info
   const handlePrintWithTickets = useCallback(async (tickets: Ticket[]) => {
-    // ✅ FIXED: Safe array checking
     if (!Array.isArray(tickets) || tickets.length === 0) {
       console.warn('No tickets to print or invalid tickets array');
       return;
@@ -454,7 +465,7 @@ export default function useTicketSales() {
     paymentMethod,
     setPaymentMethod,
     loading,
-    createdTickets, // ✅ This will always be an array now
+    createdTickets,
     showConfirmation,
     cancelConfirmation,
     confirmSellTicket,

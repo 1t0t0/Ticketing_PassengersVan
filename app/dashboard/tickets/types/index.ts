@@ -1,4 +1,4 @@
-// app/dashboard/tickets/types/index.ts - Enhanced with Driver Assignment
+// app/dashboard/tickets/types/index.ts - FIXED NewTicket interface
 // Types for Ticket Management
 
 // Ticket interface - Enhanced with driver assignment
@@ -18,19 +18,27 @@ export interface Ticket {
   // Destination field
   destination?: string;          // ปลายทาง (ไม่บังคับ)
   
-  // ✅ UPDATED: Car Assignment (แทน Driver Assignment)
-  assignedCarRegistration?: string;  // ทะเบียนรถที่ได้รับมอบหมาย
-  assignedCar?: {                    // ข้อมูลรถ (populated)
-    _id: string;
-    car_registration: string;
-    car_name: string;
-    car_capacity: number;
-    user_id: {                       // คนขับของรถคันนั้น
-      _id: string;
-      name: string;
-      employeeId: string;
-      checkInStatus: 'checked-in' | 'checked-out';
-    };
+  // Driver Assignment fields
+  assignedDriverId?: string;     // ID ของคนขับที่ได้รับมอบหมาย
+  isAssigned?: boolean;          // สถานะการมอบหมาย
+  assignedAt?: Date | string;    // วันที่มอบหมาย
+  
+  // Trip Status (เมื่อคนขับสแกน QR Code)
+  isScanned?: boolean;           // สถานะการสแกน
+  scannedAt?: Date | string;     // วันที่สแกน
+  scannedBy?: string;            // คนขับที่สแกน
+  tripId?: string;               // ID ของรอบเดินทาง
+  
+  // Additional info from response
+  assignmentInfo?: {
+    driverId: string;
+    driverName: string;
+    driverEmployeeId: string;
+    carRegistration: string;
+    carName: string;
+    carCapacity: number;
+    assignedAt: Date;
+    note?: string;
   };
 }
 
@@ -49,7 +57,7 @@ export interface DashboardStats {
   };
 }
 
-// New Ticket interface for creating tickets - Enhanced with driver assignment
+// ✅ FIXED: New Ticket interface for creating tickets
 export interface NewTicket {
   price: number;
   paymentMethod: 'cash' | 'qr';
@@ -62,11 +70,11 @@ export interface NewTicket {
   // Destination field
   destination?: string;          // ปลายทาง (ไม่บังคับ)
   
-  // ✅ UPDATED: Car Assignment (แทน Driver Assignment)
-  assignedCarRegistration?: string;  // ทะเบียนรถที่ได้รับมอบหมาย
+  // ✅ FIXED: Car Assignment field (this gets converted to assignedDriverId on the server)
+  selectedCarRegistration?: string;  // ทะเบียนรถที่เลือก (ส่งไปยัง API)
 }
 
-// ✅ UPDATED: Car interface (แทน Driver interface)
+// Car interface
 export interface Car {
   _id: string;
   car_id: string;
@@ -91,7 +99,7 @@ export interface TicketFilter {
   endDate?: string;
   paymentMethod?: 'all' | 'cash' | 'qr';
   ticketType?: 'all' | 'individual' | 'group';
-  assignedCarRegistration?: string;  // ✅ UPDATED: Filter by assigned car
+  assignedCarRegistration?: string;  // Filter by assigned car
   page: number;
   limit: number;
 }
@@ -108,7 +116,6 @@ export interface Pagination {
 export interface TicketSearchResults {
   tickets: Ticket[];
   pagination: Pagination;
-  // ✅ NEW: Driver statistics
   driverStats?: Array<{
     driverId: string;
     driverName: string;
@@ -143,7 +150,6 @@ export interface QRCodeData {
   soldBy: string;
   validationKey: string;
   destination?: string;
-  // ✅ NEW: Driver info in QR
   assignedDriverId?: string;
   assignedDriverName?: string;
 }
@@ -154,7 +160,7 @@ export interface RouteInfo {
   destination: string;        // ปลายทาง
   duration?: string;          // ระยะเวลาการเดินทาง
   distance?: string;          // ระยะทาง
-  assignedDriver?: Driver;    // ✅ NEW: คนขับที่รับผิดชอบเส้นทางนี้
+  assignedDriver?: any;       // คนขับที่รับผิดชอบเส้นทางนี้
 }
 
 // Default destinations
@@ -171,7 +177,7 @@ export const DEFAULT_DESTINATIONS = [
 // Destination Type
 export type DestinationType = typeof DEFAULT_DESTINATIONS[number] | string;
 
-// ✅ NEW: Driver Assignment Status
+// Driver Assignment Status
 export interface DriverAssignmentStatus {
   driverId: string;
   driverName: string;
@@ -183,7 +189,7 @@ export interface DriverAssignmentStatus {
   lastActivity?: Date;
 }
 
-// ✅ NEW: Ticket Assignment Summary
+// Ticket Assignment Summary
 export interface TicketAssignmentSummary {
   totalTickets: number;
   assignedTickets: number;
@@ -191,7 +197,7 @@ export interface TicketAssignmentSummary {
   driverAssignments: DriverAssignmentStatus[];
 }
 
-// ✅ NEW: Driver Performance Stats
+// Driver Performance Stats
 export interface DriverPerformanceStats {
   driverId: string;
   driverName: string;

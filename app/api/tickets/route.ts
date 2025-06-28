@@ -1,4 +1,4 @@
-// app/api/tickets/route.ts - Fixed with comprehensive error handling and debugging
+// app/api/tickets/route.ts - FIXED Driver Assignment Issue
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
@@ -6,22 +6,20 @@ import CarType from '@/models/CarType';
 import User from '@/models/User';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import mongoose from 'mongoose';
 
 // ตัวอักษรที่ใช้ได้ (ไม่รวมตัวที่สับสน)
 const SAFE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 /**
  * สร้าง Ticket Number แบบ UUID (6 ตัวอักษร)
- * รูปแบบ: T + 5 หลักสุ่ม (ทั้ง Individual และ Group ใช้รูปแบบเดียวกัน)
  */
 function generateUUIDTicketNumber(): string {
   let result = 'T';
-  
   for (let i = 0; i < 5; i++) {
     const randomIndex = Math.floor(Math.random() * SAFE_CHARS.length);
     result += SAFE_CHARS[randomIndex];
   }
-  
   return result;
 }
 
@@ -37,7 +35,6 @@ async function generateUniqueTicketNumber(): Promise<string> {
     
     try {
       const candidateNumber = generateUUIDTicketNumber();
-      
       console.log(`🎲 Generated candidate: ${candidateNumber} (attempt ${attempt})`);
       
       const existingTicket = await Ticket.findOne({ ticketNumber: candidateNumber });
@@ -111,7 +108,7 @@ async function createTicketSafely(ticketData: any): Promise<any> {
   throw new Error('Failed to create ticket after multiple attempts');
 }
 
-// ✅ FIXED: POST Route with comprehensive error handling
+// ✅ FIXED: POST Route with proper car to driver mapping
 export async function POST(request: Request) {
   console.log('🎯 POST /api/tickets - Starting ticket creation...');
   
@@ -187,7 +184,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ 5. Driver Assignment Logic - แปลง Car Registration → Driver ID
+    // ✅ 5. FIXED: Driver Assignment Logic - แปลง Car Registration → Driver ID
     let assignedDriverId = null;
     let carInfo = null;
     let assignmentInfo = null;
@@ -196,7 +193,7 @@ export async function POST(request: Request) {
       try {
         console.log(`🚗 Looking up driver for car: ${selectedCarRegistration}`);
         
-        // ดึงข้อมูลรถและคนขับ
+        // ✅ FIXED: Import Car model properly
         const Car = mongoose.models.Car || (await import('@/models/Car')).default;
         carInfo = await Car.findOne({ 
           car_registration: selectedCarRegistration 
@@ -279,7 +276,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ 9. Prepare Ticket Data
+    // ✅ 9. FIXED: Prepare Ticket Data with correct driver assignment
     const ticketData = {
       price: Number(price),
       paymentMethod,
@@ -294,14 +291,15 @@ export async function POST(request: Request) {
       // Destination Support
       destination: cleanDestination,
       
-      // ✅ Driver Assignment Support
-      assignedDriverId: assignedDriverId,
+      // ✅ FIXED: Driver Assignment Support - ใช้ ObjectId ที่ถูกต้อง
+      assignedDriverId: assignedDriverId ? new mongoose.Types.ObjectId(assignedDriverId) : null,
       isAssigned: !!assignedDriverId,
       assignedAt: assignedDriverId ? new Date() : null
     };
 
     console.log('✅ Final ticket data prepared:', {
       ...ticketData,
+      assignedDriverId: ticketData.assignedDriverId?.toString(),
       hasDriverAssignment: !!assignedDriverId
     });
 
@@ -336,7 +334,8 @@ export async function POST(request: Request) {
       ticketNumber: ticket.ticketNumber,
       ticketType: ticket.ticketType,
       destination: ticket.destination,
-      assignedDriver: assignmentInfo?.driverName || 'None'
+      assignedDriver: assignmentInfo?.driverName || 'None',
+      assignedDriverId: ticket.assignedDriverId?.toString() || 'None'
     });
 
     // ✅ 12. Return Success Response
@@ -365,7 +364,7 @@ export async function POST(request: Request) {
   }
 }
 
-// ✅ FIXED: GET Route with comprehensive error handling
+// ✅ FIXED: GET Route with driver assignment support
 export async function GET(request: Request) {
   console.log('📖 GET /api/tickets - Starting ticket fetch...');
   
@@ -385,7 +384,7 @@ export async function GET(request: Request) {
     const ticketType = searchParams.get('ticketType');
     const destination = searchParams.get('destination');
     
-    // ✅ NEW: Driver Assignment Filters
+    // ✅ Driver Assignment Filters
     const assignedDriverId = searchParams.get('assignedDriverId');
     const assignmentStatus = searchParams.get('assignmentStatus'); // unassigned, assigned, completed
     

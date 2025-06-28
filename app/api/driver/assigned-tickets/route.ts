@@ -1,4 +1,4 @@
-// app/api/driver/assigned-tickets/route.ts
+// app/api/driver/assigned-tickets/route.ts - FIXED with proper driver assignment filtering
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
@@ -7,14 +7,19 @@ import { authOptions } from '@/lib/auth';
 
 export async function GET(request: Request) {
   try {
+    console.log('🎫 GET /api/driver/assigned-tickets called');
+    
     // ✅ 1. Authentication Check
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== 'driver') {
+      console.log('❌ Unauthorized access:', session?.user?.role);
       return NextResponse.json(
         { error: 'Unauthorized - Only drivers can access this endpoint' },
         { status: 401 }
       );
     }
+
+    console.log('✅ Driver authenticated:', session.user.name, session.user.id);
 
     // ✅ 2. Database Connection
     await connectDB();
@@ -24,10 +29,12 @@ export async function GET(request: Request) {
     const status = searchParams.get('status') || 'assigned'; // assigned, scanned, all
     const limit = parseInt(searchParams.get('limit') || '20');
     
-    console.log(`🎫 Fetching assigned tickets for driver: ${driverId}, status: ${status}`);
+    console.log(`🎫 Fetching assigned tickets for driver: ${driverId}, status: ${status}, limit: ${limit}`);
     
-    // ✅ 3. Build Filter
-    let filter: any = { assignedDriverId: driverId };
+    // ✅ 3. Build Filter - ใช้ assignedDriverId แทน assignedCarRegistration
+    let filter: any = { 
+      assignedDriverId: driverId // ✅ FIXED: ใช้ assignedDriverId ตรงๆ
+    };
     
     switch (status) {
       case 'assigned':
@@ -43,17 +50,31 @@ export async function GET(request: Request) {
         filter.isScanned = false; // default to assigned
     }
     
-    console.log('🔍 Filter:', filter);
+    console.log('🔍 Filter:', JSON.stringify(filter, null, 2));
     
-    // ✅ 4. Fetch Tickets
+    // ✅ 4. Fetch Tickets with proper population
     const tickets = await Ticket.find(filter)
-      .sort({ assignedAt: -1 }) // เรียงจากล่าสุด
+      .populate('assignedDriverId', 'name employeeId checkInStatus') // ✅ populate driver info
+      .sort({ assignedAt: -1, soldAt: -1 }) // เรียงจากล่าสุด
       .limit(limit)
       .lean(); // ใช้ lean() เพื่อ performance ที่ดีขึ้น
     
-    console.log(`📊 Found ${tickets.length} tickets`);
+    console.log(`📊 Found ${tickets.length} tickets for driver ${driverId}`);
     
-    // ✅ 5. Generate Statistics
+    // ✅ Debug: แสดงข้อมูลตั๋วที่พบ
+    tickets.forEach((ticket, index) => {
+      console.log(`📋 Ticket ${index + 1}:`, {
+        ticketNumber: ticket.ticketNumber,
+        ticketType: ticket.ticketType,
+        passengerCount: ticket.passengerCount,
+        assignedDriverId: ticket.assignedDriverId?.toString(),
+        isScanned: ticket.isScanned,
+        soldAt: ticket.soldAt,
+        assignedAt: ticket.assignedAt
+      });
+    });
+    
+    // ✅ 5. Generate Statistics using aggregation
     const statsData = await Ticket.aggregate([
       { 
         $match: { 
@@ -70,6 +91,8 @@ export async function GET(request: Request) {
       }
     ]);
     
+    console.log('📈 Raw statistics data:', statsData);
+    
     // ✅ 6. Format Statistics
     const stats = {
       assigned: { count: 0, totalPassengers: 0, totalRevenue: 0 },
@@ -85,7 +108,7 @@ export async function GET(request: Request) {
       };
     });
     
-    console.log('📈 Statistics:', stats);
+    console.log('📈 Formatted Statistics:', stats);
     
     // ✅ 7. Fetch Driver Info (เพิ่มข้อมูลเสริม)
     const driverInfo = {
@@ -95,7 +118,7 @@ export async function GET(request: Request) {
     };
     
     // ✅ 8. Response
-    return NextResponse.json({
+    const response = {
       success: true,
       tickets: tickets,
       stats: stats,
@@ -103,10 +126,24 @@ export async function GET(request: Request) {
       filter: {
         status: status,
         totalResults: tickets.length,
-        limit: limit
+        limit: limit,
+        driverId: driverId
       },
-      message: `Found ${tickets.length} ${status} tickets`
+      message: `Found ${tickets.length} ${status} tickets for driver ${session.user.name}`,
+      debug: {
+        filterUsed: filter,
+        ticketIds: tickets.map(t => t.ticketNumber),
+        assignmentCheck: `Filtering by assignedDriverId: ${driverId}`
+      }
+    };
+    
+    console.log('✅ Response prepared:', {
+      ticketCount: tickets.length,
+      assignedCount: stats.assigned.count,
+      scannedCount: stats.scanned.count
     });
+    
+    return NextResponse.json(response);
     
   } catch (error) {
     console.error('💥 Get Driver Assigned Tickets Error:', error);
