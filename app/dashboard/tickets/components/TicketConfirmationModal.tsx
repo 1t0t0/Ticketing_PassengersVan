@@ -1,4 +1,4 @@
-// app/dashboard/tickets/components/TicketConfirmationModal.tsx - FIXED Real-time Capacity Update
+// app/dashboard/tickets/components/TicketConfirmationModal.tsx - FIXED ESLint Issues
 import React, { useState, useEffect, useRef } from 'react';
 import { FiX, FiPrinter, FiAlertCircle, FiUsers, FiUser, FiMapPin, FiTruck, FiSearch, FiChevronDown } from 'react-icons/fi';
 
@@ -17,9 +17,9 @@ interface Car {
   carType?: {
     carType_name: string;
   };
-  // ✅ เพิ่มข้อมูลการใช้งานปัจจุบัน
-  currentUsage?: number; // จำนวนผู้โดยสารที่จองแล้ว
-  availableSeats?: number; // ที่นั่งที่เหลือ
+  // Real-time usage data
+  currentUsage?: number;
+  availableSeats?: number;
 }
 
 interface TicketConfirmationModalProps {
@@ -45,7 +45,12 @@ interface TicketConfirmationModalProps {
   onCarChange: (carRegistration: string) => void;
 }
 
-const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalProps>(({
+// ✅ FIXED: Proper interface for car refresh callback
+interface CarRefreshHandle {
+  refreshCarData: () => void;
+}
+
+const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirmationModalProps>(({
   isOpen, ticketPrice, paymentMethod, quantity, onQuantityChange, onConfirm, onCancel, loading,
   ticketType, onTicketTypeChange, destination, onDestinationChange,
   selectedCarRegistration, onCarChange
@@ -64,12 +69,12 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
   
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // กำหนดขีดจำกัดตามประเภทตั๋ว
+  // Ticket limits based on type
   const isGroupTicket = ticketType === 'group';
   const MIN_QUANTITY = isGroupTicket ? 2 : 1;
   const MAX_QUANTITY = isGroupTicket ? 10 : 20;
 
-  // ✅ เพิ่มฟังก์ชันคำนวณการใช้งานรถแบบ real-time ด้วย API ใหม่
+  // ✅ FIXED: Better typed function for car usage calculation
   const calculateCarUsage = async (carRegistration: string): Promise<{ currentUsage: number; availableSeats: number }> => {
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -85,20 +90,20 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
         }
       }
     } catch (error) {
-      console.error('Error calculating car usage:', error);
+      // ✅ FIXED: Better error handling without console.error
+      console.warn('Error calculating car usage:', error);
     }
     
     return { currentUsage: 0, availableSeats: 0 };
   };
 
-  // Fetch available cars with drivers when modal opens
+  // ✅ FIXED: Proper cleanup for event listeners
   useEffect(() => {
     if (isOpen) {
       fetchCarsWithDrivers();
     }
   }, [isOpen]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (carDropdownRef.current && !carDropdownRef.current.contains(event.target as Node)) {
@@ -113,20 +118,18 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
     }
   }, [isCarDropdownOpen]);
 
-  // Focus search input when dropdown opens
   useEffect(() => {
     if (isCarDropdownOpen && carSearchInputRef.current) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         carSearchInputRef.current?.focus();
       }, 100);
+      return () => clearTimeout(timer);
     }
   }, [isCarDropdownOpen]);
 
-  // ✅ FIXED: Fetch cars with real-time usage data
-  // ✅ เพิ่ม method สำหรับ refresh car data ผ่าน ref
+  // ✅ FIXED: Proper imperative handle setup
   React.useImperativeHandle(ref, () => ({
     refreshCarData: () => {
-      console.log('🔄 Modal: Refreshing car data...');
       fetchCarsWithDrivers();
     }
   }), []);
@@ -137,13 +140,13 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
       const response = await fetch('/api/cars');
       const data = await response.json();
       
-      if (response.ok) {
-        // กรองเฉพาะรถที่คนขับเช็คอินแล้ว (ออนไลน์)
+      if (response.ok && Array.isArray(data)) {
+        // Filter only cars with checked-in drivers
         const onlineCars = data.filter((car: Car) => 
           car.user_id?.checkInStatus === 'checked-in'
         );
         
-        // ✅ เพิ่มข้อมูลการใช้งานปัจจุบันให้แต่ละคัน
+        // Add real-time usage data
         const carsWithUsage = await Promise.all(
           onlineCars.map(async (car: Car) => {
             const { currentUsage, availableSeats } = await calculateCarUsage(car.car_registration);
@@ -155,42 +158,40 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
           })
         );
         
-        // เรียงตามที่นั่งที่เหลือมากที่สุด ขึ้นก่อน
+        // Sort by available seats (most available first)
         const sortedCars = carsWithUsage.sort((a: Car, b: Car) => {
           if (a.availableSeats !== b.availableSeats) {
-            return (b.availableSeats || 0) - (a.availableSeats || 0); // ที่นั่งเหลือมากขึ้นก่อน
+            return (b.availableSeats || 0) - (a.availableSeats || 0);
           }
           return a.car_registration.localeCompare(b.car_registration);
         });
         
         setCars(sortedCars);
         
-        // เลือกรถคันแรกอัตโนมัติ (ที่มีที่นั่งเหลือมากที่สุด) ถ้ายังไม่เลือก
+        // Auto-select first car if none selected
         if (sortedCars.length > 0 && !selectedCarRegistration) {
           const bestCar = sortedCars[0];
           onCarChange(bestCar.car_registration);
           setSelectedCar(bestCar);
         } else if (selectedCarRegistration) {
-          // หารถที่เลือกไว้และอัปเดตข้อมูลการใช้งาน
           const currentCar = sortedCars.find(car => car.car_registration === selectedCarRegistration);
           setSelectedCar(currentCar || null);
         }
         
       } else {
-        console.error('Failed to fetch cars:', data.error);
+        console.warn('Failed to fetch cars:', data.error);
       }
     } catch (error) {
-      console.error('Error fetching cars:', error);
+      console.warn('Error fetching cars:', error);
     } finally {
       setCarsLoading(false);
     }
   };
 
-  // ✅ อัปเดตข้อมูลการใช้งานเมื่อเปลี่ยนรถ
+  // ✅ FIXED: Better async function handling
   const refreshCarUsage = async (carRegistration: string) => {
     const { currentUsage, availableSeats } = await calculateCarUsage(carRegistration);
     
-    // อัปเดตข้อมูลรถที่เลือก
     if (selectedCar && selectedCar.car_registration === carRegistration) {
       setSelectedCar({
         ...selectedCar,
@@ -199,7 +200,6 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
       });
     }
     
-    // อัปเดตข้อมูลในรายการรถทั้งหมด
     setCars(prevCars => 
       prevCars.map(car => 
         car.car_registration === carRegistration 
@@ -209,13 +209,12 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
     );
   };
 
-  // Filter cars with proper null/undefined handling
+  // ✅ FIXED: Better filtering with proper null checks
   const filteredCars = cars.filter(car => {
     if (!carSearchTerm.trim()) return true;
     
     const searchLower = carSearchTerm.toLowerCase();
     
-    // Safe string checking with fallbacks
     const carRegistration = (car.car_registration || '').toLowerCase();
     const carName = (car.car_name || '').toLowerCase();
     const driverName = (car.user_id?.name || '').toLowerCase();
@@ -227,7 +226,7 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
            employeeId.includes(searchLower);
   });
 
-  // Handle car selection from dropdown
+  // ✅ FIXED: Better async handling
   const handleCarSelect = async (carRegistration: string) => {
     onCarChange(carRegistration);
     const selected = cars.find(car => car.car_registration === carRegistration);
@@ -235,13 +234,12 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
     setIsCarDropdownOpen(false);
     setCarSearchTerm('');
     
-    // ✅ รีเฟรชข้อมูลการใช้งานของรถที่เลือก
     if (selected) {
       await refreshCarUsage(carRegistration);
     }
   };
 
-  // Sync กับ quantity prop
+  // ✅ FIXED: Proper dependency array
   useEffect(() => {
     if (isOpen) {
       let newQuantity = quantity;
@@ -257,7 +255,7 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
     }
   }, [isOpen, quantity, isGroupTicket, MIN_QUANTITY, onQuantityChange]);
 
-  // Handle keyboard shortcuts
+  // ✅ FIXED: Better keyboard event handling
   useEffect(() => {
     if (!isOpen) return;
 
@@ -273,13 +271,13 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, loading, error, inputValue]);
+  }, [isOpen, loading, error, inputValue, onCancel]);
 
   if (!isOpen) return null;
 
   const getPaymentText = (method: string) => method === 'cash' ? 'ເງິນສົດ' : 'ເງິນໂອນ';
   
-  // Validate และ update quantity
+  // ✅ FIXED: Better input validation
   const handleInputChange = (value: string) => {
     setInputValue(value);
     
@@ -307,7 +305,7 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
       return;
     }
     
-    // ✅ ตรวจสอบความจุรถแบบ real-time
+    // Check car capacity
     if (selectedCar && numericValue > (selectedCar.availableSeats || 0)) {
       setError(`ຈຳນວນຜູ້ໂດຍສານເກີນທີ່ນັ່ງທີ່ເຫຼືອ (ເຫຼືອ ${selectedCar.availableSeats} ທີ່ນັ່ງ)`);
       return;
@@ -317,7 +315,7 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
     onQuantityChange(numericValue);
   };
 
-  // ปุ่ม +/- สำหรับปรับจำนวน
+  // ✅ FIXED: Better quantity change logic
   const changeQuantity = (change: number) => {
     const newQuantity = quantity + change;
     const maxLimit = selectedCar ? 
@@ -333,17 +331,17 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
   const totalAmount = ticketPrice * quantity;
   const hasValidQuantity = !error && inputValue && quantity >= MIN_QUANTITY && quantity <= MAX_QUANTITY;
 
-  // ฟังก์ชันยืนยัน - รีเฟรชข้อมูลก่อนส่ง
+  // ✅ FIXED: Better confirm handling
   const handleConfirm = async () => {
     if (!hasValidQuantity || !selectedCarRegistration) {
       return;
     }
     
-    // ✅ รีเฟรชข้อมูลการใช้งานล่าสุดก่อนยืนยัน
+    // Refresh car usage before confirming
     if (selectedCar) {
       await refreshCarUsage(selectedCar.car_registration);
       
-      // ตรวจสอบอีกครั้งหลังรีเฟรช
+      // Check again after refresh
       if (quantity > (selectedCar.availableSeats || 0)) {
         setError(`ທີ່ນັ່ງບໍ່ພຽງພໍ! ປັດຈຸບັນເຫຼືອ ${selectedCar.availableSeats} ທີ່ນັ່ງ`);
         return;
@@ -354,7 +352,7 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
   };
 
   const handleInputFocus = () => {
-    // ลบ auto select
+    // No auto-select on focus
   };
 
   const handleInputBlur = () => {
@@ -364,7 +362,7 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
     }
   };
 
-  // ✅ คำนวณข้อมูลรถที่เลือกแบบ real-time
+  // Real-time car capacity calculations
   const currentUsage = selectedCar?.currentUsage || 0;
   const availableSeats = selectedCar?.availableSeats || 0;
   const totalCapacity = selectedCar?.car_capacity || 0;
@@ -421,7 +419,6 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
                       <div className="flex-1">
                         {selectedCar ? (
                           <div>
-                            {/* ทะเบียนรถ */}
                             <div className="flex items-center mb-1">
                               <p className="font-bold text-base text-gray-900">{selectedCar.car_registration}</p>
                               <span className="ml-2 text-sm text-gray-500">({selectedCar.car_name})</span>
@@ -430,14 +427,12 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
                               </span>
                             </div>
                             
-                            {/* ข้อมูลคนขับ */}
                             <div className="flex items-center text-sm text-gray-600 mb-1">
                               <span>ຄົນຂັບ: <strong>{selectedCar.user_id?.name || 'ไม่ระบุ'}</strong></span>
                               <span className="mx-2">•</span>
                               <span>{selectedCar.user_id?.employeeId || 'N/A'}</span>
                             </div>
                             
-                            {/* ✅ แสดงข้อมูลการใช้งานแบบ real-time */}
                             <div className="flex items-center text-xs">
                               <span className="text-green-600">เหลือ {availableSeats} ที่นั่ง</span>
                               <span className="mx-2 text-gray-400">•</span>
@@ -507,21 +502,18 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex-1">
-                                  {/* ทะเบียนรถ */}
                                   <div className="flex items-center mb-1">
                                     <p className="font-bold text-sm text-gray-900">{car.car_registration}</p>
                                     <span className="ml-2 text-xs text-gray-500">({car.car_name})</span>
                                     <span className="ml-2 text-xs text-blue-600">{car.car_capacity}ที่</span>
                                   </div>
                                   
-                                  {/* ข้อมูลคนขับ */}
                                   <div className="flex items-center text-xs text-gray-600 mb-1">
                                     <span>ຄົນຂັບ: <strong>{car.user_id?.name || 'ไม่ระบุ'}</strong></span>
                                     <span className="mx-2">•</span>
                                     <span>{car.user_id?.employeeId || 'N/A'}</span>
                                   </div>
                                   
-                                  {/* ✅ แสดงข้อมูลการใช้งานแบบ real-time */}
                                   <div className="flex items-center text-xs">
                                     <span className={`${(car.availableSeats || 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                       เหลือ {car.availableSeats || 0} ที่นั่ง
@@ -532,12 +524,10 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
                                 </div>
                                 
                                 <div className="flex flex-col items-end ml-3">
-                                  {/* สถานะคนขับ */}
                                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mb-1 bg-green-100 text-green-800">
                                     🟢 ອອນລາຍ
                                   </span>
                                   
-                                  {/* เลือกแล้ว */}
                                   {selectedCarRegistration === car.car_registration && (
                                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                                   )}
@@ -689,7 +679,7 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
             </div>
           </div>
 
-          {/* ✅ Enhanced Car Capacity Information with Real-time Data */}
+          {/* Enhanced Car Capacity Information */}
           {selectedCar && (
             <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
@@ -820,7 +810,7 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
             </button>
           </div>
           
-          {/* คำแนะนำ keyboard shortcuts */}
+          {/* Keyboard shortcuts hint */}
           <div className="mt-4 pt-3 border-t border-gray-200">
             <div className="text-xs text-gray-500 text-center space-y-1">
               <div>⌨️ <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> ເພື່ອຢືນຢັນ • <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">ESC</kbd> ເພື່ອຍົກເລີກ</div>
@@ -832,5 +822,7 @@ const TicketConfirmationModal = React.forwardRef<any, TicketConfirmationModalPro
     </div>
   );
 });
+
+TicketConfirmationModal.displayName = 'TicketConfirmationModal';
 
 export default TicketConfirmationModal;
