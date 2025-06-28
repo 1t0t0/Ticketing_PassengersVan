@@ -77,7 +77,7 @@ export default function LoginPage() {
             ລະບົບຂາຍປີ້ລົດຕູ້ໂດຍສານ
           </h1>
           <p className="text-sm text-gray-600">
-            ປະຈຳທາງລົດໄຟ ລາວ-ຈີນ
+            ປະຈຳສະຖານີລົດໄຟຫຼວງພະບາງ
           </p>
         </div>
 
@@ -104,15 +104,13 @@ export default function LoginPage() {
                     value={phone}
                     onChange={handlePhoneChange}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="20xxxxxxxx"
+                    placeholder="2012345678"
                     required
                     disabled={isLoading}
                     maxLength={12}
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  ກະລຸນາໃສ່ເບີໂທ 8-10 ຫຼັກ (ຕົວຢ່າງ: 20xxxxxxxx)
-                </p>
+                
               </div>
 
               <div>
@@ -156,7 +154,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-xs text-gray-500">
-            © 2025 ລະບົບຂາຍປີ້ລົດຕູ້ໂດຍສານ ປະຈຳທາງລົດໄຟ ລາວ-ຈີນ
+            © 2025 ລະບົບຂາຍປີ້ລົດຕູ້ໂດຍສານ ປະຈຳສະຖານີລົດໄຟຫຼວງພະບາງ
           </p>
         </div>
       </div>
