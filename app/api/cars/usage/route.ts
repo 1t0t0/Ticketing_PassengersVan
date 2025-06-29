@@ -1,4 +1,4 @@
-// app/api/cars/usage/route.ts - แก้ไขให้คำนวณการใช้งานจาก scanned tickets เฉพาะที่ยังไม่ complete
+// app/api/cars/usage/route.ts - FIXED ให้คำนวณการใช้งานจาก assigned tickets ที่ยังไม่ได้สแกน
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
@@ -7,7 +7,7 @@ import DriverTrip from '@/models/DriverTrip';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// GET - ดูการใช้งานรถปัจจุบัน (Real-time)
+// GET - ดูการใช้งานรถปัจจุบัน (Real-time) - FIXED
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -44,42 +44,70 @@ export async function GET(request: Request) {
       );
     }
 
-    // ✅ FIXED: หาการใช้งานปัจจุบัน - เฉพาะจากรอบที่กำลังดำเนินการ
+    console.log(`🚗 Found car: ${car.car_registration}, Driver: ${car.user_id?.name}, Capacity: ${car.car_capacity}`);
+
+    // ✅ FIXED: คำนวณการใช้งานจาก 2 แหล่ง
     let currentUsage = 0;
     
-    // หารอบที่กำลังดำเนินการของคนขับคนนี้
+    // 1. ตรวจสอบจาก active trip (ผู้โดยสารที่สแกนแล้วในรอบปัจจุบัน)
     const activeTrip = await DriverTrip.findOne({
       driver_id: car.user_id._id,
       date: date,
-      status: 'in_progress' // เฉพาะรอบที่กำลังดำเนินการ
+      status: 'in_progress'
     });
     
+    let tripUsage = 0;
     if (activeTrip) {
-      // ใช้ current_passengers จาก active trip ตรงๆ
-      currentUsage = activeTrip.current_passengers || 0;
-      console.log(`📊 Found active trip ${activeTrip.trip_number} with ${currentUsage} passengers`);
-    } else {
-      // ไม่มีรอบที่กำลังดำเนินการ = รถว่าง
-      currentUsage = 0;
-      console.log(`📊 No active trip found - car is available`);
+      tripUsage = activeTrip.current_passengers || 0;
+      console.log(`📊 Active trip ${activeTrip.trip_number} usage: ${tripUsage} passengers`);
     }
     
-    // คำนวณที่นั่งที่เหลือ
-    const availableSeats = Math.max(0, car.car_capacity - currentUsage);
-    const usagePercentage = car.car_capacity > 0 ? Math.round((currentUsage / car.car_capacity) * 100) : 0;
-    
-    // ✅ หาตั๋วที่ assigned ให้รถคันนี้ในวันนี้ (สำหรับ reference)
+    // 2. ✅ CRITICAL FIX: ตรวจสอบจาก assigned tickets ที่ยังไม่ได้สแกน
     const startOfDay = new Date(date + 'T00:00:00.000Z');
     const endOfDay = new Date(date + 'T23:59:59.999Z');
     
     const assignedTickets = await Ticket.find({
       assignedDriverId: car.user_id._id,
+      soldAt: { $gte: startOfDay, $lte: endOfDay },
+      isScanned: false // ✅ CRITICAL: เฉพาะตั๋วที่ยังไม่ได้สแกน
+    }).select('ticketNumber passengerCount price ticketType soldAt isScanned assignedAt');
+    
+    console.log(`🎫 Found ${assignedTickets.length} assigned unscanned tickets for ${car.user_id?.name}`);
+    
+    // คำนวณจำนวนผู้โดยสารจาก assigned tickets ที่ยังไม่ได้สแกน
+    let assignedPassengers = 0;
+    assignedTickets.forEach(ticket => {
+      const passengerCount = ticket.passengerCount || 1;
+      assignedPassengers += passengerCount;
+      console.log(`🎫 Ticket ${ticket.ticketNumber} (${ticket.ticketType}): ${passengerCount} passengers`);
+    });
+    
+    console.log(`📊 Assigned passengers from unscanned tickets: ${assignedPassengers}`);
+    
+    // ✅ FIXED: รวมการใช้งานจาก 2 แหล่ง
+    // currentUsage = ผู้โดยสารที่สแกนแล้วในรอบปัจจุบัน + ผู้โดยสารจากตั๋วที่ assigned แล้วแต่ยังไม่ได้สแกน
+    currentUsage = tripUsage + assignedPassengers;
+    
+    console.log(`📊 Total current usage calculation:
+      - Trip usage (scanned): ${tripUsage}
+      - Assigned pending: ${assignedPassengers}
+      - Total current usage: ${currentUsage}
+      - Car capacity: ${car.car_capacity}
+    `);
+    
+    // คำนวณที่นั่งที่เหลือ
+    const availableSeats = Math.max(0, car.car_capacity - currentUsage);
+    const usagePercentage = car.car_capacity > 0 ? Math.round((currentUsage / car.car_capacity) * 100) : 0;
+    
+    // ✅ หาตั๋วที่ assigned ให้รถคันนี้ในวันนี้ทั้งหมด (สำหรับ reference)
+    const allAssignedTickets = await Ticket.find({
+      assignedDriverId: car.user_id._id,
       soldAt: { $gte: startOfDay, $lte: endOfDay }
     }).select('ticketNumber passengerCount price ticketType soldAt isScanned assignedAt');
     
     // แยกตั๋วที่สแกนแล้วและยังไม่สแกน
-    const scannedTickets = assignedTickets.filter(ticket => ticket.isScanned);
-    const pendingTickets = assignedTickets.filter(ticket => !ticket.isScanned);
+    const scannedTickets = allAssignedTickets.filter(ticket => ticket.isScanned);
+    const pendingTickets = allAssignedTickets.filter(ticket => !ticket.isScanned);
     
     const scannedPassengers = scannedTickets.reduce((total, ticket) => {
       return total + (ticket.passengerCount || 1);
@@ -89,7 +117,7 @@ export async function GET(request: Request) {
       return total + (ticket.passengerCount || 1);
     }, 0);
     
-    const totalRevenue = assignedTickets.reduce((total, ticket) => {
+    const totalRevenue = allAssignedTickets.reduce((total, ticket) => {
       return total + ticket.price;
     }, 0);
 
@@ -109,25 +137,32 @@ export async function GET(request: Request) {
       },
       usage: {
         date: date,
-        currentUsage: currentUsage, // ✅ จากรอบที่กำลังดำเนินการเท่านั้น
+        currentUsage: currentUsage, // ✅ FIXED: รวมทั้ง scanned + assigned pending
         availableSeats: availableSeats,
         usagePercentage: usagePercentage,
-        totalTickets: assignedTickets.length,
+        totalTickets: allAssignedTickets.length,
         scannedPassengers: scannedPassengers,
-        pendingPassengers: pendingPassengers,
+        pendingPassengers: pendingPassengers, // ✅ ผู้โดยสารจากตั๋วที่ assigned แต่ยังไม่สแกน
         totalRevenue: totalRevenue,
         activeTrip: activeTrip ? {
           trip_id: activeTrip._id,
           trip_number: activeTrip.trip_number,
           status: activeTrip.status,
           passengers_in_trip: activeTrip.current_passengers
-        } : null
+        } : null,
+        // ✅ เพิ่มข้อมูลการคำนวณใหม่
+        calculation: {
+          tripScannedPassengers: tripUsage,
+          assignedPendingPassengers: assignedPassengers,
+          totalCurrentUsage: currentUsage,
+          method: 'scanned_plus_assigned_pending'
+        }
       },
       tickets: {
-        all: assignedTickets.length,
+        all: allAssignedTickets.length,
         scanned: scannedTickets.length,
         pending: pendingTickets.length,
-        details: assignedTickets.map(ticket => ({
+        details: allAssignedTickets.map(ticket => ({
           ticketNumber: ticket.ticketNumber,
           ticketType: ticket.ticketType,
           passengerCount: ticket.passengerCount,
@@ -139,12 +174,14 @@ export async function GET(request: Request) {
       }
     };
     
-    console.log(`✅ Real-time usage for ${carRegistration}:`, {
+    console.log(`✅ Real-time usage calculation completed for ${carRegistration}:`, {
       currentUsage,
       availableSeats,
       usagePercentage,
       hasActiveTrip: !!activeTrip,
-      tripNumber: activeTrip?.trip_number
+      assignedTickets: assignedTickets.length,
+      pendingPassengers: assignedPassengers,
+      calculation: result.usage.calculation
     });
     
     return NextResponse.json(result);

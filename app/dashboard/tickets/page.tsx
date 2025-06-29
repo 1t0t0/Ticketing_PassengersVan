@@ -1,4 +1,4 @@
-// app/dashboard/tickets/page.tsx - FIXED Car Data Refresh Integration
+// app/dashboard/tickets/page.tsx - FIXED Car Data Refresh Integration with Immediate Updates
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -41,7 +41,10 @@ export default function TicketSalesPage() {
     destination, updateDestination,
     
     // Car Selection related
-    selectedCarRegistration, updateSelectedCar
+    selectedCarRegistration, updateSelectedCar,
+    
+    // ✅ Car refresh callback registration
+    registerCarRefreshCallback
   } = useTicketSales();
   
   const { 
@@ -65,23 +68,59 @@ export default function TicketSalesPage() {
     if (status === 'authenticated') fetchData();
   }, [status, fetchData]);
 
+  // ✅ CRITICAL FIX: Enhanced car refresh callback registration
   useEffect(() => {
-    // ✅ FIXED: Safe check for createdTickets length
-    if (createdTickets && Array.isArray(createdTickets) && createdTickets.length > 0) {
-      const timer = setTimeout(() => {
-        fetchData();
-        
-        // ✅ CRITICAL FIX: Refresh car data in modal after ticket creation
+    if (ticketModalRef.current) {
+      console.log('🔄 Registering car refresh callback...');
+      registerCarRefreshCallback(() => {
         if (ticketModalRef.current) {
-          console.log('🔄 Triggering car data refresh in modal after ticket creation...');
+          console.log('🔄 Executing registered car refresh callback...');
           ticketModalRef.current.refreshCarData();
         }
-      }, 1000);
+      });
+    }
+  }, [registerCarRefreshCallback, showConfirmModal]);
+
+  // ✅ CRITICAL FIX: Enhanced ticket creation effect with immediate refresh
+  useEffect(() => {
+    if (createdTickets && Array.isArray(createdTickets) && createdTickets.length > 0) {
+      console.log('🎉 Tickets created, initiating comprehensive refresh...', {
+        ticketCount: createdTickets.length,
+        assignedCar: selectedCarRegistration
+      });
+      
+      const timer = setTimeout(() => {
+        console.log('🔄 Refreshing dashboard data after ticket creation...');
+        fetchData();
+        
+        // ✅ CRITICAL: Multiple immediate refresh strategies
+        if (ticketModalRef.current) {
+          console.log('🔄 Strategy A: Immediate modal refresh...');
+          ticketModalRef.current.refreshCarData();
+          
+          // Strategy B: Quick follow-up refresh
+          setTimeout(() => {
+            if (ticketModalRef.current) {
+              console.log('🔄 Strategy B: Quick follow-up refresh (500ms)...');
+              ticketModalRef.current.refreshCarData();
+            }
+          }, 500);
+          
+          // Strategy C: Medium delay refresh  
+          setTimeout(() => {
+            if (ticketModalRef.current) {
+              console.log('🔄 Strategy C: Medium delay refresh (1200ms)...');
+              ticketModalRef.current.refreshCarData();
+            }
+          }, 1200);
+        }
+      }, 200); // Reduced from 1000ms to 200ms for faster response
+      
       return () => clearTimeout(timer);
     }
-  }, [createdTickets, fetchData]);
+  }, [createdTickets, fetchData, selectedCarRegistration]);
 
-  // ✅ Enhanced confirm function with proper car data refresh
+  // ✅ Enhanced confirm function with immediate car data refresh
   const handleConfirmSellTicket = async () => {
     try {
       console.log('🎯 Starting ticket creation process...');
@@ -89,34 +128,57 @@ export default function TicketSalesPage() {
       // Create tickets with car assignment
       await confirmSellTicket();
       
-      console.log('✅ Ticket creation completed, refreshing data...');
+      console.log('✅ Ticket creation completed, initiating immediate refresh...');
       
-      // Refresh dashboard data
+      // ✅ CRITICAL: Immediate refresh sequence
+      
+      // Step 1: Immediate modal refresh
+      if (ticketModalRef.current) {
+        console.log('🔄 Step 1: Immediate modal refresh...');
+        ticketModalRef.current.refreshCarData();
+      }
+      
+      // Step 2: Quick dashboard refresh 
       setTimeout(() => {
+        console.log('🔄 Step 2: Quick dashboard refresh (300ms)...');
         fetchData();
-      }, 500);
+      }, 300);
       
-      // ✅ CRITICAL: Immediately refresh car data in modal
+      // Step 3: Follow-up modal refresh
       setTimeout(() => {
         if (ticketModalRef.current) {
-          console.log('🔄 Force refreshing car data in modal after ticket creation...');
+          console.log('🔄 Step 3: Follow-up modal refresh (800ms)...');
           ticketModalRef.current.refreshCarData();
         }
-      }, 1500);
+      }, 800);
+      
+      // Step 4: Final confirmation refresh
+      setTimeout(() => {
+        if (ticketModalRef.current) {
+          console.log('🔄 Step 4: Final confirmation refresh (2000ms)...');
+          ticketModalRef.current.refreshCarData();
+        }
+      }, 2000);
       
     } catch (error) {
       console.error('❌ Error in ticket sale process:', error);
     }
   };
 
-  // ✅ Enhanced refresh function that also refreshes modal data
+  // ✅ Enhanced refresh function that also refreshes modal data immediately
   const handleRefreshData = async () => {
+    console.log('🔄 Manual refresh triggered...');
+    
     await fetchData();
     
-    // Also refresh car data in modal if it's open
+    // Also refresh car data in modal immediately if it's open
     if (showConfirmModal && ticketModalRef.current) {
       console.log('🔄 Refreshing car data in modal via manual refresh...');
-      ticketModalRef.current.refreshCarData();
+      setTimeout(() => {
+        if (ticketModalRef.current) {
+          ticketModalRef.current.refreshCarData();
+        }
+      }, 100);
     }
   };
 
@@ -141,18 +203,27 @@ export default function TicketSalesPage() {
     capacity: number
   } | null>(null);
   
+  // ✅ Enhanced car info fetching with cache busting
   useEffect(() => {
     if (selectedCarRegistration) {
-      // Fetch car info for display
-      fetch('/api/cars')
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const fetchCarInfo = async () => {
+        try {
+          // ✅ Add cache busting for real-time data
+          const cacheBuster = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const response = await fetch(`/api/cars?_t=${cacheBuster}`, {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
-          return res.json();
-        })
-        .then(cars => {
-          // ✅ FIXED: Safe array checking
+          
+          const cars = await response.json();
+          
           if (Array.isArray(cars) && cars.length > 0) {
             const selectedCar = cars.find((car: any) => car.car_registration === selectedCarRegistration);
             if (selectedCar) {
@@ -163,20 +234,60 @@ export default function TicketSalesPage() {
                 driverEmployeeId: selectedCar.user_id?.employeeId || 'N/A',
                 capacity: selectedCar.car_capacity || 0
               });
+              console.log('✅ Selected car info updated:', {
+                registration: selectedCar.car_registration,
+                driver: selectedCar.user_id?.name,
+                capacity: selectedCar.car_capacity
+              });
             }
           } else {
             console.warn('No cars data received or invalid format');
             setSelectedCarInfo(null);
           }
-        })
-        .catch(err => {
+        } catch (err) {
           console.warn('Failed to fetch car info:', err);
           setSelectedCarInfo(null);
-        });
+        }
+      };
+
+      fetchCarInfo();
     } else {
       setSelectedCarInfo(null);
     }
   }, [selectedCarRegistration]);
+
+  // ✅ CRITICAL: Listen for external car usage updates
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'car-usage-updated') {
+        console.log('🔄 Detected car usage update from storage, refreshing modal...');
+        if (ticketModalRef.current) {
+          setTimeout(() => {
+            ticketModalRef.current?.refreshCarData();
+          }, 300);
+        }
+      }
+    };
+
+    const handleCustomEvent = (e: CustomEvent) => {
+      if (e.detail?.action === 'ticket_created') {
+        console.log('🔄 Detected ticket creation event, refreshing modal...', e.detail);
+        if (ticketModalRef.current) {
+          setTimeout(() => {
+            ticketModalRef.current?.refreshCarData();
+          }, 200);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('carUsageUpdated', handleCustomEvent as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('carUsageUpdated', handleCustomEvent as EventListener);
+    };
+  }, []);
 
   // ✅ FIXED: Safe checking for recentTickets
   const safeRecentTickets = Array.isArray(recentTickets) ? recentTickets : [];
@@ -205,6 +316,12 @@ export default function TicketSalesPage() {
                   <span>ລົດທີ່ແນະນຳ: {selectedCarInfo.registration} - {selectedCarInfo.driverName} ({selectedCarInfo.driverEmployeeId})</span>
                 </div>
               )}
+              
+              {/* ✅ แสดงสถานะการซิงค์ข้อมูล */}
+              <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700">
+                <span className="mr-1">🔄</span>
+                <span>Real-time sync: {new Date().toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
             </div>
           </div>
           
@@ -264,7 +381,7 @@ export default function TicketSalesPage() {
                   <button
                     onClick={handleOpenSettings}
                     className="p-2 text-gray-400 hover:text-blue-600 transition rounded-lg hover:bg-blue-50 group"
-                    title="ການຕັ້ງຄ່າລະບົບ (ເຉພາະແອດມິນ)"
+                    title="ການຕັ້ງຄ່າລະບົບ (ເຊພາະແອດມິນ)"
                   >
                     <FiSettings className="h-5 w-5 group-hover:rotate-90 transition-transform duration-200" />
                   </button>
@@ -290,7 +407,6 @@ export default function TicketSalesPage() {
               <div className="flex items-center">
                 <h2 className="text-xl font-bold text-gray-900">ປີ້ທີ່ອອກລ່າສຸດ</h2>
                 <span className="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {/* ✅ FIXED: Safe length checking */}
                   {safeRecentTickets.length} ລາຍການ
                 </span>
               </div>
@@ -319,7 +435,7 @@ export default function TicketSalesPage() {
         </div>
       </div>
 
-      {/* ✅ FIXED: Confirmation Modal with ref for car data refresh */}
+      {/* ✅ FIXED: Confirmation Modal with enhanced ref for car data refresh */}
       <TicketConfirmationModal
         ref={ticketModalRef}
         isOpen={showConfirmModal}
@@ -358,7 +474,6 @@ export default function TicketSalesPage() {
 
       {/* Print Area - รองรับ Car Assignment และ Destination */}
       <div className="hidden">
-        {/* ✅ FIXED: Safe checking for createdTickets array */}
         {createdTickets && Array.isArray(createdTickets) && createdTickets.length > 0 && 
           createdTickets.map((ticket, index) => (
             <PrintableTicket

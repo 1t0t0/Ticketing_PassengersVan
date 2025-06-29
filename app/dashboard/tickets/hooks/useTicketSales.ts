@@ -1,11 +1,10 @@
-// app/dashboard/tickets/hooks/useTicketSales.ts - FIXED with Car Data Refresh
+// app/dashboard/tickets/hooks/useTicketSales.ts - FIXED with Multiple Refresh Strategies
 import { useState, useCallback, useEffect } from 'react';
 import { createTicket } from '../api/ticket';
 import { PAYMENT_METHODS } from '../config/constants';
 import { Ticket } from '../types';
 import notificationService from '@/lib/notificationService';
 
-// ✅ เพิ่ม interface สำหรับ Car Data
 interface CarRefreshCallback {
   (): void;
 }
@@ -27,7 +26,7 @@ export default function useTicketSales() {
   // Car Selection State
   const [selectedCarRegistration, setSelectedCarRegistration] = useState('');
   
-  // ✅ เพิ่ม callback สำหรับ refresh car data
+  // ✅ Car refresh callback state
   const [carRefreshCallback, setCarRefreshCallback] = useState<CarRefreshCallback | null>(null);
   
   // ฟังก์ชันดึงราคาปี้จาก API
@@ -171,7 +170,7 @@ export default function useTicketSales() {
     return fetchTicketPrice();
   }, [fetchTicketPrice]);
 
-  // ✅ FIXED: ขายตั๋ว - รีเฟรชข้อมูลรถหลังสำเร็จ
+  // ✅ CRITICAL FIX: Enhanced confirmSellTicket with immediate refresh strategies
   const confirmSellTicket = useCallback(async () => {
     // ตรวจสอบการเลือกรถ
     if (!selectedCarRegistration) {
@@ -238,10 +237,101 @@ export default function useTicketSales() {
       setDestination('');
       setSelectedCarRegistration('');
       
-      // ✅ รีเฟรชข้อมูลรถหลังจากออกตั๋วสำเร็จ
+      // ✅ CRITICAL: Enhanced multi-strategy refresh system
+      console.log('🔄 Initiating comprehensive car data refresh...');
+      
+      // Strategy 1: Immediate callback refresh (0ms)
       if (carRefreshCallback) {
-        console.log('🔄 Refreshing car data after ticket creation...');
-        carRefreshCallback();
+        console.log('🔄 Strategy 1: Immediate callback refresh...');
+        try {
+          carRefreshCallback();
+        } catch (error) {
+          console.warn('⚠️ Strategy 1 failed:', error);
+        }
+      }
+      
+      // Strategy 2: Quick delay refresh (300ms)
+      setTimeout(async () => {
+        if (carRefreshCallback) {
+          console.log('🔄 Strategy 2: Quick delay refresh (300ms)...');
+          try {
+            carRefreshCallback();
+          } catch (error) {
+            console.warn('⚠️ Strategy 2 failed:', error);
+          }
+        }
+      }, 300);
+      
+      // Strategy 3: Medium delay refresh (800ms) 
+      setTimeout(async () => {
+        if (carRefreshCallback) {
+          console.log('🔄 Strategy 3: Medium delay refresh (800ms)...');
+          try {
+            carRefreshCallback();
+          } catch (error) {
+            console.warn('⚠️ Strategy 3 failed:', error);
+          }
+        }
+      }, 800);
+      
+      // Strategy 4: Extended delay refresh (1500ms)
+      setTimeout(async () => {
+        if (carRefreshCallback) {
+          console.log('🔄 Strategy 4: Extended delay refresh (1500ms)...');
+          try {
+            carRefreshCallback();
+          } catch (error) {
+            console.warn('⚠️ Strategy 4 failed:', error);
+          }
+        }
+      }, 1500);
+      
+      // Strategy 5: LocalStorage broadcast
+      try {
+        const updateData = {
+          carRegistration: selectedCarRegistration,
+          timestamp: Date.now(),
+          ticketsCreated: tickets.length,
+          passengerCount: quantity,
+          action: 'ticket_created'
+        };
+        localStorage.setItem('car-usage-updated', JSON.stringify(updateData));
+        console.log('🔄 Strategy 5: LocalStorage broadcast sent', updateData);
+      } catch (error) {
+        console.warn('⚠️ Strategy 5 failed:', error);
+      }
+      
+      // Strategy 6: Window event broadcast
+      try {
+        const eventData = {
+          carRegistration: selectedCarRegistration,
+          timestamp: Date.now(),
+          ticketsCreated: tickets.length,
+          passengerCount: quantity,
+          action: 'ticket_created'
+        };
+        window.dispatchEvent(new CustomEvent('carUsageUpdated', {
+          detail: eventData
+        }));
+        console.log('🔄 Strategy 6: Window event broadcast sent', eventData);
+      } catch (error) {
+        console.warn('⚠️ Strategy 6 failed:', error);
+      }
+      
+      // Strategy 7: Force API cache invalidation
+      try {
+        const invalidateUrl = `/api/cars/usage?carRegistration=${selectedCarRegistration}&date=${new Date().toISOString().split('T')[0]}&_invalidate=${Date.now()}`;
+        fetch(invalidateUrl, { 
+          method: 'GET',
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        }).catch(err => console.warn('⚠️ Strategy 7 failed:', err));
+        console.log('🔄 Strategy 7: API cache invalidation triggered');
+      } catch (error) {
+        console.warn('⚠️ Strategy 7 failed:', error);
       }
       
       // พิมพ์ตั๋ว
