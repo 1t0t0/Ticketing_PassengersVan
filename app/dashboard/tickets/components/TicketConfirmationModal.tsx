@@ -490,10 +490,10 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
                             
                             <div className="flex items-center text-xs">
                               <span className={`${availableSeats > 0 ? 'text-green-600' : 'text-red-600'} font-medium`}>
-                                เหลือ {availableSeats} ที่นั่ง
+                                ເຫຼືອ {availableSeats} ບ່ອນນັ່ງ
                               </span>
                               <span className="mx-2 text-gray-400">•</span>
-                              <span className="text-blue-600">ใช้แล้ว {currentUsage}/{totalCapacity}</span>
+                              <span className="text-blue-600">ໃຊ້ແລ້ວ {currentUsage}/{totalCapacity}</span>
                             </div>
                           </div>
                         ) : (
@@ -562,7 +562,7 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
                                   <div className="flex items-center mb-1">
                                     <p className="font-bold text-sm text-gray-900">{car.car_registration}</p>
                                     <span className="ml-2 text-xs text-gray-500">({car.car_name})</span>
-                                    <span className="ml-2 text-xs text-blue-600">{car.car_capacity}ที่</span>
+                                    <span className="ml-2 text-xs text-blue-600">{car.car_capacity}ບ່ອນ</span>
                                   </div>
                                   
                                   <div className="flex items-center text-xs text-gray-600 mb-1">
@@ -573,10 +573,10 @@ const TicketConfirmationModal = React.forwardRef<CarRefreshHandle, TicketConfirm
                                   
                                   <div className="flex items-center text-xs">
                                     <span className={`${(car.availableSeats || 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      เหลือ {car.availableSeats || 0} ที่นั่ง
+                                      เหลือ {car.availableSeats || 0} ບ່ອນນັ່ງ
                                     </span>
                                     <span className="mx-2 text-gray-400">•</span>
-                                    <span className="text-blue-600">ใช้แล้ว {car.currentUsage || 0}/{car.car_capacity}</span>
+                                    <span className="text-blue-600">ໃຊ້ແລ້ວ {car.currentUsage || 0}/{car.car_capacity}</span>
                                   </div>
                                 </div>
                                 

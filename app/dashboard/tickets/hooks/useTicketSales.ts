@@ -431,7 +431,6 @@ export default function useTicketSales() {
               
               <div class="receipt-footer">
                 <div style="margin-bottom: 1mm;">( ຂໍໃຫ້ທ່ານເດີນທາງປອດໄພ )</div>
-                <div style="font-size: 11px; color: #666;">🎫 ລົດທີ່ແນະນຳ: ${carInfo?.registration || 'ບໍ່ລະບຸ'}</div>
               </div>
             </div>
           `).join('')}

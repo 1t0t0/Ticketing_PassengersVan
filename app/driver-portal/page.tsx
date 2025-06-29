@@ -1,4 +1,4 @@
-// app/driver-portal/page.tsx - ลบ Booking System ออกแล้ว
+// app/driver-portal/page.tsx - ปรับ Layout: ซ้าย = สแกน, ขวา = ตั๋วที่ได้รับมอบหมาย
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -20,7 +20,7 @@ import {
 import notificationService from '@/lib/notificationService';
 import { Scan } from 'lucide-react';
 
-// ✅ เหลือแค่ AssignedTicketsPanel เท่านั้น
+// ✅ Import Enhanced AssignedTicketsPanel
 import AssignedTicketsPanel from './components/AssignedTicketsPanel';
 
 // Dynamic import สำหรับ QR Scanner
@@ -69,7 +69,7 @@ export default function DriverPortalMainPage() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [showAllPassengers, setShowAllPassengers] = useState(false);
   
-  // ✅ เหลือแค่ assigned tickets refresh trigger
+  // ✅ Assigned tickets refresh trigger
   const [assignedTicketsRefreshTrigger, setAssignedTicketsRefreshTrigger] = useState(0);
 
   // Authentication check
@@ -95,7 +95,7 @@ export default function DriverPortalMainPage() {
       
       setLastRefresh(new Date());
       
-      // ✅ Trigger refresh assigned tickets เท่านั้น
+      // ✅ Trigger refresh assigned tickets
       setAssignedTicketsRefreshTrigger(prev => prev + 1);
       
     } catch (error) {
@@ -370,17 +370,9 @@ export default function DriverPortalMainPage() {
           </div>
         </div>
 
-        {/* ✅ Layout ใหม่: 2 คอลัมน์ (Assigned Tickets + QR Scanner) */}
+        {/* ✅ Layout ใหม่: สลับตำแหน่ง - ซ้าย = QR Scanner, ขวา = Assigned Tickets */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
-          {/* ✅ Assigned Tickets Panel - ครึ่งแรก */}
-          <div className="xl:col-span-1">
-            <AssignedTicketsPanel 
-              driverId={session?.user?.id || ''} 
-              refreshTrigger={assignedTicketsRefreshTrigger}
-            />
-          </div>
-
-          {/* ✅ QR Scanner Section - ครึ่งหลัง */}
+          {/* ✅ QR Scanner Section - ด้านซ้าย */}
           <div className="xl:col-span-1">
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-lg border border-blue-200">
               <div className="p-6">
@@ -465,6 +457,14 @@ export default function DriverPortalMainPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* ✅ Assigned Tickets Panel - ด้านขวา */}
+          <div className="xl:col-span-1">
+            <AssignedTicketsPanel 
+              driverId={session?.user?.id || ''} 
+              refreshTrigger={assignedTicketsRefreshTrigger}
+            />
           </div>
         </div>
 

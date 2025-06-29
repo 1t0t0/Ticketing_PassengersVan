@@ -1,4 +1,4 @@
-// app/driver-portal/components/AssignedTicketsPanel.tsx - COMPACT VERSION
+// app/driver-portal/components/AssignedTicketsPanel.tsx - Enhanced with Date Display & Delete Button
 'use client';
 
 import { Ticket } from 'lucide-react';
@@ -14,8 +14,11 @@ import {
   FiEyeOff,
   FiInfo,
   FiChevronDown,
-  FiChevronUp
+  FiChevronUp,
+  FiTrash2,
+  FiCalendar
 } from 'react-icons/fi';
+import notificationService from '@/lib/notificationService';
 
 interface AssignedTicket {
   _id: string;
@@ -64,6 +67,7 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
   const [filter, setFilter] = useState<'all' | 'assigned' | 'scanned'>('assigned');
   const [isExpanded, setIsExpanded] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [deletingTickets, setDeletingTickets] = useState<Set<string>>(new Set());
 
   // ✅ ดึงตั๋วที่ได้รับมอบหมาย
   const fetchAssignedTickets = async (showLoadingState = true) => {
@@ -103,6 +107,57 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
     }
   };
 
+  // ✅ ฟังก์ชันลบตั๋ว (ยกเลิกการ assign)
+  const handleDeleteTicket = async (ticketId: string, ticketNumber: string) => {
+    if (!confirm(`ຢືນຢັນຍົກເລີກການມອບໝາຍປີ້ ${ticketNumber}?`)) {
+      return;
+    }
+
+    try {
+      setDeletingTickets(prev => new Set([...prev, ticketId]));
+      
+      console.log('🗑️ Deleting ticket assignment:', ticketId, ticketNumber);
+      
+      // ส่ง request ไป API เพื่อยกเลิกการ assign
+      const response = await fetch(`/api/tickets/${ticketId}/assignment`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        notificationService.success(`ຍົກເລີກການມອບໝາຍປີ້ ${ticketNumber} ສຳເລັດ`);
+        
+        // รีเฟรชรายการ
+        await fetchAssignedTickets(false);
+      } else {
+        throw new Error(result.error || 'Failed to remove ticket assignment');
+      }
+      
+    } catch (error) {
+      console.error('💥 Error deleting ticket assignment:', error);
+      notificationService.error(
+        error instanceof Error 
+          ? error.message 
+          : 'ເກີດຂໍ້ຜິດພາດໃນການຍົກເລີກການມອບໝາຍ'
+      );
+    } finally {
+      setDeletingTickets(prev => {
+        const newSet = new Set([...prev]);
+        newSet.delete(ticketId);
+        return newSet;
+      });
+    }
+  };
+
   useEffect(() => {
     if (driverId) {
       fetchAssignedTickets();
@@ -111,6 +166,27 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
 
   const handleRefresh = () => {
     fetchAssignedTickets(false);
+  };
+
+  // ✅ ฟังก์ชันฟอร์แมทวันที่แบบเต็ม
+  const formatFullDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // เช็คว่าเป็นวันไหน
+    if (date.toDateString() === today.toDateString()) {
+      return 'ມື້นີ້';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'ມື້ວານ';
+    } else {
+      return date.toLocaleDateString('lo-LA', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
   };
 
   const formatTime = (dateString: string) => {
@@ -258,7 +334,7 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
           </div>
         ) : (
           <div className="flex flex-col h-full overflow-hidden">
-            {/* ✅ Compact Ticket List */}
+            {/* ✅ Enhanced Ticket List with Date & Delete Button */}
             <div className={`space-y-2 overflow-y-auto flex-1 ${
               isExpanded ? '' : ''
             }`}>
@@ -271,7 +347,7 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
                       : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
                   }`}
                 >
-                  {/* ✅ ห้ามแสดง Ticket Number เพื่อป้องกันการโกง */}
+                  {/* ✅ Header Row - ห้ามแสดง Ticket Number + Delete Button */}
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
                       <span className="font-bold text-sm text-blue-600">
@@ -285,6 +361,7 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
                     </div>
                     
                     <div className="flex items-center space-x-1">
+                      {/* Status Badge */}
                       {ticket.isScanned ? (
                         <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full font-medium">
                           ✓
@@ -294,11 +371,27 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
                           ⏳
                         </span>
                       )}
+                      
+                      {/* ✅ Delete Button - ปรากฏเฉพาะตั๋วที่ยังไม่ได้สแกน */}
+                      {!ticket.isScanned && (
+                        <button
+                          onClick={() => handleDeleteTicket(ticket._id, ticket.ticketNumber)}
+                          disabled={deletingTickets.has(ticket._id)}
+                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors disabled:opacity-50"
+                          title="ຍົກເລີກການມອບໝາຍ"
+                        >
+                          {deletingTickets.has(ticket._id) ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border border-red-500 border-t-transparent"></div>
+                          ) : (
+                            <FiTrash2 className="h-3 w-3" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                   
-                  {/* ✅ Compact Info Row */}
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                  {/* ✅ Enhanced Info Grid - เพิ่มวันที่ */}
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-2">
                     <div className="flex items-center">
                       <FiUsers className="mr-1 h-3 w-3" />
                       <span>{ticket.passengerCount} ຄົນ</span>
@@ -320,13 +413,31 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
                     </div>
                   </div>
 
+                  {/* ✅ Date Row - แสดงวันที่ขายและผู้ขาย */}
+                  <div className="bg-gray-100 rounded p-2 mb-2">
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <div className="flex items-center">
+                        <FiCalendar className="mr-1 h-3 w-3" />
+                        <span className="font-medium">
+                          {formatFullDate(ticket.soldAt)}
+                        </span>
+                        <span className="ml-1 text-gray-500">
+                          {formatTime(ticket.soldAt)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        ໂດຍ: {ticket.soldBy}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* ✅ Time Info */}
-                  <div className="mt-2 pt-2 border-t border-gray-200">
+                  <div className="pt-2 border-t border-gray-200">
                     <div className="flex justify-between items-center text-xs text-gray-500">
                       <div className="flex items-center">
                         <FiClock className="mr-1 h-3 w-3" />
                         <span>
-                          {formatTime(ticket.soldAt)}
+                          ມອບໝາຍ: {formatTime(ticket.assignedAt)}
                         </span>
                       </div>
                       
@@ -334,7 +445,7 @@ const AssignedTicketsPanel: React.FC<AssignedTicketsPanelProps> = ({
                         <div className="flex items-center text-green-600">
                           <FiCheckCircle className="mr-1 h-3 w-3" />
                           <span>
-                            {formatTime(ticket.scannedAt)}
+                            ສະແກນ: {formatTime(ticket.scannedAt)}
                           </span>
                         </div>
                       )}
