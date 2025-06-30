@@ -1,4 +1,4 @@
-// app/dashboard/tickets/history/components/TicketFilters.tsx - Simplified
+// app/dashboard/tickets/history/components/TicketFilters.tsx - ภาษาลาว + Style เดิม
 import React from 'react';
 import { TicketFilter } from '../../types';
 import { FiSearch, FiCalendar } from 'react-icons/fi';
@@ -8,18 +8,34 @@ interface TicketFiltersProps {
   onSearch: () => void;
   onClear: () => void;
   onFilterChange: (filters: TicketFilter) => void;
+  onDateChange?: (date: string) => void;
 }
 
 const TicketFilters: React.FC<TicketFiltersProps> = ({
-  filters, onSearch, onClear, onFilterChange
+  filters, onSearch, onClear, onFilterChange, onDateChange
 }) => {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') onSearch();
   };
 
+  // จัดการการเปลี่ยนวันที่
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value;
+    console.log('📅 Date input changed to:', newDate);
+    
+    // อัพเดท local state ทันที
+    onFilterChange({ ...filters, startDate: newDate, page: 1 });
+    
+    // เรียก onDateChange callback ถ้ามี
+    if (onDateChange) {
+      onDateChange(newDate);
+    }
+  };
+
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm border">
       <div className="flex gap-4 items-end">
+        {/* Search Input */}
         <div className="flex-1">
           <label className="block text-gray-600 font-medium mb-2">ຄົ້ນຫາ</label>
           <div className="relative">
@@ -35,6 +51,7 @@ const TicketFilters: React.FC<TicketFiltersProps> = ({
           </div>
         </div>
         
+        {/* Date Input */}
         <div className="flex-1">
           <label className="block text-gray-600 font-medium mb-2">ວັນເວລາ</label>
           <div className="relative">
@@ -43,12 +60,12 @@ const TicketFilters: React.FC<TicketFiltersProps> = ({
               type="date"
               className="w-full border rounded-md pl-10 py-2 pr-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={filters.startDate || ''}
-              onChange={(e) => onFilterChange({ ...filters, startDate: e.target.value })}
+              onChange={handleDateChange}
             />
           </div>
         </div>
 
-        {/* Simple 2-button filter for ticket type */}
+        {/* Ticket Type Filter */}
         <div className="flex-1">
           <label className="block text-gray-600 font-medium mb-2">ປະເພດປີ້</label>
           <div className="flex gap-2">

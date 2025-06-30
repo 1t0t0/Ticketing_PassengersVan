@@ -1,4 +1,4 @@
-// app/dashboard/tickets/api/ticket.ts - FIXED to ensure selectedCarRegistration is sent
+// app/dashboard/tickets/api/ticket.ts - FIXED Date Parameter Issue
 import { Ticket, NewTicket } from '../types';
 
 const API_BASE_URL = '/api/tickets';
@@ -53,7 +53,7 @@ export async function fetchTickets(page: number = 1, limit: number = 10): Promis
   }
 }
 
-// ✅ FIXED: Better error handling for create ticket
+// ✅ FIXED: Enhanced createTicket with proper error handling
 export async function createTicket(ticketData: NewTicket): Promise<Ticket> {
   try {
     console.log('🎯 Creating ticket with data:', ticketData);
@@ -125,9 +125,12 @@ export async function createTicket(ticketData: NewTicket): Promise<Ticket> {
   }
 }
 
+// ✅ CRITICAL FIX: Enhanced searchTickets with proper date parameter handling
 export async function searchTickets(params: {
   query?: string;
   date?: string;
+  startDate?: string; // ✅ NEW: Support both date and startDate
+  endDate?: string;
   paymentMethod?: string;
   ticketType?: string;
   page?: number;
@@ -140,26 +143,46 @@ export async function searchTickets(params: {
   try {
     const searchParams = new URLSearchParams();
     
+    // ✅ CRITICAL FIX: Handle date parameters properly
     if (params.query) searchParams.append('query', params.query);
-    if (params.date) searchParams.append('date', params.date);
+    
+    // ✅ Priority: startDate > date > endDate
+    const dateToUse = params.startDate || params.date || params.endDate;
+    if (dateToUse) {
+      searchParams.append('date', dateToUse);
+      console.log('📅 Added date parameter to search:', dateToUse);
+    } else {
+      console.log('⚠️ No date parameter provided to searchTickets');
+    }
+    
     if (params.paymentMethod) searchParams.append('paymentMethod', params.paymentMethod);
     if (params.ticketType) searchParams.append('ticketType', params.ticketType);
     if (params.page) searchParams.append('page', params.page.toString());
     if (params.limit) searchParams.append('limit', params.limit.toString());
     
-    const response = await fetch(`${API_BASE_URL}/search?${searchParams.toString()}`);
+    const searchUrl = `${API_BASE_URL}/search?${searchParams.toString()}`;
+    console.log('🔍 Search URL:', searchUrl);
+    
+    const response = await fetch(searchUrl);
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Search tickets failed:', {
         status: response.status,
         statusText: response.statusText,
-        body: errorText
+        body: errorText,
+        url: searchUrl
       });
       throw new Error(`Failed to search tickets: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    
+    console.log('🔍 Search response received:', {
+      ticketCount: data.tickets?.length || 0,
+      totalItems: data.pagination?.totalItems || 0,
+      debug: data.debug
+    });
     
     return {
       tickets: data.tickets || [],
